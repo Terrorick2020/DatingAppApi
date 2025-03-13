@@ -1,0 +1,19 @@
+name: Trigger to DatingApp
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-event:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Request to Trigger
+        run: |
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.REPOSITORY_ACCESS_TOKEN }}" \
+            https://api.github.com/repos/Terrorick2020/DatingApp/dispatches \
+            -d '{"event_type":"submodule_update"}'
