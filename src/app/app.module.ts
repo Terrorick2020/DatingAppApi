@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
 
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
@@ -10,7 +11,17 @@ import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
 
 @Module({
-    imports: [AuthModule, UserModule, BillingModule, GeoModule, MatchModule, AdminModule],
+    imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+        }),
+        AuthModule,
+        UserModule,
+        BillingModule,
+        GeoModule,
+        MatchModule,
+        AdminModule
+    ],
     controllers: [AppController],
     providers: [AppService],
 })

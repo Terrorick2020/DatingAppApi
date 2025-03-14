@@ -4,16 +4,16 @@ RUN apk add --no-cache bash netcat-openbsd
 
 WORKDIR /api
 
-COPY package*.json ./
-RUN npm install --production --legacy-peer-deps
+COPY package.json .
+RUN npm install --omit=dev --legacy-peer-deps
 
 COPY . .
 
-RUN sed -i 's/\r$//' /server/wait-for-db.sh \
-    && chmod +x /server/wait-for-db.sh
+RUN sed -i 's/\r$//' /api/wait-for-db.sh \
+    && chmod +x /api/wait-for-db.sh
 
 RUN npx prisma generate
 
 EXPOSE 3000
 
-CMD ["bash", "/server/wait-for-db.sh"]
+CMD ["bash", "/api/wait-for-db.sh"]
