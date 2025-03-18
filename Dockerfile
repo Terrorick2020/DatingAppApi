@@ -1,24 +1,29 @@
 # Базовый образ с зависимостями
 FROM node:20-alpine AS deps
 WORKDIR /api
+
+# Копируем package.json и устанавливаем зависимости
 COPY package*.json ./
-RUN npm i --omit=dev --legacy-peer-deps --prefer-offline
+RUN npm ci --omit=dev --legacy-peer-deps --prefer-offline
 
 # Этап сборки
 FROM node:20-alpine AS builder
-RUN apk add --no-cache bash netcat-openbsd
 WORKDIR /api
 COPY --from=deps /api/node_modules ./node_modules
-COPY . .
+COPY . . 
+
+# Генерация Prisma Client
 RUN npx prisma generate
 
 # Финальный образ
 FROM node:20-alpine
-RUN apk add --no-cache bash netcat-openbsd
 WORKDIR /api
 COPY --from=builder /api/node_modules ./node_modules
-COPY --from=builder /api .
-RUN sed -i 's/\r$//' wait-for-db.sh && chmod +x wait-for-db.sh
+COPY --from=builder /api/dist ./dist
+COPY package*.json ./
+
+# Установка прав и подготовка скрипта ожидания БД
+RUN chmod +x wait-for-db.sh
 
 EXPOSE 3000
 CMD ["bash", "./wait-for-db.sh"]
