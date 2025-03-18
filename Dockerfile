@@ -1,18 +1,21 @@
-# Базовый образ с зависимостями
+# Используем Node.js 20 на Alpine Linux
 FROM node:20-alpine AS deps
 WORKDIR /api
 
-# Копируем package.json и устанавливаем зависимости
+# Устанавливаем NestJS CLI
+RUN npm install -g @nestjs/cli@latest
+
+# Копируем файлы зависимостей и устанавливаем зависимости
 COPY package*.json ./
-RUN npm ci --omit=dev --legacy-peer-deps --prefer-offline
+RUN npm install --omit=dev --prefer-offline
 
 # Этап сборки
 FROM node:20-alpine AS builder
 WORKDIR /api
 COPY --from=deps /api/node_modules ./node_modules
-COPY . . 
+COPY . .
 
-# Генерация Prisma Client
+# Генерируем Prisma Client
 RUN npx prisma generate
 
 # Финальный образ
@@ -22,8 +25,9 @@ COPY --from=builder /api/node_modules ./node_modules
 COPY --from=builder /api/dist ./dist
 COPY package*.json ./
 
-# Установка прав и подготовка скрипта ожидания БД
-RUN chmod +x wait-for-db.sh
+# Устанавливаем зависимости (если что-то потерялось при копировании)
+RUN npm install --omit=dev --prefer-offline
 
+# Открываем порт и запускаем приложение
 EXPOSE 3000
-CMD ["bash", "./wait-for-db.sh"]
+CMD ["node", "dist/main.js"]
