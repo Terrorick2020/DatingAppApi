@@ -2,7 +2,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /api
 COPY package*.json ./
-RUN npm ci --omit=dev --legacy-peer-deps --prefer-offline
+RUN npm i --omit=dev --legacy-peer-deps --prefer-offline
 
 # Этап сборки
 FROM node:20-alpine AS builder
