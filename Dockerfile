@@ -12,6 +12,7 @@ WORKDIR /api
 COPY --from=deps /api/node_modules ./node_modules
 COPY . .
 
+RUN npm install -g @nestjs/cli
 RUN npx prisma generate
 RUN npm run build
 
