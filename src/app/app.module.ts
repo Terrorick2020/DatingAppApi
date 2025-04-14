@@ -9,6 +9,7 @@ import { BillingModule } from '../billing/billing.module'
 import { GeoModule } from '../geo/geo.module'
 import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
+import { AppLogger } from '../common/logger/logger.service'
 
 @Module({
     imports: [
@@ -20,9 +21,10 @@ import { AdminModule } from '../admin/admin.module'
         BillingModule,
         GeoModule,
         MatchModule,
-        AdminModule
+        AdminModule,
     ],
     controllers: [AppController],
-    providers: [AppService],
+    providers: [AppService, AppLogger],
+    exports: [AppLogger]
 })
 export class AppModule {}

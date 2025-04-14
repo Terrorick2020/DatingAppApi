@@ -8,20 +8,60 @@ datasource db {
 }
 
 model User {
-  id        Int      @id               @default( autoincrement() ) 
-  createdAt DateTime @default( now() ) @map( "created_at" )
-  updatedAt DateTime @updatedAt        @map( "updated_at" )
-  
-  role      Role     @default( Guest )
-  isVerify  Boolean  @default( false )
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  telegramId String   @unique
+  lang String @default("ru")
+  name  String
+  town  String
+  sex   Sex 
+  age   Int
+  bio   String
+  geo   Boolean  @default(false) 
+  isVerify Boolean @default(false) 
+
+  findRequest Request
+
+  photos Photo[] 
+  role  Role @default(User)
+  status Status @default(None)
 }
 
+model Photo {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  key       String
 
+  userId    Int? 
+  telegramId String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-
-
+enum Sex {
+  Male
+  Female
+  All
+  None
+}
 
 enum Role {
   Admin
-  Guest
+  User
+  Psych
+}
+
+enum Status { 
+  Pro 
+  Noob 
+  None 
+  Blocked 
+}
+
+enum Request {
+  Love 
+  Sex
+  Communication
+  Friend
 }

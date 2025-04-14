@@ -1,52 +1,82 @@
 import { Injectable } from '@nestjs/common'
+import { PrismaService } from '../../prisma/prisma.service'
+import { UserService } from '../user/user.service'
 import { CreateAuthDto } from './dto/create-auth.dto'
-import { UpdateAuthDto } from './dto/update-auth.dto'
-import { PrismaService } from '~/prisma/prisma.service'
-import * as crypto from 'crypto'
+import { UploadPhotoDto } from './dto/upload-photo.dto'
+import {
+	successResponse,
+	errorResponse,
+} from '../common/helpers/api.response.helper'
 
 @Injectable()
 export class AuthService {
-	constructor(private prisma: PrismaService) {}
+	constructor(
+		private prisma: PrismaService,
+		private userService: UserService
+	) {}
 
-	create(createAuthDto: any) {
-		console.log(this.verifyTelegramAuth(createAuthDto))
-		return createAuthDto
+	async check(createAuthDto: any) {
+		const telegramId: string = createAuthDto.id
+		try {
+			const status = await this.userService.checkTgID(telegramId)
+			if (status === 'None') {
+				return successResponse(status, 'Пользователь не зарегистрирован')
+			}
+			return successResponse(status, 'Пользователь найден')
+		} catch (error) {
+			return errorResponse('Ошибка при проверке пользователя:', error)
+		}
 	}
 
-	verifyTelegramAuth(data: any): boolean {
-		const { hash, ...dataWithoutHash } = data
-		const token = process.env.BOT_TOKEN || ''
-		const secretKey = crypto
-			.createHmac('sha256', 'WebAppData')
-			.update(token)
-			.digest()
-
-		const checkString = Object.keys(dataWithoutHash)
-			.sort()
-			.map(key => `${key}=${dataWithoutHash[key]}`)
-			.join('\n')
-
-		const calculatedHash = crypto
-			.createHmac('sha256', secretKey)
-			.update(checkString)
-			.digest('hex')
-
-		return calculatedHash === hash
+	async uploadPhoto(dto: UploadPhotoDto) {
+		try {
+			const photo = await this.prisma.photo.create({
+				data: {
+					key: dto.key,
+					telegramId: dto.telegramId,
+				},
+			})
+			return successResponse(photo, 'Фото временно сохранено')
+		} catch (error) {
+			return errorResponse('Ошибка при загрузке фото:', error)
+		}
 	}
 
-	findAll() {
-		return `This action returns all auth`
-	}
+	async register(dto: CreateAuthDto) {
+		try {
+			return await this.prisma.$transaction(async tx => {
+				const user = await tx.user.create({
+					data: {
+						telegramId: dto.telegramId,
+						name: dto.name,
+						town: dto.town,
+						sex: dto.sex,
+						age: dto.age,
+						bio: dto.bio,
+						lang: dto.lang,
+						geo: dto.geo,
+						isVerify: false,
+						findRequest: dto.findRequest,
+						role: dto.role,
+						status: dto.status,
+					},
+				})
 
-	findOne(id: number) {
-		return `This action returns a #${id} auth`
-	}
+				await tx.photo.updateMany({
+					where: {
+						telegramId: dto.telegramId,
+						userId: null,
+					},
+					data: {
+						userId: user.id,
+						telegramId: null,
+					},
+				})
 
-	update(id: number, updateAuthDto: UpdateAuthDto) {
-		return `This action updates a #${id} auth`
-	}
-
-	remove(id: number) {
-		return `This action removes a #${id} auth`
+				return successResponse(user, 'Пользователь создан и фото привязаны')
+			})
+		} catch (error) {
+			return errorResponse('Ошибка при регистрации пользователя:', error)
+		}
 	}
 }
