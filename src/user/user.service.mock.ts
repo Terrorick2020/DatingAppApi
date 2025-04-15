@@ -18,9 +18,9 @@ export class UserServiceMock {
 		})
 	})
 
-	checkTgID = jest.fn(telegramId => {
-		if (telegramId) return 'Pro'
-		return 'None'
+	checkTgID = jest.fn((id: string) => {
+		if (id === 'non_existing') return Promise.resolve('None')
+		return Promise.resolve('Pro')
 	})
 
 	savePhotos = jest.fn((userId, keys) => {

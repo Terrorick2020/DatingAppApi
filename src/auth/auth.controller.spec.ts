@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { StorageService } from '../storage/storage.service'
-import { AuthServiceMock } from './auth.serrvice.mock'
+import { AuthServiceMock } from './auth.service.mock'
 import { StorageServiceMock } from '../storage/storage.service.mock'
 import { Request, Role, Sex, Status } from '@prisma/client'
 
