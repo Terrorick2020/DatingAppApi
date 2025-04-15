@@ -36,28 +36,41 @@ export class AuthService {
 				telegramId: dto.telegramId,
 			},
 		})
-		return successResponse(photo, 'Фото временно сохранено')
+		return successResponse({ photoId: photo.id }, 'Фото временно сохранено')
 	}
 
 	async register(dto: CreateAuthDto) {
 		try {
 			return await this.prisma.$transaction(async tx => {
+				const existingUser = await tx.user.findUnique({
+					where: { telegramId: dto.telegramId },
+				})
+
+				if (existingUser) {
+					console.log('Пользователь уже существует:', existingUser)
+					return errorResponse('Пользователь уже существует')
+				}
+
+				const { photoIds, ...userData } = dto
+
+				const photos = await tx.photo.findMany({
+					where: { id: { in: photoIds } },
+				})
+
+				if (photos.length !== photoIds.length) {
+					return errorResponse('Некоторые фотографии не найдены в базе данных')
+				}
+
 				const user = await tx.user.create({
 					data: {
-						telegramId: dto.telegramId,
-						name: dto.name,
-						town: dto.town,
-						sex: dto.sex,
-						age: dto.age,
-						bio: dto.bio,
-						lang: dto.lang,
-						geo: dto.geo,
-						isVerify: false,
-						findRequest: dto.findRequest,
-						role: dto.role,
-						status: dto.status,
+						...userData,
+						photos: {
+							connect: photoIds.map(id => ({ id: Number(id) })),
+						},
 					},
 				})
+
+				console.log('Пользователь успешно создан:', user)
 
 				await tx.photo.updateMany({
 					where: {
@@ -70,9 +83,10 @@ export class AuthService {
 					},
 				})
 
-				return successResponse(user, 'Пользователь создан и фото привязаны')
+				return successResponse('Пользователь создан и фото привязаны')
 			})
 		} catch (error) {
+			console.error('Ошибка при регистрации пользователя:', error)
 			return errorResponse('Ошибка при регистрации пользователя:', error)
 		}
 	}

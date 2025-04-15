@@ -26,7 +26,7 @@ model User {
 
   photos Photo[] 
   role  Role @default(User)
-  status Status @default(None)
+  status Status @default(Noob)
 }
 
 model Photo {
@@ -55,7 +55,6 @@ enum Role {
 enum Status { 
   Pro 
   Noob 
-  None 
   Blocked 
 }
 

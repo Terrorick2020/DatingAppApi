@@ -19,9 +19,9 @@ async function bootstrap() {
 	const appLogger = app.get(AppLogger)
 
 	app.useGlobalInterceptors(
-		new LoggingInterceptor(appLogger),
-		new BigIntInterceptor(),
-		new ResponseInterceptor()
+		new LoggingInterceptor(appLogger)
+		// new BigIntInterceptor(),
+		// new ResponseInterceptor()
 	)
 
 	app.useGlobalFilters(new AllExceptionsFilter(appLogger))

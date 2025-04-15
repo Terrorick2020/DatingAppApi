@@ -23,7 +23,7 @@ export class AuthController {
 	) {}
 
 	@HttpCode(200)
-	@Post()
+	@Post('check')
 	check(@Body() checkAuthDto: CheckAuthDto): Promise<any> {
 		return this.authService.check(checkAuthDto)
 	}
