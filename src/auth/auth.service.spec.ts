@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { AuthService } from './auth.service'
-import { PrismaService } from '../../prisma/prisma.service'
-import { UserService } from '../user/user.service'
-import { PrismaServiceMock } from '../../prisma/prisma.service.mock'
-import { UserServiceMock } from '../user/user.service.mock'
 import { Request, Role, Sex, Status } from '@prisma/client'
+import { PrismaService } from '../../prisma/prisma.service'
+import { PrismaServiceMock } from '../../test/mock/prisma.service.mock'
+import { UserService } from '../user/user.service'
+import { UserServiceMock } from '../../test/mock/user.service.mock'
+import { AuthService } from './auth.service'
 
 describe('AuthService', () => {
 	let service: AuthService
@@ -33,12 +33,12 @@ describe('AuthService', () => {
 
 	describe('check', () => {
 		it('should return user status when telegramId exists', async () => {
-			const result = await service.check({ id: mockedTelegramId })
+			const result = await service.check({ telegramId: mockedTelegramId })
 			expect(result.data).toBe('Pro')
 		})
 
 		it('should return "None" when telegramId does not exist', async () => {
-			const result = await service.check({ id: 'non_existing' })
+			const result = await service.check({ telegramId: 'non_existing' })
 			expect(result.data).toBe('None')
 		})
 	})

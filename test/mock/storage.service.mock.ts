@@ -1,5 +1,9 @@
-export const MockStorageService = {
-	uploadPhoto: jest.fn().mockResolvedValue('mock-photo-key.jpg'),
-	getPresignedUrl: jest.fn().mockResolvedValue('https://storage.mock/mock-photo-key.jpg'),
-  };
-  
+export class StorageServiceMock {
+	uploadPhoto = jest.fn(file => {
+		return Promise.resolve('photo-key-123')
+	})
+
+	saveTempPhoto = jest.fn((key, telegramId) => {
+		return Promise.resolve({ message: 'Фото временно сохранено' })
+	})
+}

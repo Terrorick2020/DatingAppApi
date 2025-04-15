@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
+import {
+	errorResponse,
+	successResponse,
+} from '../common/helpers/api.response.helper'
 import { UserService } from '../user/user.service'
 import { CreateAuthDto } from './dto/create-auth.dto'
-import { UploadPhotoDto } from './dto/upload-photo.dto'
-import {
-	successResponse,
-	errorResponse,
-} from '../common/helpers/api.response.helper'
+import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
+import { CheckAuthDto } from './dto/check-auth.dto'
 
 @Injectable()
 export class AuthService {
@@ -15,8 +16,8 @@ export class AuthService {
 		private userService: UserService
 	) {}
 
-	async check(createAuthDto: any) {
-		const telegramId: string = createAuthDto.id
+	async check(createAuthDto: CheckAuthDto) {
+		const telegramId = createAuthDto.telegramId
 		try {
 			const status = await this.userService.checkTgID(telegramId)
 			if (status === 'None') {
@@ -28,18 +29,14 @@ export class AuthService {
 		}
 	}
 
-	async uploadPhoto(dto: UploadPhotoDto) {
-		try {
-			const photo = await this.prisma.photo.create({
-				data: {
-					key: dto.key,
-					telegramId: dto.telegramId,
-				},
-			})
-			return successResponse(photo, 'Фото временно сохранено')
-		} catch (error) {
-			return errorResponse('Ошибка при загрузке фото:', error)
-		}
+	async uploadPhoto(dto: UploadPhotoInternalDto) {
+		const photo = await this.prisma.photo.create({
+			data: {
+				key: dto.key,
+				telegramId: dto.telegramId,
+			},
+		})
+		return successResponse(photo, 'Фото временно сохранено')
 	}
 
 	async register(dto: CreateAuthDto) {

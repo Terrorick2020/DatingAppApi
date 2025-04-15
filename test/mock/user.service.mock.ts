@@ -2,7 +2,7 @@ import { Status } from '@prisma/client'
 import {
 	errorResponse,
 	successResponse,
-} from '../common/helpers/api.response.helper'
+} from '../../src/common/helpers/api.response.helper'
 
 export class UserServiceMock {
 	findByTelegramId = jest.fn(telegramId => {

@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing'
+import { Request, Role, Sex, Status } from '@prisma/client'
+import { AuthServiceMock } from '../../test/mock/auth.service.mock'
+import { StorageServiceMock } from '../../test/mock/storage.service.mock'
+import { StorageService } from '../storage/storage.service'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
-import { StorageService } from '../storage/storage.service'
-import { AuthServiceMock } from './auth.service.mock'
-import { StorageServiceMock } from '../storage/storage.service.mock'
-import { Request, Role, Sex, Status } from '@prisma/client'
+import { CheckAuthDto } from './dto/check-auth.dto'
 
 describe('AuthController', () => {
 	let controller: AuthController
@@ -31,8 +32,8 @@ describe('AuthController', () => {
 
 	describe('check', () => {
 		it('should check if user exists by telegramId', async () => {
-			const createAuthDto = { id: fixedTelegramId }
-			const result = await controller.check(createAuthDto)
+			const checkAuthDto: CheckAuthDto = { telegramId: fixedTelegramId }
+			const result = await controller.check(checkAuthDto)
 			expect(result.data).toBe('Pro')
 		})
 	})
