@@ -25,11 +25,10 @@ export class UserStatusGuard implements CanActivate {
 
 		const req: Request = context.switchToHttp().getRequest()
 		const telegramId = this.extractTelegramId(req)
-		if (!telegramId) return true
-
+		if (!telegramId || telegramId === undefined) return true
 		const user = await this.prisma.user.findUnique({
 			where: { telegramId },
-			select: { id: true, status: true },
+			select: { status: true },
 		})
 
 		if (user?.status === 'Blocked') {
@@ -40,10 +39,11 @@ export class UserStatusGuard implements CanActivate {
 	}
 
 	private extractTelegramId(req: Request): string | undefined {
-		return (
-			(req.headers['x-telegram-id'] as string) ||
-			(req.query.telegramId as string) ||
-			req.body?.telegramId
-		)
+		const source =
+			req.body?.telegramId || req.params?.telegramId || req.query?.telegramId
+
+		if (typeof source === 'string' || typeof source === 'number') {
+			return String(source)
+		}
 	}
 }

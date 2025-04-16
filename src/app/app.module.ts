@@ -12,19 +12,19 @@ import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
 
 @Module({
-    imports: [
-        ConfigModule.forRoot({
-            isGlobal: true,
-        }),
-        AuthModule,
-        UserModule,
-        BillingModule,
-        GeoModule,
-        MatchModule,
-        AdminModule,
-    ],
-    controllers: [AppController],
-    providers: [AppService, AppLogger],
-    exports: [AppLogger]
+	imports: [
+		ConfigModule.forRoot({
+			isGlobal: true,
+		}),
+		AuthModule,
+		UserModule,
+		BillingModule,
+		GeoModule,
+		MatchModule,
+		AdminModule,
+	],
+	controllers: [AppController],
+	providers: [AppService, AppLogger],
+	exports: [AppLogger],
 })
 export class AppModule {}

@@ -52,10 +52,10 @@ export class UserService {
 		}
 	}
 
-	async update(id: number, dto: UpdateUserDto) {
+	async update(telegramId: string, dto: UpdateUserDto) {
 		try {
 			const user = await this.prisma.user.update({
-				where: { id },
+				where: { telegramId },
 				data: dto,
 			})
 			return successResponse(user, 'Профиль обновлён')
@@ -64,9 +64,9 @@ export class UserService {
 		}
 	}
 
-	async remove(id: number) {
+	async remove(telegramId: string) {
 		try {
-			await this.prisma.user.delete({ where: { id } })
+			await this.prisma.user.delete({ where: { telegramId } })
 			return successResponse(null, 'Пользователь удалён')
 		} catch (error) {
 			return errorResponse('Ошибка при удалении пользователя', error)
@@ -84,11 +84,11 @@ export class UserService {
 		}
 	}
 
-	async savePhotos(userId: number, photoKeys: string[]) {
+	async savePhotos(telegramId: string, photoKeys: string[]) {
 		try {
 			const photos = photoKeys.map(key => ({
 				key,
-				userId,
+				telegramId,
 			}))
 
 			await this.prisma.photo.createMany({ data: photos })
@@ -108,11 +108,11 @@ export class UserService {
 			if (!user) return errorResponse('Пользователь не найден')
  
 			const photoUrls = await Promise.all(
-				user.photos.map(p => this.storageService.getPresignedUrl(p.key))
+				user.photos.map(async (p) => ({key: p.key, url: await this.storageService.getPresignedUrl(p.key)}))
 			)
 
 			const publicProfile: PublicUserDto = {
-				id: user.id,
+				telegramId: user.telegramId,
 				name: user.name,
 				town: user.town,
 				age: user.age,

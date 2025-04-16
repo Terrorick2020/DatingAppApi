@@ -8,35 +8,33 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  telegramId String   @id @unique
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  telegramId String   @unique
-  lang String @default("ru")
-  name  String
-  town  String
-  sex   Sex 
-  age   Int
-  bio   String
-  geo   Boolean  @default(false) 
-  isVerify Boolean @default(false) 
+  lang     String  @default("ru")
+  name     String
+  town     String
+  sex      Sex
+  age      Int
+  bio      String
+  geo      Boolean @default(false)
+  isVerify Boolean @default(false)
 
   findRequest Request
 
-  photos Photo[] 
-  role  Role @default(User)
-  status Status @default(Noob)
+  photos Photo[]
+  role   Role    @default(User)
+  status Status  @default(Noob)
 }
 
 model Photo {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now()) @map("created_at")
-  key       String
-
-  userId    Int? 
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now()) @map("created_at")
+  key        String
+  tempTgId   String?
   telegramId String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
 }
 
 enum Sex {
@@ -52,14 +50,14 @@ enum Role {
   Psych
 }
 
-enum Status { 
-  Pro 
-  Noob 
-  Blocked 
+enum Status {
+  Pro
+  Noob
+  Blocked
 }
 
 enum Request {
-  Love 
+  Love
   Sex
   Communication
   Friend

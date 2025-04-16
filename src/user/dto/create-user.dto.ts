@@ -1,77 +1,35 @@
-import {
-	IsInt,
-	IsString,
-	IsEnum,
-	IsBoolean,
-	Min,
-	Max,
-	IsOptional,
-} from 'class-validator'
-
-enum Sex {
-	Male = 'Male',
-	Female = 'Female',
-	All = 'All',
-	None = 'None',
-}
-
-enum Role {
-	Admin = 'Admin',
-	User = 'User',
-	Psych = 'Psych',
-}
-
-enum Request {
-	Love = 'Love',
-	Sex = 'Sex',
-	Communication = 'Communication',
-	Friend = 'Friend',
-}
-
-enum Status {
-	Pro = 'Pro',
-	Noob = 'Noob',
-	None = 'None',
-	Blocked = 'Blocked',
-}
+import { IsString, IsNumber, IsEnum, IsBoolean, IsArray } from 'class-validator'
+import { Sex, Request } from '@prisma/client'
 
 export class CreateUserDto {
-	@IsString()
-	telegramId!: string
+  @IsString()
+  telegramId!: string
 
-	@IsString()
-	lang!: string
+  @IsString()
+  name!: string
 
-	@IsString()
-	name!: string
+  @IsString()
+  town!: string
 
-	@IsString()
-	town!: string
+  @IsEnum(Sex)
+  sex!: Sex
 
-	@IsEnum(Sex)
-	sex!: Sex
+  @IsNumber()
+  age!: number
 
-	@IsInt()
-	@Min(0)
-	@Max(120)
-	age!: number
+  @IsString()
+  bio!: string
 
-	@IsString()
-	@IsOptional()
-	bio!: string
+  @IsString()
+  lang!: string
 
-	@IsBoolean()
-	geo!: boolean
+  @IsBoolean()
+  geo!: boolean
 
-	@IsBoolean()
-	isVerify!: boolean
+  @IsEnum(Request)
+  findRequest!: Request
 
-	@IsEnum(Request)
-	findRequest!: Request
-
-	@IsEnum(Role)
-	role!: Role
-
-	@IsEnum(Status)
-	status!: Status
+  @IsArray()
+  @IsNumber({}, { each: true })  
+  photoIds!: number[]           
 }

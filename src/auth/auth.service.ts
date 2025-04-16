@@ -33,7 +33,7 @@ export class AuthService {
 		const photo = await this.prisma.photo.create({
 			data: {
 				key: dto.key,
-				telegramId: dto.telegramId,
+				tempTgId: dto.telegramId,
 			},
 		})
 		return successResponse({ photoId: photo.id }, 'Фото временно сохранено')
@@ -47,7 +47,6 @@ export class AuthService {
 				})
 
 				if (existingUser) {
-					console.log('Пользователь уже существует:', existingUser)
 					return errorResponse('Пользователь уже существует')
 				}
 
@@ -70,23 +69,20 @@ export class AuthService {
 					},
 				})
 
-				console.log('Пользователь успешно создан:', user)
-
 				await tx.photo.updateMany({
 					where: {
-						telegramId: dto.telegramId,
-						userId: null,
+						tempTgId: dto.telegramId,
+						telegramId: null,
 					},
 					data: {
-						userId: user.id,
-						telegramId: null,
+						telegramId: dto.telegramId,
+						tempTgId: null,
 					},
 				})
 
 				return successResponse('Пользователь создан и фото привязаны')
 			})
 		} catch (error) {
-			console.error('Ошибка при регистрации пользователя:', error)
 			return errorResponse('Ошибка при регистрации пользователя:', error)
 		}
 	}

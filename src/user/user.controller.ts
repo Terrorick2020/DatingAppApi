@@ -6,11 +6,11 @@ import {
 	Patch,
 	Param,
 	Delete,
-	Query,
 } from '@nestjs/common'
 import { UserService } from './user.service'
-import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
+import { SkipBlockedCheck } from '../common/decorators/public.decorator'
+import { AdminOnly } from '../common/decorators/admin-only.decorators'
 
 @Controller('user')
 export class UserController {
@@ -21,28 +21,24 @@ export class UserController {
 		return this.userService.findAll()
 	}
 
-	@Get(':id')
-	findOne(@Param('id') id: string) {
-		return this.userService.getPublicProfile(id)
+	@Patch(':telegramId')
+	update(@Param('telegramId') telegramId: string, @Body() dto: UpdateUserDto) {
+		return this.userService.update(telegramId, dto)
 	}
 
-	@Patch(':id')
-	update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-		return this.userService.update(+id, dto)
+	@AdminOnly()
+	@Delete(':telegramId')
+	remove(@Param('telegramId') telegramId: string) {
+		return this.userService.remove(telegramId)
 	}
 
-	@Delete(':id')
-	remove(@Param('id') id: string) {
-		return this.userService.remove(+id)
-	}
-
-	@Get('by-telegram/:telegramId')
+	@Get(':telegramId')
 	findByTelegramId(@Param('telegramId') telegramId: string) {
 		return this.userService.findByTelegramId(telegramId)
 	}
 
-	@Get('public/:id')
-	getPublicProfile(@Param('id') id: string) {
-		return this.userService.getPublicProfile(id)
+	@Get('public/:telegramId')
+	getPublicProfile(@Param('telegramId') telegramId: string) {
+		return this.userService.getPublicProfile(telegramId)
 	}
 }
