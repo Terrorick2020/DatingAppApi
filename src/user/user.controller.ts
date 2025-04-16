@@ -16,11 +16,6 @@ import { UpdateUserDto } from './dto/update-user.dto'
 export class UserController {
 	constructor(private readonly userService: UserService) {}
 
-	@Post()
-	create(@Body() dto: CreateUserDto) {
-		return this.userService.create(dto)
-	}
-
 	@Get()
 	findAll() {
 		return this.userService.findAll()
@@ -28,7 +23,7 @@ export class UserController {
 
 	@Get(':id')
 	findOne(@Param('id') id: string) {
-		return this.userService.findOne(+id)
+		return this.userService.getPublicProfile(id)
 	}
 
 	@Patch(':id')
@@ -48,6 +43,6 @@ export class UserController {
 
 	@Get('public/:id')
 	getPublicProfile(@Param('id') id: string) {
-		return this.userService.getPublicProfile(+id)
+		return this.userService.getPublicProfile(id)
 	}
 }

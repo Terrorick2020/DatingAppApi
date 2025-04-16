@@ -40,18 +40,6 @@ export class UserService {
 		}
 	}
 
-	async findOne(id: number) {
-		try {
-			const user = await this.prisma.user.findUnique({
-				where: { id },
-				include: { photos: true },
-			})
-			return successResponse(user)
-		} catch (error) {
-			return errorResponse('Ошибка при получении пользователя', error)
-		}
-	}
-
 	async findByTelegramId(telegramId: string) {
 		try {
 			const user = await this.prisma.user.findUnique({
@@ -110,15 +98,15 @@ export class UserService {
 		}
 	}
 
-	async getPublicProfile(userId: number) {
+	async getPublicProfile(telegramId: string) {
 		try {
 			const user = await this.prisma.user.findUnique({
-				where: { id: userId },
+				where: { telegramId: telegramId },
 				include: { photos: true },
 			})
 
 			if (!user) return errorResponse('Пользователь не найден')
-
+ 
 			const photoUrls = await Promise.all(
 				user.photos.map(p => this.storageService.getPresignedUrl(p.key))
 			)
