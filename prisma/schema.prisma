@@ -12,14 +12,14 @@ model User {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  lang     String  @default("ru")
-  name     String
-  town     String
-  sex      Sex
-  age      Int
-  bio      String
-  geo      Boolean @default(false)
-  isVerify Boolean @default(false)
+  lang      String  @default("ru")
+  name      String
+  town      String
+  sex       Sex
+  age       Int
+  bio       String
+  enableGeo Boolean @default(false)
+  isVerify  Boolean @default(false)
 
   latitude  Float?
   longitude Float?
@@ -37,8 +37,8 @@ model User {
   likesSent     Like[] @relation("LikesSent")
   likesReceived Like[] @relation("LikesReceived")
 
-  referralCode String?  @unique
-  invitedById  String? 
+  referralCode String? @unique
+  invitedById  String?
   invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [telegramId])
   invitedUsers User[]  @relation("UserInvites")
 }

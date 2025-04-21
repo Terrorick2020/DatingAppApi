@@ -16,19 +16,6 @@ export class UserService {
 		private readonly storageService: StorageService
 	) {}
 
-	async create(dto: CreateUserDto) {
-		try {
-			const user = await this.prisma.user.create({
-				data: dto,
-				include: { photos: true },
-			})
-
-			return successResponse(user, 'Пользователь успешно создан')
-		} catch (error) {
-			return errorResponse('Ошибка при создании пользователя', error)
-		}
-	}
-
 	async findAll() {
 		try {
 			const users = await this.prisma.user.findMany({

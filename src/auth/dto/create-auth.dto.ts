@@ -31,7 +31,7 @@ export class CreateAuthDto {
   lang!: string
 
   @IsBoolean()
-  geo!: boolean
+  enableGeo!: boolean
 
   @IsNumber()
   interestId!: number

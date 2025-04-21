@@ -1,7 +1,7 @@
 import { Status } from '@prisma/client'
 import {
-	errorResponse,
 	successResponse,
+	errorResponse,
 } from '../../src/common/helpers/api.response.helper'
 
 export class UserServiceMock {
@@ -31,7 +31,7 @@ export class UserServiceMock {
 	})
 
 	getPublicProfile = jest.fn(userId => {
-		if (userId === 1) {
+		if (userId === '1') {
 			return successResponse(
 				{
 					id: 1,

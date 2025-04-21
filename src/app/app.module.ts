@@ -10,6 +10,7 @@ import { GeoModule } from '../geo/geo.module'
 import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisModule } from '../redis/redis.module'
 
 @Module({
 	imports: [
@@ -22,6 +23,8 @@ import { AppLogger } from '../common/logger/logger.service'
 		GeoModule,
 		MatchModule,
 		AdminModule,
+		GeoModule,
+		RedisModule,
 	],
 	controllers: [AppController],
 	providers: [AppService, AppLogger],

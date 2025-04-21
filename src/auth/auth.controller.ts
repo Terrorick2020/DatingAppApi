@@ -40,6 +40,7 @@ export class AuthController {
 		return this.authService.uploadPhoto(internalDto)
 	}
 
+
 	@Post('register')
 	register(@Body() createAuthDto: CreateAuthDto) {
 		return this.authService.register(createAuthDto)

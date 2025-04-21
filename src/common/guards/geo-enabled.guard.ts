@@ -35,10 +35,10 @@ export class GeoEnabledGuard implements CanActivate {
 
 		const user = await this.prisma.user.findUnique({
 			where: { telegramId },
-			select: { geo: true },
+			select: { enableGeo: true },
 		})
 
-		if (!user?.geo) {
+		if (!user?.enableGeo) {
 			throw new ForbiddenException('Геолокация отключена пользователем')
 		}
 

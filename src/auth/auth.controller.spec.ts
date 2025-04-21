@@ -1,11 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { Request, Role, Sex, Status } from '@prisma/client'
+import { Role, Sex, Status } from '@prisma/client'
 import { AuthServiceMock } from '../../test/mock/auth.service.mock'
 import { StorageServiceMock } from '../../test/mock/storage.service.mock'
 import { StorageService } from '../storage/storage.service'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { CheckAuthDto } from './dto/check-auth.dto'
+import { CreateAuthDto } from './dto/create-auth.dto'
 
 describe('AuthController', () => {
 	let controller: AuthController
@@ -31,25 +32,35 @@ describe('AuthController', () => {
 	})
 
 	describe('check', () => {
-		it('should check if user exists by telegramId', async () => {
-			const checkAuthDto: CheckAuthDto = { telegramId: fixedTelegramId }
-			const result = await controller.check(checkAuthDto)
+		it('should return user status when telegramId exists', async () => {
+			const dto: CheckAuthDto = { telegramId: fixedTelegramId }
+			const result = await controller.check(dto)
 			expect(result.data).toBe('Pro')
+			expect(result.message).toBe('Пользователь найден')
+		})
+
+		it('should return "None" when telegramId does not exist', async () => {
+			const dto: CheckAuthDto = { telegramId: 'non_existing' }
+			const result = await controller.check(dto)
+			expect(result.data).toBe('None')
+			expect(result.message).toBe('Пользователь не зарегистрирован')
 		})
 	})
 
 	describe('uploadPhoto', () => {
-		it('should upload photo', async () => {
-			const file = { filename: 'test.jpg' } as Express.Multer.File
-			const dto = { telegramId: fixedTelegramId, key: 'testKey' }
-			const result = await controller.uploadPhoto(file, dto)
+		it('should return uploaded photo info', async () => {
+			const file = { buffer: Buffer.from('dummy') } as Express.Multer.File
+			const dto = { telegramId: fixedTelegramId }
+
+			const result = await controller.uploadPhoto(file, dto as any)
 			expect(result.message).toBe('Фото временно сохранено')
+			expect(result.data).toHaveProperty('photoId')
 		})
 	})
 
 	describe('register', () => {
-		it('should register new user', async () => {
-			const dto = {
+		it('should register user successfully', async () => {
+			const dto: CreateAuthDto = {
 				telegramId: fixedTelegramId,
 				name: 'John',
 				town: 'Town',
@@ -57,10 +68,9 @@ describe('AuthController', () => {
 				age: 30,
 				bio: 'Bio',
 				lang: 'en',
-				geo: true,
-				findRequest: Request.Love,
-				role: Role.User,
-				status: Status.Pro,
+				enableGeo: true,
+				interestId: 1,
+				photoIds: [1, 2],
 			}
 			const result = await controller.register(dto)
 			expect(result.message).toBe('Пользователь создан и фото привязаны')
