@@ -1,5 +1,12 @@
-import { IsString, IsNumber, IsEnum, IsBoolean, IsArray } from 'class-validator'
-import { Sex, Request } from '@prisma/client'
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsBoolean,
+  IsArray,
+  IsOptional,
+} from 'class-validator'
+import { Sex } from '@prisma/client'
 
 export class CreateUserDto {
   @IsString()
@@ -26,10 +33,14 @@ export class CreateUserDto {
   @IsBoolean()
   geo!: boolean
 
-  @IsEnum(Request)
-  findRequest!: Request
+  @IsNumber()
+  interestId!: number
 
   @IsArray()
-  @IsNumber({}, { each: true })  
-  photoIds!: number[]           
+  @IsNumber({}, { each: true })
+  photoIds!: number[]
+
+  @IsOptional()
+  @IsString()
+  invitedByReferralCode?: string
 }
