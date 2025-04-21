@@ -10,6 +10,7 @@ import { GeoModule } from '../geo/geo.module'
 import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
+import { PrismaService } from '~/prisma/prisma.service'
 
 @Module({
 	imports: [
@@ -24,7 +25,7 @@ import { AppLogger } from '../common/logger/logger.service'
 		AdminModule,
 	],
 	controllers: [AppController],
-	providers: [AppService, AppLogger],
+	providers: [AppService, AppLogger, PrismaService],
 	exports: [AppLogger],
 })
 export class AppModule {}

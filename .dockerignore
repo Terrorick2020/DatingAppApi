@@ -5,6 +5,7 @@ dist/
 test/
 
 jest-e2e.json
+*/**/*.spec.ts
 
 .env.example
 .gitignore

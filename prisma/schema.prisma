@@ -21,11 +21,38 @@ model User {
   geo      Boolean @default(false)
   isVerify Boolean @default(false)
 
-  findRequest Request
+  latitude  Float?
+  longitude Float?
+
+  interestId Int?
+  interest   Interest? @relation(fields: [interestId], references: [id], onDelete: SetNull)
 
   photos Photo[]
   role   Role    @default(User)
   status Status  @default(Noob)
+
+  sentComplaints     Complaint[] @relation("SentComplaints")
+  receivedComplaints Complaint[] @relation("ReceivedComplaints")
+
+  likesSent     Like[] @relation("LikesSent")
+  likesReceived Like[] @relation("LikesReceived")
+
+  referralCode String? @unique
+  invitedById  String?
+  invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [telegramId])
+  invitedUsers User[]  @relation("UserInvites")
+
+  chats        Chats[]    @relation("getTgId")
+  msgFrom      Messages[] @relation("getFromTgId")
+  msgTo        Messages[] @relation("getToTgId")
+}
+
+model Interest {
+  id      Int     @id @default(autoincrement())
+  value   String  @unique
+  label   String
+  isOppos Boolean @default(false)
+  users   User[]
 }
 
 model Photo {
@@ -35,6 +62,73 @@ model Photo {
   tempTgId   String?
   telegramId String?
   user       User?    @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
+}
+
+model ComplaintReason {
+  id    Int    @id
+  value String @unique
+  label String
+
+  complaints Complaint[]
+}
+
+model Complaint {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reasonId Int
+  reason   ComplaintReason @relation(fields: [reasonId], references: [id])
+
+  fromUserId String
+  toUserId   String
+
+  fromUser User @relation("SentComplaints", fields: [fromUserId], references: [telegramId], onDelete: Cascade)
+  toUser   User @relation("ReceivedComplaints", fields: [toUserId], references: [telegramId], onDelete: Cascade)
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  fromUserId String
+  toUserId   String
+  isMatch    Boolean @default(false)
+
+  fromUser User @relation("LikesSent", fields: [fromUserId], references: [telegramId], onDelete: Cascade)
+  toUser   User @relation("LikesReceived", fields: [toUserId], references: [telegramId], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+}
+
+model Chats {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatesAt DateTime @default(now()) @map("updated_at")
+
+  lastMsg   String
+  unChkdCnt Int
+
+  userId   String
+
+  user      User       @relation("getTgId", fields: [userId], references: [telegramId], onDelete: Cascade)
+  message   Messages[] @relation("getChatId")
+}
+
+model Messages {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatesAt DateTime @default(now()) @map("updated_at")
+
+  msg       String
+  isChecked Boolean @default(false)
+
+  fromUser  String
+  toUser    String
+  chatId    String @db.Uuid
+
+  from      User     @relation("getFromTgId", fields: [fromUser], references: [telegramId], onDelete: Cascade)
+  to        User     @relation("getToTgId", fields: [toUser], references: [telegramId], onDelete: Cascade)
+  chats     Chats    @relation("getChatId", fields: [chatId], references: [id], onDelete: Cascade)
 }
 
 enum Sex {
@@ -54,11 +148,4 @@ enum Status {
   Pro
   Noob
   Blocked
-}
-
-enum Request {
-  Love
-  Sex
-  Communication
-  Friend
 }
