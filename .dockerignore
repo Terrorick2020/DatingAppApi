@@ -1,7 +1,15 @@
 .vscode/
+.github/
 node_modules/
 dist/
+test/
+
+jest-e2e.json
+*/**/*.spec.ts
 
 .env.example
 .gitignore
+
+bun.lock
+Dockerfile
 README.md

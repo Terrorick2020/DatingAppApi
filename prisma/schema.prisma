@@ -41,6 +41,10 @@ model User {
   invitedById  String?
   invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [telegramId])
   invitedUsers User[]  @relation("UserInvites")
+
+  chats        Chats[]    @relation("getTgId")
+  msgFrom      Messages[] @relation("getFromTgId")
+  msgTo        Messages[] @relation("getToTgId")
 }
 
 model Interest {
@@ -94,6 +98,37 @@ model Like {
   toUser   User @relation("LikesReceived", fields: [toUserId], references: [telegramId], onDelete: Cascade)
 
   @@unique([fromUserId, toUserId])
+}
+
+model Chats {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatesAt DateTime @default(now()) @map("updated_at")
+
+  lastMsg   String
+  unChkdCnt Int
+
+  userId   String
+
+  user      User       @relation("getTgId", fields: [userId], references: [telegramId], onDelete: Cascade)
+  message   Messages[] @relation("getChatId")
+}
+
+model Messages {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatesAt DateTime @default(now()) @map("updated_at")
+
+  msg       String
+  isChecked Boolean @default(false)
+
+  fromUser  String
+  toUser    String
+  chatId    String @db.Uuid
+
+  from      User     @relation("getFromTgId", fields: [fromUser], references: [telegramId], onDelete: Cascade)
+  to        User     @relation("getToTgId", fields: [toUser], references: [telegramId], onDelete: Cascade)
+  chats     Chats    @relation("getChatId", fields: [chatId], references: [id], onDelete: Cascade)
 }
 
 enum Sex {

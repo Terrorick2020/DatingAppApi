@@ -11,6 +11,7 @@ import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisModule } from '../redis/redis.module'
+import { PrismaService } from '~/prisma/prisma.service'
 
 @Module({
 	imports: [
@@ -27,7 +28,7 @@ import { RedisModule } from '../redis/redis.module'
 		RedisModule,
 	],
 	controllers: [AppController],
-	providers: [AppService, AppLogger],
+	providers: [AppService, AppLogger, PrismaService],
 	exports: [AppLogger],
 })
 export class AppModule {}
