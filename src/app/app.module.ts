@@ -10,6 +10,7 @@ import { GeoModule } from '../geo/geo.module'
 import { MatchModule } from '../match/match.module'
 import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisModule } from '../redis/redis.module'
 import { PrismaService } from '~/prisma/prisma.service'
 
 @Module({
@@ -23,6 +24,8 @@ import { PrismaService } from '~/prisma/prisma.service'
 		GeoModule,
 		MatchModule,
 		AdminModule,
+		GeoModule,
+		RedisModule,
 	],
 	controllers: [AppController],
 	providers: [AppService, AppLogger, PrismaService],

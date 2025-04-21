@@ -1,20 +1,24 @@
 export class AuthServiceMock {
-	check = jest.fn(({ id }) =>
-		Promise.resolve({ data: id === 'non_existing' ? 'None' : 'Pro' })
-	)
-
-	register = jest.fn(() =>
-		Promise.resolve({ message: 'Пользователь создан и фото привязаны' })
+	check = jest.fn(({ telegramId }) =>
+		Promise.resolve({
+			data: telegramId === 'non_existing' ? 'None' : 'Pro',
+			message:
+				telegramId === 'non_existing'
+					? 'Пользователь не зарегистрирован'
+					: 'Пользователь найден',
+		})
 	)
 
 	uploadPhoto = jest.fn(dto =>
 		Promise.resolve({
 			message: 'Фото временно сохранено',
-			photo: {
-				id: '1',
-				key: dto.key,
-				telegramId: dto.telegramId,
-			},
+			data: { photoId: 1 },
+		})
+	)
+	
+	register = jest.fn(() =>
+		Promise.resolve({
+			message: 'Пользователь создан и фото привязаны',
 		})
 	)
 }

@@ -31,7 +31,7 @@ export class CreateUserDto {
   lang!: string
 
   @IsBoolean()
-  geo!: boolean
+  enableGeo!: boolean
 
   @IsNumber()
   interestId!: number

@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UserController } from './user.controller'
 import { UserService } from './user.service'
-import { PrismaService } from '../../prisma/prisma.service'
 import { UserServiceMock } from '../../test/mock/user.service.mock'
 
 describe('UserController', () => {
@@ -32,10 +31,16 @@ describe('UserController', () => {
 	})
 
 	describe('getPublicProfile', () => {
-		it('should return public profile for user', async () => {
-			const userId = '1'
-			const result = await controller.getPublicProfile(userId)
+		it('should return public profile for valid userId', async () => {
+			const result = await controller.getPublicProfile('1')
 			expect(result.message).toBe('Публичный профиль получен')
+			expect(result.data.name).toBe('John Doe')
+		})
+
+		it('should return error for invalid userId', async () => {
+			const result = await controller.getPublicProfile('999')
+			expect(result.message).toBe('Пользователь не найден')
+			expect(result.success).toBe(false)
 		})
 	})
 })
