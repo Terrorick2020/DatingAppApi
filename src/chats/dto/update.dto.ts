@@ -3,5 +3,5 @@ import { FindDto } from './find.dto';
 
 export class UpdateDto extends FindDto {
     @IsString()
-    newLastMsg!: string
+    newLastMsgId!: string
 }
