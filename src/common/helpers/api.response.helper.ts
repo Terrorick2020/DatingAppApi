@@ -1,4 +1,4 @@
-import { ApiResponse } from '../interfaces/api-response.interface';
+import { ApiResponse } from '@/common/interfaces/api-response.interface';
 
 export const successResponse = <T>(data: T, message = 'OK', meta?: any): ApiResponse<T> => ({
   success: true,

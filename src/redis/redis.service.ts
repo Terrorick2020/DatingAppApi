@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRedis } from '@nestjs-modules/ioredis'
-import type { Redis } from 'ioredis'
+import { errorResponse,	successResponse } from '@/common/helpers/api.response.helper'
+import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 import { UpdateActivityDto } from './dto/update-activity.dto'
-import {
-	errorResponse,
-	successResponse,
-} from '../common/helpers/api.response.helper'
+import { CreateRoomDto } from './dto/create-room.dto'
 import { SetKeyDto } from './dto/set-key.dto'
-
+import { GetKeyType } from './redis.types'
+import type { Redis } from 'ioredis'
+import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 @Injectable()
 export class RedisService {
 	private readonly USER_STATUS_PREFIX = 'user_status:'
@@ -30,13 +30,24 @@ export class RedisService {
 		}
 	}
 
-	async getKey(key: string) {
+	async getKey(key: string, type: GetKeyType = GetKeyType.String): Promise<ApiResponse> {
 		try {
-			const value = await this.redis.get(key)
+			let value
+			switch(type) {
+				case GetKeyType.String:
+					value = await this.redis.get(key)
+					break
+				case GetKeyType.Array:
+					value = await this.redis.lrange(key, 0, -1)
+					break
+				case GetKeyType.Set:
+					value = await this.redis.smembers(key)
+					break
+			}
 
-			return successResponse(value, `Ключ "${key}" успешно получен`)
+			return successResponse<typeof value>(value, `Ключ "${key}" успешно получен`)
 		} catch (error) {
-			return errorResponse('Ошибка при получении ключа:', error)
+			return errorResponse(`Ошибка при получении ключа: ${key}`, error)
 		}
 	}
 
@@ -117,5 +128,43 @@ export class RedisService {
 	async getOnlineUsers(): Promise<string[]> {
 		const keys = await this.redis.keys(`${this.USER_STATUS_PREFIX}*`)
 		return keys.map(key => key.replace(this.USER_STATUS_PREFIX, ''))
+	}
+
+	async createRoom(createRoomDto: CreateRoomDto): Promise<ApiResponse> {
+		try {
+			const { roomName, ttl, persons } = createRoomDto
+
+			const exists = await this.redis.exists(roomName)
+		
+			exists && await this.redis.del(roomName)
+
+			await this.redis.sadd(roomName, persons)
+			await this.redis.expire(roomName, ttl)
+
+			return successResponse(true, 'Комната создана')
+		} catch (error) {
+			return errorResponse('Произошла ошибка создания комнаты', error)
+		}
+	}
+
+	async roomValidation(connectionDto: ConnectionDto): Promise<ApiResponse> {
+		try {
+			const { roomName, telegramId, } = connectionDto
+
+			const isMember = await this.redis.sismember(roomName, telegramId)
+
+			if (!isMember) {
+				return successResponse(
+					false,
+					'Либо комната: ' + roomName + 
+					' не создана, либо пользователь: ' + telegramId + 
+					' не имеет доступа к комнате',
+				)
+			}
+
+			return successResponse(true, `Ошибка валидации комнаты: ${roomName}`)
+		} catch (error) {
+			return errorResponse(`Ошибка валидации комнаты: ${connectionDto.roomName}`, error)
+		}
 	}
 }
