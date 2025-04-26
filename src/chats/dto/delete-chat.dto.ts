@@ -1,11 +1,7 @@
 import { IsString, IsNotEmpty } from 'class-validator'
 
-export class UpdateDto {
+export class DeleteChatDto {
     @IsString()
     @IsNotEmpty()
     chatId!: string
-
-    @IsString()
-    @IsNotEmpty()
-    userId!: string
 }

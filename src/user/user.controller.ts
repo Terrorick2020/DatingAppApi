@@ -1,16 +1,7 @@
-import {
-	Controller,
-	Get,
-	Post,
-	Body,
-	Patch,
-	Param,
-	Delete,
-} from '@nestjs/common'
-import { UserService } from './user.service'
+import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common'
+import { AdminOnly } from '../common/decorators/admin-only.decorator'
 import { UpdateUserDto } from './dto/update-user.dto'
-import { SkipBlockedCheck } from '../common/decorators/public.decorator'
-import { AdminOnly } from '../common/decorators/admin-only.decorators'
+import { UserService } from './user.service'
 
 @Controller('user')
 export class UserController {

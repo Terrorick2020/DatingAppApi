@@ -18,7 +18,7 @@ CREATE TABLE "User" (
     "sex" "Sex" NOT NULL,
     "age" INTEGER NOT NULL,
     "bio" TEXT NOT NULL,
-    "geo" BOOLEAN NOT NULL DEFAULT false,
+    "enableGeo" BOOLEAN NOT NULL DEFAULT false,
     "isVerify" BOOLEAN NOT NULL DEFAULT false,
     "latitude" DOUBLE PRECISION,
     "longitude" DOUBLE PRECISION,
@@ -88,6 +88,8 @@ CREATE TABLE "Chats" (
     "id" UUID NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastMsg" TEXT NOT NULL,
+    "unChkdCnt" INTEGER NOT NULL,
     "userId" TEXT NOT NULL,
 
     CONSTRAINT "Chats_pkey" PRIMARY KEY ("id")
@@ -99,7 +101,7 @@ CREATE TABLE "Messages" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "msg" TEXT NOT NULL,
-    "isChecked" BOOLEAN NOT NULL,
+    "isChecked" BOOLEAN NOT NULL DEFAULT false,
     "fromUser" TEXT NOT NULL,
     "toUser" TEXT NOT NULL,
     "chatId" UUID NOT NULL,

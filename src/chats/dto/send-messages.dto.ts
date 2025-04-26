@@ -1,11 +1,15 @@
 import { IsString, IsNotEmpty } from 'class-validator'
 
-export class CreateDto {
+export class SendMessageDto {
     @IsString()
     @IsNotEmpty()
-    telegramId!: string
+    chatId!: string
 
     @IsString()
     @IsNotEmpty()
-    toUser!: string
+    fromUser!: string
+
+    @IsString()
+    @IsNotEmpty()
+    text!: string
 }
