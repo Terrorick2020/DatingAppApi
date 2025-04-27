@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber } from 'class-validator'
 import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
-import type { ChatsToUser } from '@/chats/chats.types';
+import type { ChatsToUser } from '@/chats/chats.types'
 
 export class AddChatMicroDto extends ConnectionDto {
     @IsString()
