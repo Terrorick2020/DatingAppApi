@@ -75,3 +75,27 @@ export interface ResCreateChat {
 }
 
 export type ResUpdatedChat = Chat
+
+
+export interface ChatsToUser {
+    id: string
+    avatar: string
+    writeStat: EWriteType
+}
+
+export enum EWriteType {
+    None = 'None',
+    Write = 'Write',
+}
+
+export enum SendChatsTcpPatterns {
+    UpdatedChat = 'UpdatedChat',
+    AddChat = 'AddChat',
+    DeleteChat = 'DeleteChat'
+}
+
+export interface ChatsToUser {
+    id: string
+    avatar: string
+    writeStat: EWriteType
+}

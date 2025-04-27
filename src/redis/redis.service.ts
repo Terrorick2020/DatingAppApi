@@ -7,6 +7,9 @@ import {
 } from '@/common/helpers/api.response.helper'
 import { GetKeyType } from './redis.types'
 import { AppLogger } from '@/common/logger/logger.service'
+import { ConnectionStatus, ResTcpConnection } from '@/common/abstract/micro/micro.type'
+import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
+import { CreateRoomDto } from './dto/create-room.dto'
 import { RedisErrorHandler } from './redis.error-handler'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 
@@ -607,6 +610,45 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 				pattern
 			)
 			return errorResponse(errorMessage, error)
+		}
+	}
+
+	async createRoom(createRoomDto: CreateRoomDto): Promise<ApiResponse<boolean>> {
+		try {
+			const { roomName, ttl, persons } = createRoomDto
+
+			const exists = await this.redis.exists(roomName)
+		
+			exists && await this.redis.del(roomName)
+
+			await this.redis.sadd(roomName, persons)
+			await this.redis.expire(roomName, ttl)
+
+			return successResponse(true, 'Комната создана')
+		} catch (error) {
+			return errorResponse('Произошла ошибка создания комнаты', error)
+		}
+	}
+
+	async roomValidation(connectionDto: ConnectionDto): Promise<ApiResponse<ResTcpConnection>> {
+		try {
+			const { roomName, telegramId, } = connectionDto
+
+			const successMsg = `Успешная валидация комнаты: ${roomName} пользователем: ${telegramId}`
+			const errMsg = `Либо комната: ${telegramId} не создана, либо пользователь: ${roomName} не имеет доступа к комнате`
+
+			const isMember = await this.redis.sismember(roomName, telegramId)
+
+			const tcpRes: ResTcpConnection = {
+				roomName,
+				telegramId,
+				message: isMember ? successMsg : errMsg,
+				status: isMember ? ConnectionStatus.Success : ConnectionStatus.Error,
+			}
+
+			return successResponse(tcpRes, successMsg)
+		} catch (error) {
+			return errorResponse(`Ошибка валидации комнаты: ${connectionDto.roomName}`, error)
 		}
 	}
 }
