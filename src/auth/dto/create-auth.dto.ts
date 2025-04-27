@@ -1,46 +1,116 @@
-import {
-  IsString,
-  IsNumber,
-  IsEnum,
-  IsBoolean,
-  IsArray,
-  IsOptional,
-} from 'class-validator'
-import { Sex } from '@prisma/client'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { 
+    IsString, 
+    IsNumber, 
+    IsEnum, 
+    IsBoolean, 
+    IsArray, 
+    IsOptional,
+    IsNotEmpty,
+    ArrayMinSize,
+    Min,
+    Max
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { Sex } from '@prisma/client';
 
 export class CreateAuthDto {
-  @IsString()
-  telegramId!: string
+    @ApiProperty({
+        description: 'Telegram ID пользователя',
+        example: '123456789'
+    })
+    @IsString()
+    @IsNotEmpty()
+    telegramId: string;
 
-  @IsString()
-  name!: string
+    @ApiProperty({
+        description: 'Имя пользователя',
+        example: 'Иван'
+    })
+    @IsString()
+    @IsNotEmpty()
+    name: string;
 
-  @IsString()
-  town!: string
+    @ApiProperty({
+        description: 'Город пользователя',
+        example: 'Москва'
+    })
+    @IsString()
+    @IsNotEmpty()
+    town: string;
 
-  @IsEnum(Sex)
-  sex!: Sex
+    @ApiProperty({
+        description: 'Пол пользователя',
+        enum: Sex,
+        example: 'Male'
+    })
+    @IsEnum(Sex)
+    sex: Sex;
 
-  @IsNumber()
-  age!: number
+    @ApiProperty({
+        description: 'Возраст пользователя',
+        example: 25,
+        minimum: 18,
+        maximum: 100
+    })
+    @IsNumber()
+    @Min(18)
+    @Max(100)
+    @Transform(({ value }) => parseInt(value, 10))
+    age: number;
 
-  @IsString()
-  bio!: string
+    @ApiProperty({
+        description: 'Биография пользователя',
+        example: 'Люблю путешествовать и фотографировать'
+    })
+    @IsString()
+    @IsNotEmpty()
+    bio: string;
 
-  @IsString()
-  lang!: string
+    @ApiProperty({
+        description: 'Включить геолокацию',
+        example: false
+    })
+    @IsBoolean()
+    @Transform(({ value }) => value === 'true' || value === true)
+    enableGeo: boolean;
 
-  @IsBoolean()
-  enableGeo!: boolean
+    @ApiProperty({
+        description: 'Язык пользователя',
+        default: 'ru',
+        example: 'ru'
+    })
+    @IsString()
+    @IsNotEmpty()
+    lang: string;
 
-  @IsNumber()
-  interestId!: number
+    @ApiProperty({
+        description: 'ID загруженных фотографий',
+        type: [Number],
+        example: [1, 2, 3]
+    })
+    @IsArray()
+    @ArrayMinSize(1)
+    @Transform(({ value }) => Array.isArray(value) ? value : [value])
+    photoIds: number[];
 
-  @IsArray()
-  @IsNumber({}, { each: true })
-  photoIds!: number[]
+    @ApiProperty({
+        description: 'ID интереса пользователя',
+        example: 1
+    })
+    @IsNumber()
+    @Transform(({ value }) => parseInt(value, 10))
+    interestId: number;
 
-  @IsOptional()
-  @IsString()
-  invitedByReferralCode?: string
+    @ApiPropertyOptional({
+        description: 'Реферальный код пригласившего пользователя',
+        example: 'abcd1234'
+    })
+    @IsOptional()
+    @IsString()
+    invitedByReferralCode?: string;
 }
+
+
+
+

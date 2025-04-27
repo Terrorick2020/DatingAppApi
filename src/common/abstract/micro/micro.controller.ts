@@ -1,25 +1,22 @@
 import { ConnectionDto } from './dto/connection.dto'
-import {
-    ConnectionStatus, 
-    type ResServerConnection,
-    type ResErrData,
-} from './micro.type'
+import { MessagePattern, Payload } from '@nestjs/microservices'
+import { MicroService } from './micro.service'
+import { TcpPattern } from './micro.type'
 
-export abstract class AbstractMicroController{
-    protected ResErrData: ResErrData
+export abstract class MicroController<TService extends MicroService>{
+    protected readonly microService: TService
 
-    constructor() {
-        this.ResErrData = {
-            message: 'Возникла ошибка при выполнении действия',
-            status: ConnectionStatus.Error,
-        }
+    constructor(service: TService) {
+        this.microService = service
     }
 
-    protected abstract abstractJoinRoom(
-        connectionDto: ConnectionDto,
-    ): Promise<ResServerConnection | ResErrData>
+    @MessagePattern(TcpPattern.JoinRoom)
+    async joinRoom (@Payload() connectionDto: ConnectionDto ): Promise<void> {
+        await this.microService.joinRoom(connectionDto)
+    }
 
-    protected abstract abstractLeaveRoom(
-        connectionDto: ConnectionDto,
-    ): Promise<ResServerConnection | ResErrData>
+    @MessagePattern(TcpPattern.LeaveRoom)
+    async leaveRoom(@Payload() connectionDto: ConnectionDto ): Promise<void> {
+        await this.microService.leaveRoom(connectionDto)
+    }
 }

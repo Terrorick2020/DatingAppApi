@@ -1,13 +1,13 @@
 import {
 	CanActivate,
 	ExecutionContext,
-	Injectable,
 	ForbiddenException,
+	Injectable,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { PrismaService } from '../../../prisma/prisma.service'
 import { Request } from 'express'
-import { ADMIN_ONLY_KEY } from '../decorators/admin-only.decorators'
+import { PrismaService } from '../../../prisma/prisma.service'
+import { ADMIN_ONLY_KEY } from '../decorators/admin-only.decorator'
 
 @Injectable()
 export class AdminOnlyGuard implements CanActivate {

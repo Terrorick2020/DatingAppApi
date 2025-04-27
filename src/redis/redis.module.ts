@@ -1,5 +1,10 @@
 import { Module, Global } from '@nestjs/common'
 import Redis from 'ioredis'
+import { RedisController } from './redis.controller'
+import { RedisService } from './redis.service'
+import { AppLogger } from '../common/logger/logger.service'
+import { RedisErrorHandler } from './redis.error-handler'
+import { PrismaService } from '~/prisma/prisma.service'
 
 @Global()
 @Module({
@@ -14,7 +19,12 @@ import Redis from 'ioredis'
 				})
 			},
 		},
+		RedisService,
+		AppLogger,
+		RedisErrorHandler,
+		PrismaService,
 	],
+	controllers: [RedisController],
 	exports: ['REDIS_CLIENT'],
 })
 export class RedisModule {}

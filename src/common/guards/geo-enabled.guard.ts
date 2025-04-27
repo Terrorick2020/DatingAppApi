@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { Request } from 'express'
-import { GEO_ENABLED_KEY } from '../decorators/geo-enabled.decorartors'
+import { GEO_ENABLED_KEY } from '../decorators/geo-enabled.decorartor'
 
 @Injectable()
 export class GeoEnabledGuard implements CanActivate {

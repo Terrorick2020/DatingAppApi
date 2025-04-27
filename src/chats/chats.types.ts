@@ -1,86 +1,101 @@
-import { type } from 'arktype'
+import { type } from "arktype"
 
+// Схемы для валидации типов
+export const ChatSchema = type({
+    "id": "string",
+    "participants": ["string", "string"],
+    "created_at": "number",
+    "last_message_id": "string|null",
+    "typing": { "?": "string[]" }  // Опциональное поле со списком пользователей, набирающих текст
+})
+
+export const UserChatSchema = type({
+    "chatId": "string",
+    "userChat": "string",
+    "last_read_message_id": "string|null"
+})
+
+export const ChatMsgSchema = type({
+    "id": "string",
+    "chatId": "string",
+    "fromUser": "string",
+    "text": "string",
+    "created_at": "number",
+    "updated_at": "number",
+    "is_read": "boolean",
+    "media_type": { "?": "string" },  
+    "media_url": { "?": "string" }    
+})
+
+// Интерфейсы типов данных
 export interface Chat {
     id: string
     participants: string[]
-    createdAt: number
-    lastMsgId: number | null
+    created_at: number
+    last_message_id: string | null
+    typing?: string[]  // Список ID пользователей, которые сейчас печатают
 }
 
 export interface UserChat {
     chatId: string
-    telegramId: string
-    lastReadMsgId: number | null
+    userChat: string
+    last_read_message_id: string | null
 }
 
 export interface ChatMsg {
-    id: number
-    from: string
-    to: string
-    visited: boolean
-    createdAt: number
-    msg: string
-}
-
-export interface ResFindAllChatsToUser {
     id: string
-    avatar: string
+    chatId: string
+    fromUser: string
+    text: string
+    created_at: number
+    updated_at: number
+    is_read: boolean
+    media_type?: string
+    media_url?: string
 }
 
-export interface ResFindAllChats {
+// Типы ответов API
+export interface ChatPreview {
     chatId: string
-    toUser: ResFindAllChatsToUser
+    toUser: {
+        id: string
+        avatar: string
+        name: string
+    }
     lastMsg: string
     created_at: number
     unread_count: number
 }
+
+export type ResFindAllChats = ChatPreview
 
 export interface ResCreateChat {
     chatId: string
     toUser: string
 }
 
-export interface ResUpdatedChat {
+export type ResUpdatedChat = Chat
+
+
+export interface ChatsToUser {
     id: string
-    participants: string[]
-    created_at: number
-    last_message_id: string
+    avatar: string
+    writeStat: EWriteType
 }
 
-export enum GetChatsPattern {
-    JoinChatsRoom = 'joinChatsRoom',
-    LeaveChatsRoom = 'leaveChatsRoom',
+export enum EWriteType {
+    None = 'None',
+    Write = 'Write',
 }
 
-export enum SendChatsPattern {
-    JoinChatsRoom = 'joinChatsRoom',
+export enum SendChatsTcpPatterns {
     UpdatedChat = 'UpdatedChat',
     AddChat = 'AddChat',
-    DeleteChat = 'DeleteChat',
-    LeaveChatsRoom = 'leaveChatsRoom',
+    DeleteChat = 'DeleteChat'
 }
 
-export const ChatSchema = type({
-	id: 'string',
-	participants: 'string[]',
-	createdAt: 'number',
-	lastMsgId: 'number | null',
-})
-export type ChatInfer = typeof ChatSchema.infer
-
-export const UserChatSchema = type({
-	chatId: 'string',
-	telegramId: 'string',
-	lastReadMsgId: 'number | null',
-})
-export type UserChatInfer = typeof UserChatSchema.infer
-
-export const ChatMsgSchema = type({
-	id: 'number',
-	from: 'string',
-	to: 'string',
-	visited: 'boolean',
-	createdAt: 'number',
-	msg: 'string'
-})
-export type ChatMsgInfer = typeof ChatMsgSchema.infer
+export interface ChatsToUser {
+    id: string
+    avatar: string
+    writeStat: EWriteType
+}

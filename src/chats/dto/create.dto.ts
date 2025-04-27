@@ -1,7 +1,11 @@
-import { IsString } from 'class-validator';
-import { FindDto } from './find.dto';
+import { IsString, IsNotEmpty } from 'class-validator'
 
-export class CreateDto extends FindDto {
+export class CreateDto {
     @IsString()
+    @IsNotEmpty()
+    telegramId!: string
+
+    @IsString()
+    @IsNotEmpty()
     toUser!: string
 }

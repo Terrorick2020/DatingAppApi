@@ -1,18 +1,16 @@
 import { Module } from '@nestjs/common'
 import { ChatsController } from './chats.controller'
 import { ChatsService } from './chats.service'
-import { PrismaService } from '~/prisma/prisma.service'
-import { RedisService } from '@/redis/redis.service'
-import { ChatsMicroserviceController } from './chats.micro.controller'
-import { ChatsMicroserviceService } from './chats.micro.service'
+import { PrismaModule } from '~/prisma/prisma.module'
+import { RedisModule } from '@/redis/redis.module'
+import { MicroModule } from '@/common/abstract/micro/micro.module'
+import { ChatsMicroController } from './chats.micro.controller'
+import { ChatsMicroService } from './chats.micro.service'
 
 @Module({
-    controllers: [ ChatsController, ChatsMicroserviceController ],
-    providers: [
-        PrismaService,
-        RedisService,
-        ChatsService,
-        ChatsMicroserviceService,
-    ],
+    imports: [PrismaModule, RedisModule, MicroModule],
+    controllers: [ChatsController, ChatsMicroController],
+    providers: [ChatsService, ChatsMicroService],
+    exports: [ChatsService, ChatsMicroService]
 })
 export class ChatsModule {}

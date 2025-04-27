@@ -3,13 +3,14 @@ export enum ConnectionStatus {
     Success = 'success',
 }
 
-export interface ResServerConnection {
-    roomName: string
-    telegramId: string
+export interface ResTcpConnection {
+    roomName: string | null
+    telegramId: string | null
+    message?: string
     status: ConnectionStatus
 }
 
-export interface ResErrData {
-    message: string
-    status: ConnectionStatus
+export enum TcpPattern {
+    JoinRoom = 'joinRoom',
+    LeaveRoom = 'leaveRoom',
 }
