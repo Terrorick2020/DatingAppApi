@@ -22,7 +22,7 @@ export class LikeMicroService extends MicroService {
         this.sendRequest<SendMatchTcpPatterns, MatchMicroDto>(
             SendMatchTcpPatterns.Trigger,
             matchMicroDto,
-            `Мэтч от пользователя: ${matchMicroDto.fromUser.id} к пользователю: ${matchMicroDto.telegramId}`
+            `Мэтч от пользователя: ${matchMicroDto.fromUser.telegramId} к пользователю: ${matchMicroDto.telegramId}`
         )
     }
 }

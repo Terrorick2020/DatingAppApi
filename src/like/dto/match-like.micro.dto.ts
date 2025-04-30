@@ -1,11 +1,23 @@
-import { IsBoolean, IsNotEmpty } from 'class-validator'
+import { IsBoolean, ValidateNested, IsString } from 'class-validator'
+import { Type } from 'class-transformer'
 import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
-import type { MatchFromUser } from '@/like/like.types'
+
+class MatchFromUser {
+    @IsString()
+    telegramId!: string
+
+    @IsString()
+    avatar!: string
+
+    @IsString()
+    name!: string
+}
 
 export class MatchMicroDto extends ConnectionDto {
     @IsBoolean()
     isTrigger!: boolean
 
-    @IsNotEmpty()
+    @ValidateNested()
+    @Type(() => MatchFromUser)
     fromUser!: MatchFromUser
 }
