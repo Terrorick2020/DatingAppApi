@@ -13,6 +13,9 @@ import { RedisModule } from '../redis/redis.module'
 import { PrismaService } from '~/prisma/prisma.service'
 import microservicesConfig from '../config/microservices.config'
 import { ChatsModule } from '../chats/chats.module'
+import { MessagesModule } from '../messages/messages.module'
+import { LikeModule } from '../like/like.module'
+import { ComplaintModule } from '../complaint/complaint.module'
 
 @Module({
 	imports: [
@@ -21,6 +24,7 @@ import { ChatsModule } from '../chats/chats.module'
 			load: [microservicesConfig],
 		}),
 		ChatsModule,
+		MessagesModule,
 		AuthModule,
 		UserModule,
 		BillingModule,
@@ -28,6 +32,8 @@ import { ChatsModule } from '../chats/chats.module'
 		AdminModule,
 		GeoModule,
 		RedisModule,
+		LikeModule,
+		ComplaintModule,
 	],
 	controllers: [AppController],
 	providers: [AppService, AppLogger, PrismaService],

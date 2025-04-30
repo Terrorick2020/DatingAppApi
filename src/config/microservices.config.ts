@@ -8,13 +8,17 @@ export default () => ({
 			host: process.env.MESSAGES_MS_HOST || 'localhost',
 			port: parseInt(process.env.MESSAGES_MS_PORT || '3002'),
 		},
-		matches: {
-			host: process.env.MATCHES_MS_HOST || 'localhost',
-			port: parseInt(process.env.MATCHES_MS_PORT || '3003'),
+		like: {
+			host: process.env.LIKE_MS_HOST || 'localhost',
+			port: parseInt(process.env.LIKE_MS_PORT || '3003'),
+		},
+		match: {
+			host: process.env.MATCH_MS_HOST || 'localhost',
+			port: parseInt(process.env.MATCH_MS_PORT || '3004'),
 		},
 		complaints: {
 			host: process.env.COMPLAINTS_MS_HOST || 'localhost',
-			port: parseInt(process.env.COMPLAINTS_MS_PORT || '3004'),
+			port: parseInt(process.env.COMPLAINTS_MS_PORT || '3005'),
 		},
 	},
 	websocket: {

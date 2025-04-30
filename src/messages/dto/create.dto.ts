@@ -1,10 +1,16 @@
-import { IsString } from 'class-validator'
-import { FindDto } from './find.dto'
+import { IsString, IsNotEmpty } from 'class-validator'
+import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 
-export class CreateDto extends FindDto {
-    @IsString()
-    toUser!: string
+export class CreateDto extends ConnectionDto {
+	@IsString()
+	@IsNotEmpty()
+	chatId!: string
 
-    @IsString()
-    msg!: string
+	@IsString()
+	@IsNotEmpty()
+	toUser!: string
+
+	@IsString()
+	@IsNotEmpty()
+	msg!: string
 }

@@ -1,34 +1,41 @@
 import { IsString, IsEnum, IsOptional } from 'class-validator'
-
-export enum ComplaintType {
-	OFFENSIVE_CONTENT = 'OFFENSIVE_CONTENT',
-	FAKE_PROFILE = 'FAKE_PROFILE',
-	HARASSMENT = 'HARASSMENT',
-	INAPPROPRIATE_PHOTO = 'INAPPROPRIATE_PHOTO',
-	SPAM = 'SPAM',
-	UNDERAGE_USER = 'UNDERAGE_USER',
-	OTHER = 'OTHER',
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { ComplaintType } from '../complaint.types'
 
 export class CreateComplaintDto {
+	@ApiProperty({
+		description: 'ID отправителя жалобы',
+		example: '123456789',
+	})
 	@IsString()
-	roomName: string
+	fromUserId!: string
 
+	@ApiProperty({
+		description: 'ID пользователя, на которого жалуются',
+		example: '987654321',
+	})
 	@IsString()
-	telegramId: string
+	reportedUserId!: string
 
-	@IsString()
-	fromUserId: string
-
-	@IsString()
-	reportedUserId: string
-
+	@ApiProperty({
+		description: 'Тип жалобы',
+		enum: ComplaintType,
+		example: ComplaintType.HARASSMENT,
+	})
 	@IsEnum(ComplaintType)
-	type: ComplaintType
+	type!: ComplaintType
 
+	@ApiProperty({
+		description: 'Описание жалобы',
+		example: 'Этот пользователь отправил мне оскорбительные сообщения',
+	})
 	@IsString()
-	description: string
+	description!: string
 
+	@ApiPropertyOptional({
+		description: 'ID контента, на который жалуются (сообщение, фото и т.д.)',
+		example: 'msg_123456',
+	})
 	@IsString()
 	@IsOptional()
 	reportedContentId?: string
