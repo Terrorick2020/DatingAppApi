@@ -25,6 +25,6 @@ import { PrismaService } from '~/prisma/prisma.service'
 		PrismaService,
 	],
 	controllers: [RedisController],
-	exports: ['REDIS_CLIENT'],
+	exports: ['REDIS_CLIENT', RedisService],
 })
 export class RedisModule {}

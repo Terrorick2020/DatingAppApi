@@ -1,16 +1,34 @@
 import { Module } from '@nestjs/common'
 import { ChatsController } from './chats.controller'
 import { ChatsService } from './chats.service'
+import { RedisModule } from '../redis/redis.module'
+import { ClientsModule, Transport } from '@nestjs/microservices'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { PrismaModule } from '~/prisma/prisma.module'
-import { RedisModule } from '@/redis/redis.module'
-import { MicroModule } from '@/common/abstract/micro/micro.module'
-import { ChatsMicroController } from './chats.micro.controller'
-import { ChatsMicroService } from './chats.micro.service'
+import { StorageService } from '../storage/storage.service'
+import { AppLogger } from '../common/logger/logger.service'
 
 @Module({
-    imports: [PrismaModule, RedisModule, MicroModule],
-    controllers: [ChatsController, ChatsMicroController],
-    providers: [ChatsService, ChatsMicroService],
-    exports: [ChatsService, ChatsMicroService]
+	imports: [
+		PrismaModule,
+		RedisModule,
+		ClientsModule.registerAsync([
+			{
+				name: 'CHATS_SERVICE',
+				imports: [ConfigModule],
+				inject: [ConfigService],
+				useFactory: (configService: ConfigService) => ({
+					transport: Transport.TCP,
+					options: {
+						host: configService.get('microservices.chats.host'),
+						port: configService.get('microservices.chats.port'),
+					},
+				}),
+			},
+		]),
+	],
+	controllers: [ChatsController],
+	providers: [ChatsService, StorageService, AppLogger],
+	exports: [ChatsService],
 })
 export class ChatsModule {}

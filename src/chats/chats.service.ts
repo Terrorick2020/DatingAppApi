@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import {
+	Injectable,
+	OnModuleInit,
+	OnModuleDestroy,
+	Inject,
+} from '@nestjs/common'
 import { PrismaService } from '~/prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
@@ -7,7 +12,7 @@ import { FindDto } from './dto/find.dto'
 import { CreateDto } from './dto/create.dto'
 import { SendMessageDto } from './dto/send-messages.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
-import { ArkErrors } from 'arktype'
+// import { ArkErrors } from 'arktype'
 import { v4 } from 'uuid'
 import {
 	successResponse,
@@ -24,15 +29,20 @@ import type {
 } from './chats.types'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 import {
-	ChatSchema,
-	UserChatSchema,
-	ChatMsgSchema,
 	type Chat,
 	type UserChat,
 	type ChatMsg,
 } from './chats.types'
 import { TypingStatusDto } from './dto/typing-status.dto'
 import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
+import { firstValueFrom } from 'rxjs'
+import { ClientProxy } from '@nestjs/microservices'
+import { DeleteChatDto } from './dto/delete-chat.dto'
+import { AddChatMicroDto } from './dto/add-chat.micro.dto'
+import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
+import { DeleteChatMicroDto } from './dto/delete-chat.micro.dto'
+import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
+import { ConnectionStatus } from '../common/abstract/micro/micro.type'
 
 @Injectable()
 export class ChatsService implements OnModuleInit, OnModuleDestroy {
@@ -47,7 +57,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 		private readonly prismaService: PrismaService,
 		private readonly redisService: RedisService,
 		private readonly storageService: StorageService,
-		private readonly logger: AppLogger
+		private readonly logger: AppLogger,
+		@Inject('CHATS_SERVICE') private readonly wsClient: ClientProxy
 	) {}
 
 	/**
@@ -94,13 +105,12 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			const chat: Chat = JSON.parse(chatData.data)
-			const validation = ChatSchema(chat)
 
-			if (validation instanceof ArkErrors) {
+			if (!chat || !chat.id || !Array.isArray(chat.participants)) {
 				this.logger.warn(
 					`Неверный формат данных чата ${chatId}`,
 					this.CONTEXT,
-					{ errors: validation }
+					{ chat }
 				)
 				return errorResponse('Неверный формат данных чата')
 			}
@@ -216,11 +226,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					try {
 						// Проверка на null, так как некоторые сообщения могут отсутствовать
 						if (msgStr === null) return null
-						const msg = JSON.parse(msgStr)
-						const validation = ChatMsgSchema(msg)
-						if (validation instanceof ArkErrors) {
+						const msg: ChatMsg = JSON.parse(msgStr)
+						if (!msg || !msg.id || !msg.chatId || !msg.fromUser) {
 							this.logger.debug(`Сообщение не прошло валидацию`, this.CONTEXT, {
-								validation,
 								msg,
 							})
 							return null
@@ -1704,6 +1712,466 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				{ telegramId, error }
 			)
 			return errorResponse('Ошибка при получении архивов чатов', error)
+		}
+	}
+
+	/**
+	 * === WebSocket методы ===
+	 */
+
+	/**
+	 * Обработка подключения к комнате для WebSocket
+	 */
+	async joinRoom(connectionDto: ConnectionDto) {
+		try {
+			this.logger.debug(
+				`WS: Пользователь ${connectionDto.telegramId} присоединяется к комнате ${connectionDto.roomName}`,
+				this.CONTEXT
+			)
+
+			// Обновляем статус пользователя в Redis
+			await this.redisService.setKey(
+				`user:${connectionDto.telegramId}:status`,
+				'online',
+				3600
+			)
+			await this.redisService.setKey(
+				`user:${connectionDto.telegramId}:room`,
+				connectionDto.roomName,
+				3600
+			)
+
+			return {
+				roomName: connectionDto.roomName,
+				telegramId: connectionDto.telegramId,
+				status: ConnectionStatus.Success,
+			}
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при подключении к комнате`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, connectionDto }
+			)
+			return {
+				message: 'Ошибка при подключении к комнате',
+				status: ConnectionStatus.Error,
+			}
+		}
+	}
+
+	/**
+	 * Обработка отключения от комнаты для WebSocket
+	 */
+	async leaveRoom(connectionDto: ConnectionDto) {
+		try {
+			this.logger.debug(
+				`WS: Пользователь ${connectionDto.telegramId} покидает комнату ${connectionDto.roomName}`,
+				this.CONTEXT
+			)
+
+			// Обновляем статус пользователя в Redis
+			await this.redisService.setKey(
+				`user:${connectionDto.telegramId}:status`,
+				'offline',
+				3600
+			)
+			await this.redisService.deleteKey(`user:${connectionDto.telegramId}:room`)
+
+			return {
+				roomName: connectionDto.roomName,
+				telegramId: connectionDto.telegramId,
+				status: ConnectionStatus.Success,
+			}
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при отключении от комнаты`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, connectionDto }
+			)
+			return {
+				message: 'Ошибка при отключении от комнаты',
+				status: ConnectionStatus.Error,
+			}
+		}
+	}
+
+	/**
+	 * Обработка обновления чата для WebSocket
+	 */
+	async updateChat(updateDto: UpdateChatMicroDto) {
+		try {
+			this.logger.debug(`WS: Обновление чата ${updateDto.chatId}`, this.CONTEXT)
+
+			// Получаем метаданные чата
+			const chatMetadataResponse = await this.getChatMetadata(updateDto.chatId)
+
+			if (!chatMetadataResponse.success || !chatMetadataResponse.data) {
+				return {
+					message: 'Чат не найден',
+					status: ConnectionStatus.Error,
+				}
+			}
+
+			const chat = chatMetadataResponse.data
+
+			// Обновляем данные чата
+			let updated = false
+
+			if (updateDto.newLastMsgId) {
+				chat.last_message_id = updateDto.newLastMsgId
+				updated = true
+			}
+
+			if (updated) {
+				// Сохраняем обновленные метаданные
+				await this.redisService.setKey(
+					`chat:${updateDto.chatId}`,
+					JSON.stringify(chat),
+					this.CHAT_TTL
+				)
+
+				// Продлеваем TTL для всех ключей чата
+				await this.extendChatTTL(updateDto.chatId)
+
+				// Инвалидируем кеш превью для всех участников
+				for (const userId of chat.participants) {
+					await this.invalidateChatsPreviewCache(userId)
+				}
+			}
+
+			return updateDto
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при обновлении чата через WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, updateDto }
+			)
+			return {
+				message: 'Ошибка при обновлении чата',
+				status: ConnectionStatus.Error,
+			}
+		}
+	}
+
+	/**
+	 * Обработка добавления чата для WebSocket
+	 */
+	async addChat(addChatDto: AddChatMicroDto) {
+		try {
+			this.logger.debug(
+				`WS: Добавление чата ${addChatDto.chatId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование чата
+			const chatExists = await this.getChatMetadata(addChatDto.chatId)
+
+			if (chatExists.success && chatExists.data) {
+				this.logger.debug(
+					`Чат ${addChatDto.chatId} уже существует`,
+					this.CONTEXT
+				)
+
+				// Продлеваем TTL для существующего чата
+				await this.extendChatTTL(addChatDto.chatId)
+
+				return addChatDto
+			}
+
+			// Создаем новый чат
+			const timestamp = addChatDto.created_at || Date.now()
+
+			// Метаданные чата
+			const chatMetadata: Chat = {
+				id: addChatDto.chatId,
+				participants: [addChatDto.telegramId, addChatDto.toUser.id],
+				created_at: timestamp,
+				last_message_id: null,
+				typing: [],
+			}
+
+			// Статус прочтения
+			const readStatus = {
+				[addChatDto.telegramId]: null,
+				[addChatDto.toUser.id]: null,
+			}
+
+			// Сохраняем данные в Redis
+			await Promise.all([
+				this.redisService.setKey(
+					`chat:${addChatDto.chatId}`,
+					JSON.stringify(chatMetadata),
+					this.CHAT_TTL
+				),
+				this.redisService.setKey(
+					`chat:${addChatDto.chatId}:read_status`,
+					JSON.stringify(readStatus),
+					this.CHAT_TTL
+				),
+			])
+
+			// Добавляем чат в списки пользователей
+			await Promise.all([
+				this.addChatToUserList(addChatDto.telegramId, addChatDto.chatId),
+				this.addChatToUserList(addChatDto.toUser.id, addChatDto.chatId),
+			])
+
+			// Инвалидируем кеш превью
+			await Promise.all([
+				this.invalidateChatsPreviewCache(addChatDto.telegramId),
+				this.invalidateChatsPreviewCache(addChatDto.toUser.id),
+			])
+
+			this.logger.debug(
+				`Чат ${addChatDto.chatId} успешно добавлен`,
+				this.CONTEXT
+			)
+
+			return addChatDto
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при добавлении чата через WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, addChatDto }
+			)
+			return {
+				message: 'Ошибка при добавлении чата',
+				status: ConnectionStatus.Error,
+			}
+		}
+	}
+
+	/**
+	 * Обработка удаления чата для WebSocket
+	 */
+	async deleteChat(deleteChatDto: DeleteChatMicroDto) {
+		try {
+			this.logger.debug(
+				`WS: Удаление чата ${deleteChatDto.chatId}`,
+				this.CONTEXT
+			)
+
+			// Удаляем чат через существующий метод
+			const result = await this.delete(deleteChatDto.chatId)
+
+			if (result.success) {
+				return deleteChatDto
+			} else {
+				return {
+					message: result.message || 'Ошибка при удалении чата',
+					status: ConnectionStatus.Error,
+				}
+			}
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении чата через WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, deleteChatDto }
+			)
+			return {
+				message: 'Ошибка при удалении чата',
+				status: ConnectionStatus.Error,
+			}
+		}
+	}
+
+	/**
+	 * Получение чатов пользователя для WebSocket
+	 */
+	async getUserChats(userId: string) {
+		try {
+			this.logger.debug(
+				`WS: Получение чатов пользователя ${userId}`,
+				this.CONTEXT
+			)
+
+			// Используем существующий метод для получения чатов
+			const findResult = await this.findAll({ telegramId: userId })
+
+			return findResult.success ? findResult.data : []
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении чатов пользователя через WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, userId }
+			)
+			return []
+		}
+	}
+
+	/**
+	 * Получение деталей чата для WebSocket
+	 */
+	async getChatDetailsWs(chatId: string) {
+		try {
+			this.logger.debug(`WS: Получение деталей чата ${chatId}`, this.CONTEXT)
+
+			// Получаем метаданные чата
+			const chatMetadataResponse = await this.getChatMetadata(chatId)
+
+			if (!chatMetadataResponse.success || !chatMetadataResponse.data) {
+				return null
+			}
+
+			const chat = chatMetadataResponse.data
+
+			// Получаем статус прочтения
+			const readStatusResponse = await this.getReadStatus(chatId)
+			const readStatus = readStatusResponse.success
+				? readStatusResponse.data
+				: {}
+
+			// Получаем последнее сообщение
+			let lastMessage = null
+			if (chat.last_message_id) {
+				const messagesKey = `chat:${chatId}:messages`
+				const lastMessageResponse = await this.redisService.getHashField(
+					messagesKey,
+					chat.last_message_id
+				)
+
+				if (lastMessageResponse.success && lastMessageResponse.data) {
+					try {
+						lastMessage = JSON.parse(lastMessageResponse.data)
+					} catch (e) {
+						this.logger.debug(
+							`Ошибка при парсинге последнего сообщения чата ${chatId}`,
+							this.CONTEXT
+						)
+					}
+				}
+			}
+
+			return {
+				id: chatId,
+				metadata: chat,
+				readStatus,
+				lastMessage,
+			}
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении деталей чата через WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, chatId }
+			)
+			return null
+		}
+	}
+
+	/**
+	 * Обработка нового сообщения для оповещения через WebSocket
+	 */
+	async handleNewMessage(data: any) {
+		try {
+			this.logger.debug(
+				`WS: Обработка нового сообщения в чате ${data.chatId}`,
+				this.CONTEXT
+			)
+
+			const { chatId, messageId, senderId, text } = data
+
+			// Получаем метаданные чата
+			const chatMetadataResponse = await this.getChatMetadata(chatId)
+
+			if (!chatMetadataResponse.success || !chatMetadataResponse.data) {
+				return false
+			}
+
+			const chat = chatMetadataResponse.data
+
+			// Отправляем уведомления всем участникам чата через WebSocket
+			for (const userId of chat.participants) {
+				if (userId !== senderId) {
+					// Получаем комнату пользователя
+					const roomResponse = await this.redisService.getKey(
+						`user:${userId}:room`
+					)
+
+					if (roomResponse.success && roomResponse.data) {
+						const room = roomResponse.data
+
+						// Отправляем событие обновления чата
+						this.wsClient.emit('UpdatedChat', {
+							roomName: room,
+							telegramId: userId,
+							chatId,
+							newLastMsgId: messageId,
+						})
+					}
+				}
+			}
+
+			return true
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при обработке нового сообщения для WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, data }
+			)
+			return false
+		}
+	}
+
+	/**
+	 * Обработка прочтения сообщений для оповещения через WebSocket
+	 */
+	async handleMessageRead(data: any) {
+		try {
+			this.logger.debug(
+				`WS: Обработка прочтения сообщений в чате ${data.chatId}`,
+				this.CONTEXT
+			)
+
+			const { chatId, userId } = data
+
+			// Получаем метаданные чата
+			const chatMetadataResponse = await this.getChatMetadata(chatId)
+
+			if (!chatMetadataResponse.success || !chatMetadataResponse.data) {
+				return false
+			}
+
+			const chat = chatMetadataResponse.data
+
+			// Отправляем уведомление другому участнику чата через WebSocket
+			for (const participantId of chat.participants) {
+				if (participantId !== userId) {
+					// Получаем комнату другого участника
+					const roomResponse = await this.redisService.getKey(
+						`user:${participantId}:room`
+					)
+
+					if (roomResponse.success && roomResponse.data) {
+						const room = roomResponse.data
+
+						// Отправляем событие обновления статуса прочтения
+						this.wsClient.emit('messageReadUpdate', {
+							roomName: room,
+							telegramId: participantId,
+							chatId,
+							readerUserId: userId,
+						})
+					}
+				}
+			}
+
+			return true
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при обработке прочтения сообщений для WebSocket`,
+				error?.stack,
+				this.CONTEXT,
+				{ error, data }
+			)
+			return false
 		}
 	}
 }

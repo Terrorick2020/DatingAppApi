@@ -11,12 +11,16 @@ import { AdminModule } from '../admin/admin.module'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisModule } from '../redis/redis.module'
 import { PrismaService } from '~/prisma/prisma.service'
+import microservicesConfig from '../config/microservices.config'
+import { ChatsModule } from '../chats/chats.module'
 
 @Module({
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
+			load: [microservicesConfig],
 		}),
+		ChatsModule,
 		AuthModule,
 		UserModule,
 		BillingModule,
