@@ -10,6 +10,7 @@ import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
 import { CheckAuthDto } from './dto/check-auth.dto'
 import { v4 as uuidv4 } from 'uuid'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisService } from '../redis/redis.service'
 
 @Injectable()
 export class AuthService {
@@ -18,7 +19,8 @@ export class AuthService {
 	constructor(
 		private prisma: PrismaService,
 		private userService: UserService,
-		private logger: AppLogger
+		private logger: AppLogger,
+		private redisService: RedisService
 	) {}
 
 	async check(checkAuthDto: CheckAuthDto) {
@@ -29,21 +31,52 @@ export class AuthService {
 				this.CONTEXT
 			)
 
-			const status = await this.userService.checkTgID(telegramId)
+			// Проверяем кэш в Redis
+			const cacheKey = `user:${telegramId}:status`
+			const cachedStatus = await this.redisService.getKey(cacheKey)
 
-			if (status === 'None') {
+			if (cachedStatus.success && cachedStatus.data) {
 				this.logger.debug(
-					`Пользователь ${telegramId} не зарегистрирован`,
+					`Пользователь ${telegramId} найден в кэше со статусом: ${cachedStatus.data}`,
 					this.CONTEXT
 				)
-				return successResponse(status, 'Пользователь не зарегистрирован')
+				return successResponse(
+					cachedStatus.data,
+					cachedStatus.data === 'None'
+						? 'Пользователь не зарегистрирован'
+						: 'Пользователь найден'
+				)
 			}
 
-			this.logger.debug(
-				`Пользователь ${telegramId} найден со статусом: ${status}`,
-				this.CONTEXT
-			)
-			return successResponse(status, 'Пользователь найден')
+			// Если нет в кэше, ищем в БД
+			const status = await this.userService.checkTgID(telegramId)
+
+			// Проверяем, что статус - это строка перед сохранением в Redis
+			if (typeof status === 'string') {
+				// Кэшируем результат на 5 минут
+				const cacheTTL = 300 // 5 минут
+				await this.redisService.setKey(cacheKey, status, cacheTTL)
+
+				if (status === 'None') {
+					this.logger.debug(
+						`Пользователь ${telegramId} не зарегистрирован`,
+						this.CONTEXT
+					)
+					return successResponse(status, 'Пользователь не зарегистрирован')
+				}
+
+				this.logger.debug(
+					`Пользователь ${telegramId} найден со статусом: ${status}`,
+					this.CONTEXT
+				)
+				return successResponse(status, 'Пользователь найден')
+			} else if (typeof status === 'object' && 'success' in status) {
+				// Если вернулся объект ApiResponse, возвращаем его напрямую
+				return status
+			} else {
+				// Если тип не распознан, возвращаем ошибку
+				return errorResponse('Некорректный формат статуса пользователя')
+			}
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при проверке пользователя ${telegramId}`,
@@ -138,7 +171,7 @@ export class AuthService {
 
 					return errorResponse('Некоторые фотографии не найдены в базе данных')
 				}
-				
+
 				const interest = await tx.interest.findUnique({
 					where: { id: interestId },
 				})

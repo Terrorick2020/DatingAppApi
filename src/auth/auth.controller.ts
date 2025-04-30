@@ -4,6 +4,7 @@ import {
 	HttpCode,
 	Post,
 	UploadedFile,
+	UseGuards,
 	UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -21,6 +22,7 @@ import {
 	ApiConsumes,
 	ApiBody,
 } from '@nestjs/swagger'
+import { RegistrationRateLimitGuard } from '../common/guards/rate-limit.guard'
 
 @ApiTags('auth')
 @Controller('auth')
@@ -86,6 +88,7 @@ export class AuthController {
 		description: 'Ошибка валидации или пользователь уже существует',
 	})
 	@ApiBody({ type: CreateAuthDto })
+	@UseGuards(RegistrationRateLimitGuard)
 	@Post('register')
 	register(@Body() createAuthDto: CreateAuthDto) {
 		return this.authService.register(createAuthDto)
