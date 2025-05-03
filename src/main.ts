@@ -36,7 +36,7 @@ async function bootstrap() {
 		})
 	)
 
-	app.useGlobalGuards(new UserStatusGuard(prisma, reflector))
+	// app.useGlobalGuards(new UserStatusGuard(prisma, reflector))
 	app.useGlobalInterceptors(new LoggingInterceptor(appLogger))
 	app.useGlobalFilters(new AllExceptionsFilter(appLogger))
 
