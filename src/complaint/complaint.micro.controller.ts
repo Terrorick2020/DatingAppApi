@@ -3,11 +3,9 @@ import { MicroController } from '@/common/abstract/micro/micro.controller'
 import { ComplaintMicroService } from './complaint.micro.service'
 import { MessagePattern, Payload } from '@nestjs/microservices'
 import { SendComplaintTcpPatterns } from './complaint.types'
-import { CreateComplaintDto } from './dto/create-complaint.dto'
-import { UpdateComplaintDto } from './dto/update-complaint.dto'
 import { AppLogger } from '../common/logger/logger.service'
 
-@Controller()
+@Controller()     
 export class ComplaintMicroController extends MicroController<ComplaintMicroService> {
 	constructor(
 		protected readonly complaintMicroService: ComplaintMicroService,
@@ -15,13 +13,13 @@ export class ComplaintMicroController extends MicroController<ComplaintMicroServ
 	) {
 		super(complaintMicroService)
 	}
-
+ 
 	@MessagePattern(SendComplaintTcpPatterns.CreateComplaint)
 	async handleCreateComplaint(@Payload() complaintData: any): Promise<void> {
 		this.logger.debug(
 			`MicroService: Создание жалобы от ${complaintData.fromUserId} на ${complaintData.reportedUserId}`,
 			'ComplaintMicroController'
-		)
+		) 
 		await this.complaintMicroService.createComplaint(complaintData)
 	}
 

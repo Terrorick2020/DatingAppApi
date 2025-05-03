@@ -1,41 +1,28 @@
 // api/src/chats/chats.controller.ts
-import {
-	Controller,
-	Get,
-	Post,
-	Body,
-	Param,
-	Delete,
-	Query,
-	Patch,
-	Logger,
-	UseInterceptors,
-	UploadedFile,
-} from '@nestjs/common'
-import { FileInterceptor } from '@nestjs/platform-express'
-import { MessagePattern, Payload, EventPattern } from '@nestjs/microservices'
-import { ChatsService } from './chats.service'
-import { WsServerMethod } from './base.types'
-import { SendChatsTcpPatterns } from './chats.types'
 import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
-import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
-import { AddChatMicroDto } from './dto/add-chat.micro.dto'
+import {
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	Patch,
+	Post,
+	Query,
+} from '@nestjs/common'
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices'
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { AppLogger } from '../common/logger/logger.service'
+import { WsServerMethod } from './base.types'
+import { ChatsService } from './chats.service'
+import { SendChatsTcpPatterns } from './chats.types'
+import { AddChatMicroDto } from './dto/add-chat.dto'
+import { CreateDto } from './dto/create.dto'
 import { DeleteChatDto } from './dto/delete-chat.dto'
 import { FindDto } from './dto/find.dto'
-import { CreateDto } from './dto/create.dto'
-import { SendMessageDto } from './dto/send-messages.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
-import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
-import { TypingStatusDto } from './dto/typing-status.dto'
-import {
-	ApiTags,
-	ApiOperation,
-	ApiResponse,
-	ApiConsumes,
-	ApiBody,
-} from '@nestjs/swagger'
-import { AppLogger } from '../common/logger/logger.service'
-import { DeleteChatMicroDto } from './dto/delete-chat.micro.dto'
+import { SendMessageDto } from './dto/send-messages.dto'
+import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
 
 @ApiTags('chats')
 @Controller('chats')
@@ -198,7 +185,7 @@ export class ChatsController {
 	}
 
 	@MessagePattern(SendChatsTcpPatterns.DeleteChat)
-	async deleteChat(@Payload() data: DeleteChatMicroDto) {
+	async deleteChat(@Payload() data: DeleteChatDto) {
 		this.logger.debug(`WS: Удаление чата ${data.chatId}`, 'ChatsController')
 		return this.chatsService.deleteChat(data)
 	}

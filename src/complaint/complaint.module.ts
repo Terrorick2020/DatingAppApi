@@ -13,20 +13,20 @@ import { AppLogger } from '../common/logger/logger.service'
 	imports: [
 		PrismaModule,
 		RedisModule,
-		ClientsModule.registerAsync([
-			{
-				name: 'COMPLAINT_SERVICE',
-				imports: [ConfigModule],
-				inject: [ConfigService],
-				useFactory: (configService: ConfigService) => ({
-					transport: Transport.TCP,
-					options: {
-						host: configService.get('microservices.complaints.host'),
-						port: configService.get('microservices.complaints.port'),
-					},
-				}),
-			},
-		]),
+		// ClientsModule.registerAsync([
+		// 	{
+		// 		name: 'COMPLAINT_SERVICE',
+		// 		imports: [ConfigModule],
+		// 		inject: [ConfigService],
+		// 		useFactory: (configService: ConfigService) => ({
+		// 			transport: Transport.TCP,
+		// 			options: {
+		// 				host: configService.get('microservices.complaints.host'),
+		// 				port: configService.get('microservices.complaints.port'),
+		// 			},
+		// 		}),
+		// 	},
+		// ]),
 	],
 	controllers: [ComplaintController, ComplaintMicroController],
 	providers: [ComplaintService, ComplaintMicroService, AppLogger],

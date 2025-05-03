@@ -1,48 +1,36 @@
 import {
-	Injectable,
-	OnModuleInit,
-	OnModuleDestroy,
 	Inject,
+	Injectable,
+	OnModuleDestroy,
+	OnModuleInit,
 } from '@nestjs/common'
 import { PrismaService } from '~/prisma/prisma.service'
+import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
-import { AppLogger } from '../common/logger/logger.service'
-import { FindDto } from './dto/find.dto'
 import { CreateDto } from './dto/create.dto'
-import { SendMessageDto } from './dto/send-messages.dto'
+import { FindDto } from './dto/find.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
+import { SendMessageDto } from './dto/send-messages.dto'
 // import { ArkErrors } from 'arktype'
-import { v4 } from 'uuid'
 import {
-	successResponse,
 	errorResponse,
+	successResponse,
 } from '@/common/helpers/api.response.helper'
-import { FindAllChatsUserFields } from '~/prisma/selects/chats.selects'
-import { GetKeyType } from '@/redis/redis.types'
-import * as cron from 'node-cron'
-import type {
-	ResUpdatedChat,
-	ResCreateChat,
-	ResFindAllChats,
-	ChatPreview,
-} from './chats.types'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
-import {
-	type Chat,
-	type UserChat,
-	type ChatMsg,
-} from './chats.types'
-import { TypingStatusDto } from './dto/typing-status.dto'
-import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
-import { firstValueFrom } from 'rxjs'
 import { ClientProxy } from '@nestjs/microservices'
-import { DeleteChatDto } from './dto/delete-chat.dto'
-import { AddChatMicroDto } from './dto/add-chat.micro.dto'
-import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
-import { DeleteChatMicroDto } from './dto/delete-chat.micro.dto'
+import * as cron from 'node-cron'
+import { v4 } from 'uuid'
+import { FindAllChatsUserFields } from '~/prisma/selects/chats.selects'
 import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
 import { ConnectionStatus } from '../common/abstract/micro/micro.type'
+import type { ChatPreview, ResCreateChat } from './chats.types'
+import { type Chat, type ChatMsg } from './chats.types'
+import { AddChatMicroDto } from './dto/add-chat.dto'
+import { DeleteChatDto } from './dto/delete-chat.dto'
+import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
+import { TypingStatusDto } from './dto/typing-status.dto'
+import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
 
 @Injectable()
 export class ChatsService implements OnModuleInit, OnModuleDestroy {
@@ -1948,7 +1936,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Обработка удаления чата для WebSocket
 	 */
-	async deleteChat(deleteChatDto: DeleteChatMicroDto) {
+	async deleteChat(deleteChatDto: DeleteChatDto) {
 		try {
 			this.logger.debug(
 				`WS: Удаление чата ${deleteChatDto.chatId}`,

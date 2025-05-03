@@ -14,7 +14,7 @@ export enum ComplaintType {
 	UNDERAGE_USER = 'UNDERAGE_USER',
 	OTHER = 'OTHER',
 }
-
+ 
 export enum SendComplaintTcpPatterns {
 	CreateComplaint = 'CreateComplaint',
 	UpdateComplaint = 'UpdateComplaint',

@@ -12,20 +12,20 @@ import { AppLogger } from '../common/logger/logger.service'
 	imports: [
 		PrismaModule,
 		RedisModule,
-		ClientsModule.registerAsync([
-			{
-				name: 'CHATS_SERVICE',
-				imports: [ConfigModule],
-				inject: [ConfigService],
-				useFactory: (configService: ConfigService) => ({
-					transport: Transport.TCP,
-					options: {
-						host: configService.get('microservices.chats.host'),
-						port: configService.get('microservices.chats.port'),
-					},
-				}),
-			},
-		]),
+		// ClientsModule.registerAsync([
+		// 	{
+		// 		name: 'CHATS_SERVICE',
+		// 		imports: [ConfigModule],
+		// 		inject: [ConfigService],
+		// 		useFactory: (configService: ConfigService) => ({
+		// 			transport: Transport.TCP,
+		// 			options: {
+		// 				host: configService.get('microservices.chats.host'),
+		// 				port: configService.get('microservices.chats.port'),
+		// 			},
+		// 		}),
+		// 	},
+		// ]),
 	],
 	controllers: [ChatsController],
 	providers: [ChatsService, StorageService, AppLogger],

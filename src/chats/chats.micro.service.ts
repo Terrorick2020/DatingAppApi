@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common'
+import { MicroService } from '@/common/abstract/micro/micro.service'
 import { AppLogger } from '@/common/logger/logger.service'
+import { RedisService } from '@/redis/redis.service'
+import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '~/prisma/prisma.service'
-import { RedisService } from '@/redis/redis.service'
-import { MicroService } from '@/common/abstract/micro/micro.service'
-import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
-import { AddChatMicroDto } from './dto/add-chat.micro.dto'
-import { DeleteChatMicroDto } from './dto/delete-chat.micro.dto'
 import { SendChatsTcpPatterns } from './chats.types'
+import { AddChatMicroDto } from './dto/add-chat.dto'
+import { DeleteChatDto } from './dto/delete-chat.dto'
+import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
 
 @Injectable()
 export class ChatsMicroService extends MicroService {
@@ -36,8 +36,8 @@ export class ChatsMicroService extends MicroService {
         )
     }
 
-    async sendDeletedChat(deleteChatMicroDto: DeleteChatMicroDto): Promise<void> {
-        this.sendRequest<SendChatsTcpPatterns, DeleteChatMicroDto>(
+    async sendDeletedChat(deleteChatMicroDto: DeleteChatDto): Promise<void> {
+        this.sendRequest<SendChatsTcpPatterns, DeleteChatDto>(
             SendChatsTcpPatterns.DeleteChat,
             deleteChatMicroDto,
             `Удаление чата: ${deleteChatMicroDto.chatId} для пользователя: ${deleteChatMicroDto.telegramId}`

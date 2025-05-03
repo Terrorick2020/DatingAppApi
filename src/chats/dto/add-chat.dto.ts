@@ -10,7 +10,7 @@ export class AddChatMicroDto extends ConnectionDto {
     toUser!: ChatsToUser
 
     @IsString()
-    lastMsg!: string
+    lastMsg!: string 
 
     @IsNumber()
     created_at!: number
