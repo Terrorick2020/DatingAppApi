@@ -1,4 +1,10 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import {
+	Injectable,
+	OnModuleInit,
+	OnModuleDestroy,
+	Inject,
+	forwardRef,
+} from '@nestjs/common'
 import Redis from 'ioredis'
 import { ConfigService } from '@nestjs/config'
 import { AppLogger } from '../logger/logger.service'
@@ -21,6 +27,7 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 	constructor(
 		private readonly logger: AppLogger,
 		private readonly configService: ConfigService,
+		@Inject(forwardRef(() => WebSocketService))
 		private readonly webSocketService: WebSocketService
 	) {
 		this.subscriber = new Redis({

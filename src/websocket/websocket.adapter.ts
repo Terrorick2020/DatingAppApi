@@ -2,9 +2,9 @@ import { INestApplicationContext } from '@nestjs/common'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import { ServerOptions } from 'socket.io'
 import { ConfigService } from '@nestjs/config'
-import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
 import { Logger } from '@nestjs/common'
+import { createAdapter } from '@socket.io/redis-adapter' // Теперь это должно работать
 
 export class WebsocketAdapter extends IoAdapter {
 	private readonly logger = new Logger(WebsocketAdapter.name)
