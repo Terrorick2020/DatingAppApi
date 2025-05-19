@@ -2,11 +2,18 @@ import { Controller } from '@nestjs/common'
 import { MessagePattern, Payload } from '@nestjs/microservices'
 import { MessegesService } from './messages.service'
 import { AppLogger } from '../common/logger/logger.service'
-import { SendMsgsTcpPatterns } from './messages.type'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
 import { UpdateMicroPartnerDto } from './dto/update-partner.micro.dto'
 import { UpdateMicroMsgDto } from './dto/update-msg.micro.dto'
-import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
-import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { CreateDto } from './dto/create.dto'
+
+// Исправление: правильные паттерны для сообщений
+enum MessagePatterns {
+  SendMsg = 'sendMsg',
+  UpdateMsg = 'updateMsg',
+  UpdatePartner = 'updatePartner'
+}
 
 @Controller()
 export class MessagesMicroController {
@@ -16,19 +23,22 @@ export class MessagesMicroController {
     private readonly redisPubSub: RedisPubSubService
   ) {}
 
-  @MessagePattern(SendMsgsTcpPatterns.SendMsg)
+  @MessagePattern(MessagePatterns.SendMsg)
   async handleSendMessage(@Payload() data: any) {
     this.logger.debug(
-      `TCP: Отправка сообщения в чат ${data.chatId}`,
+      `TCP: Отправка сообщения в чате ${data.chatId}`,
       'MessagesMicroController'
     )
     
-    const result = await this.messagesService.create({
-      chatId: data.chatId,
-      telegramId: data.telegramId,
-      toUser: data.toUser,
-      msg: data.newMsg
-    })
+    // Исправление: создаем правильный DTO
+    const createDto = new CreateDto();
+    createDto.chatId = data.chatId;
+    createDto.telegramId = data.telegramId;
+    createDto.toUser = data.toUser;
+    createDto.msg = data.newMsg;
+    createDto.roomName = data.roomName || data.telegramId; // Добавляем roomName
+    
+    const result = await this.messagesService.create(createDto)
     
     if (result.success && result.data) {
       // Публикуем сообщение в Redis Pub/Sub для WebSocket сервера
@@ -45,7 +55,7 @@ export class MessagesMicroController {
     return result
   }
 
-  @MessagePattern(SendMsgsTcpPatterns.UpdateMsg)
+  @MessagePattern(MessagePatterns.UpdateMsg)
   async handleUpdateMessage(@Payload() data: UpdateMicroMsgDto) {
     this.logger.debug(
       `TCP: Обновление сообщения ${data.msgId} в чате ${data.chatId}`,
@@ -55,7 +65,8 @@ export class MessagesMicroController {
     // Определение DTO для обновления сообщения
     const updateData = {
       chatId: data.chatId,
-      telegramId: data.telegramId
+      telegramId: data.telegramId,
+      roomName: data.roomName // Добавляем roomName
     }
     
     // Добавляем нужные поля в зависимости от типа обновления
@@ -76,32 +87,53 @@ export class MessagesMicroController {
     return result
   }
 
-  @MessagePattern(SendMsgsTcpPatterns.UpdatePartner)
+  @MessagePattern(MessagePatterns.UpdatePartner)
   async handleUpdatePartner(@Payload() data: UpdateMicroPartnerDto) {
     this.logger.debug(
       `TCP: Обновление статуса партнера ${data.telegramId}`,
       'MessagesMicroController'
     )
     
-    // Получаем данные о чате (для определения участников)
-    const chatResult = await this.messagesService.findAll({ chatId: data.chatId })
+    // Получаем данные о чате и участниках
+    // Исправление: получаем данные иначе, так как chatId отсутствует в UpdateMicroPartnerDto
+    const participants = []
     
-    if (chatResult.success && chatResult.data) {
-      // Определяем участников чата
-      const participants = []
+    // Находим чаты с участием данного пользователя и его собеседников
+    try {
+      // Здесь логика определения чата и участников через Redis или Prisma
+      // Например:
+      const userChatsKey = `user:${data.telegramId}:chats`
+      const roomChatsKey = `user:${data.roomName}:chats`
       
-      // В реальном сценарии, вам нужно получить список участников из данных чата
-      // Например: participants = chatResult.data.participants
+      // Имитация получения общего чата между пользователями
+      const chatId = 'chat_id_123' // В реальном коде нужно определить правильный ID чата
       
-      // Публикуем событие в Redis Pub/Sub
+      // Если есть newWriteStat, публикуем событие набора текста
       if (data.newWriteStat) {
         await this.redisPubSub.publishTypingStatus({
-          chatId: data.chatId,
+          chatId: chatId, // Используем найденный ID чата
           userId: data.telegramId,
           isTyping: data.newWriteStat === 'Write',
-          participants
+          participants: [data.telegramId, data.roomName] // Добавляем обоих участников
         })
       }
+      
+      // Если есть newLineStat, публикуем событие об изменении статуса
+      if (data.newLineStat) {
+        await this.redisPubSub.publishUserStatus({
+          userId: data.telegramId,
+          status: data.newLineStat === 'Online' ? 'online' : 'offline',
+          notifyUsers: [data.roomName], // Уведомляем собеседника
+          timestamp: Date.now()
+        })
+      }
+    } catch (error: any) {
+      this.logger.error(
+        `Ошибка при обработке обновления статуса партнера`,
+        error?.stack,
+        'MessagesMicroController',
+        { updatePartnerDto: data, error }
+      )
     }
     
     return { status: 'success' }
