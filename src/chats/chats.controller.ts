@@ -1,4 +1,3 @@
-// api/src/chats/chats.controller.ts
 import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 import {
 	Body,
@@ -10,19 +9,15 @@ import {
 	Post,
 	Query,
 } from '@nestjs/common'
-import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { AppLogger } from '../common/logger/logger.service'
-import { WsServerMethod } from './base.types'
 import { ChatsService } from './chats.service'
-import { SendChatsTcpPatterns } from './chats.types'
-import { AddChatMicroDto } from './dto/add-chat.dto'
 import { CreateDto } from './dto/create.dto'
-import { DeleteChatDto } from './dto/delete-chat.dto'
 import { FindDto } from './dto/find.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
 import { SendMessageDto } from './dto/send-messages.dto'
-import { UpdateChatMicroDto } from './dto/update-chat.micro.dto'
+import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
+import { TypingStatusDto } from './dto/typing-status.dto'
 
 @ApiTags('chats')
 @Controller('chats')
@@ -33,7 +28,7 @@ export class ChatsController {
 	) {}
 
 	/**
-	 * === REST API методы ===
+	 * REST API методы
 	 */
 
 	@ApiOperation({ summary: 'Получить список всех чатов пользователя' })
@@ -81,15 +76,7 @@ export class ChatsController {
 			`Запрос на создание чата от ${createDto.telegramId} к ${createDto.toUser}`,
 			'ChatsController'
 		)
-
-		const result = await this.chatsService.create(createDto)
-
-		// Если чат успешно создан, отправляем уведомление через WebSocket
-		if (result.success && result.data) {
-			// Оповещение через WebSocket будет сделано в самом сервисе
-		}
-
-		return result
+		return this.chatsService.create(createDto)
 	}
 
 	@ApiOperation({ summary: 'Отправить сообщение в чат' })
@@ -100,21 +87,21 @@ export class ChatsController {
 			`Запрос на отправку сообщения в чат ${sendMessageDto.chatId} от ${sendMessageDto.fromUser}`,
 			'ChatsController'
 		)
+		return this.chatsService.sendMessage(sendMessageDto)
+	}
 
-		const result = await this.chatsService.sendMessage(sendMessageDto)
-
-		// Если сообщение успешно отправлено, отправляем уведомление через WebSocket
-		if (result.success && result.data) {
-			await this.chatsService.handleNewMessage({
-				chatId: sendMessageDto.chatId,
-				messageId: result.data.id,
-				senderId: sendMessageDto.fromUser,
-				text: sendMessageDto.text,
-				timestamp: result.data.created_at,
-			})
-		}
-
-		return result
+	@ApiOperation({ summary: 'Отправить сообщение с медиафайлом' })
+	@ApiResponse({
+		status: 201,
+		description: 'Сообщение с медиафайлом отправлено',
+	})
+	@Post('message-media')
+	async sendMessageWithMedia(@Body() dto: SendMessageWithMediaDto) {
+		this.logger.debug(
+			`Запрос на отправку сообщения с медиафайлом в чат ${dto.chatId} от ${dto.fromUser}`,
+			'ChatsController'
+		)
+		return this.chatsService.sendMessageWithMedia(dto)
 	}
 
 	@ApiOperation({ summary: 'Пометить сообщения как прочитанные' })
@@ -125,19 +112,18 @@ export class ChatsController {
 			`Запрос на пометку прочитанных сообщений в чате ${readMessagesDto.chatId} от ${readMessagesDto.userId}`,
 			'ChatsController'
 		)
+		return this.chatsService.readMessages(readMessagesDto)
+	}
 
-		const result = await this.chatsService.readMessages(readMessagesDto)
-
-		// Если статус прочтения успешно обновлен, отправляем уведомление через WebSocket
-		if (result.success) {
-			await this.chatsService.handleMessageRead({
-				chatId: readMessagesDto.chatId,
-				userId: readMessagesDto.userId,
-				messageIds: [readMessagesDto.lastReadMessageId],
-			})
-		}
-
-		return result
+	@ApiOperation({ summary: 'Обновить статус набора текста' })
+	@ApiResponse({ status: 200, description: 'Статус набора текста обновлен' })
+	@Post('typing')
+	async updateTypingStatus(@Body() typingStatusDto: TypingStatusDto) {
+		this.logger.debug(
+			`Запрос на обновление статуса набора текста в чате ${typingStatusDto.chatId} от ${typingStatusDto.userId}`,
+			'ChatsController'
+		)
+		return this.chatsService.updateTypingStatus(typingStatusDto)
 	}
 
 	@ApiOperation({ summary: 'Удалить чат' })
@@ -146,83 +132,5 @@ export class ChatsController {
 	delete(@Param('chatId') chatId: string) {
 		this.logger.debug(`Запрос на удаление чата ${chatId}`, 'ChatsController')
 		return this.chatsService.delete(chatId)
-	}
-
-	// ... остальные REST API методы ...
-
-	/**
-	 * === WebSocket методы ===
-	 */
-
-	@MessagePattern(WsServerMethod.JoinRoom)
-	async joinRoom(@Payload() data: ConnectionDto) {
-		this.logger.debug(
-			`WS: Пользователь ${data.telegramId} присоединяется к комнате ${data.roomName}`,
-			'ChatsController'
-		)
-		return this.chatsService.joinRoom(data)
-	}
-
-	@MessagePattern(WsServerMethod.LeaveRoom)
-	async leaveRoom(@Payload() data: ConnectionDto) {
-		this.logger.debug(
-			`WS: Пользователь ${data.telegramId} покидает комнату ${data.roomName}`,
-			'ChatsController'
-		)
-		return this.chatsService.leaveRoom(data)
-	}
-
-	@MessagePattern(SendChatsTcpPatterns.UpdatedChat)
-	async updateChat(@Payload() data: UpdateChatMicroDto) {
-		this.logger.debug(`WS: Обновление чата ${data.chatId}`, 'ChatsController')
-		return this.chatsService.updateChat(data)
-	}
-
-	@MessagePattern(SendChatsTcpPatterns.AddChat)
-	async addChat(@Payload() data: AddChatMicroDto) {
-		this.logger.debug(`WS: Добавление чата ${data.chatId}`, 'ChatsController')
-		return this.chatsService.addChat(data)
-	}
-
-	@MessagePattern(SendChatsTcpPatterns.DeleteChat)
-	async deleteChat(@Payload() data: DeleteChatDto) {
-		this.logger.debug(`WS: Удаление чата ${data.chatId}`, 'ChatsController')
-		return this.chatsService.deleteChat(data)
-	}
-
-	@MessagePattern('getUserChats')
-	async getUserChats(@Payload() data: { userId: string }) {
-		this.logger.debug(
-			`WS: Получение чатов пользователя ${data.userId}`,
-			'ChatsController'
-		)
-		return this.chatsService.getUserChats(data.userId)
-	}
-
-	@MessagePattern('getChatDetails')
-	async getChatDetails(@Payload() data: { chatId: string }) {
-		this.logger.debug(
-			`WS: Получение деталей чата ${data.chatId}`,
-			'ChatsController'
-		)
-		return this.chatsService.getChatDetailsWs(data.chatId)
-	}
-
-	@EventPattern('newMessage')
-	async handleNewMessage(@Payload() data: any) {
-		this.logger.debug(
-			`WS Event: Новое сообщение в чате ${data.chatId}`,
-			'ChatsController'
-		)
-		await this.chatsService.handleNewMessage(data)
-	}
-
-	@EventPattern('messageRead')
-	async handleMessageRead(@Payload() data: any) {
-		this.logger.debug(
-			`WS Event: Сообщения прочитаны в чате ${data.chatId}`,
-			'ChatsController'
-		)
-		await this.chatsService.handleMessageRead(data)
 	}
 }

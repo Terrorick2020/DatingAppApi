@@ -1,4 +1,3 @@
-// src/chats/chats.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '~/prisma/prisma.service';
 import { AppLogger } from '../common/logger/logger.service';

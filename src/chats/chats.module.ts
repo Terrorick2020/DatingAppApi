@@ -9,13 +9,9 @@ import { ChatsMicroController } from './chats.micro.controller'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 
 @Module({
-  imports: [
-    PrismaModule,
-    RedisModule,
-    RedisPubSubModule,
-  ],
-  controllers: [ChatsController, ChatsMicroController],
-  providers: [ChatsService, StorageService, AppLogger],
-  exports: [ChatsService],
+	imports: [PrismaModule, RedisModule, RedisPubSubModule],
+	controllers: [ChatsController, ChatsMicroController],
+	providers: [ChatsService, StorageService, AppLogger],
+	exports: [ChatsService],
 })
 export class ChatsModule {}
