@@ -1,35 +1,22 @@
-import { Module } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
-import { ClientsModule, Transport } from '@nestjs/microservices'
-import { PrismaModule } from '~/prisma/prisma.module'
-import { RedisModule } from '../redis/redis.module'
-import { ComplaintController } from './complaint.controller'
-import { ComplaintService } from './complaint.service'
-import { ComplaintMicroController } from './complaint.micro.controller'
-import { ComplaintMicroService } from './complaint.micro.service'
-import { AppLogger } from '../common/logger/logger.service'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from '~/prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
+import { ComplaintController } from './complaint.controller';
+import { ComplaintService } from './complaint.service';
+import { ComplaintMicroController } from './complaint.micro.controller';
+import { AppLogger } from '../common/logger/logger.service';
+import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module';
 
 @Module({
-	imports: [
-		PrismaModule,
-		RedisModule,
-		// ClientsModule.registerAsync([
-		// 	{
-		// 		name: 'COMPLAINT_SERVICE',
-		// 		imports: [ConfigModule],
-		// 		inject: [ConfigService],
-		// 		useFactory: (configService: ConfigService) => ({
-		// 			transport: Transport.TCP,
-		// 			options: {
-		// 				host: configService.get('microservices.complaints.host'),
-		// 				port: configService.get('microservices.complaints.port'),
-		// 			},
-		// 		}),
-		// 	},
-		// ]),
-	],
-	controllers: [ComplaintController, ComplaintMicroController],
-	providers: [ComplaintService, ComplaintMicroService, AppLogger],
-	exports: [ComplaintService, ComplaintMicroService],
+  imports: [
+    PrismaModule,
+    RedisModule,
+    RedisPubSubModule,
+    ConfigModule,
+  ],
+  controllers: [ComplaintController, ComplaintMicroController],
+  providers: [ComplaintService, AppLogger],
+  exports: [ComplaintService],
 })
 export class ComplaintModule {}

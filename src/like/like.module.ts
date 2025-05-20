@@ -11,16 +11,16 @@ import { ChatsModule } from '../chats/chats.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 
 @Module({
-  imports: [
-    PrismaModule,
-    RedisModule,
-    RedisPubSubModule,
-    UserModule,
-    ChatsModule,
-    ConfigModule,
-  ],
-  controllers: [LikeController, LikeMicroController],
-  providers: [LikeService, AppLogger],
-  exports: [LikeService],
+	imports: [
+		PrismaModule,
+		RedisModule,
+		RedisPubSubModule,
+		UserModule,
+		ChatsModule,
+		ConfigModule,
+	],
+	controllers: [LikeController, LikeMicroController],
+	providers: [LikeService, AppLogger],
+	exports: [LikeService],
 })
 export class LikeModule {}

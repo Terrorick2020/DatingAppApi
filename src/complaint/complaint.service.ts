@@ -1,29 +1,24 @@
-import {
-	Injectable,
-	OnModuleInit,
-	OnModuleDestroy,
-	Inject,
-} from '@nestjs/common'
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { PrismaService } from '~/prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
 import { AppLogger } from '../common/logger/logger.service'
-import { ClientProxy } from '@nestjs/microservices'
-import { v4 } from 'uuid'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { CreateComplaintDto } from './dto/create-complaint.dto'
+import { UpdateComplaintDto } from './dto/update-complaint.dto'
+import { GetComplaintsDto } from './dto/get-complaints.dto'
 import {
 	successResponse,
 	errorResponse,
 } from '@/common/helpers/api.response.helper'
-import { CreateComplaintDto } from './dto/create-complaint.dto'
-import { UpdateComplaintDto } from './dto/update-complaint.dto'
-import { GetComplaintsDto } from './dto/get-complaints.dto'
-import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
-import { ConnectionStatus } from '@/common/abstract/micro/micro.type'
+import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 import {
 	ComplaintStatus,
 	ComplaintType,
-	SendComplaintTcpPatterns,
+	ComplaintResponse,
+	ComplaintWithUsers,
 } from './complaint.types'
 import * as cron from 'node-cron'
+import { v4 } from 'uuid'
 
 @Injectable()
 export class ComplaintService implements OnModuleInit, OnModuleDestroy {
@@ -38,7 +33,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 		private readonly prisma: PrismaService,
 		private readonly redisService: RedisService,
 		private readonly logger: AppLogger,
-		@Inject('COMPLAINT_SERVICE') private readonly wsClient: ClientProxy
+		private readonly redisPubSub: RedisPubSubService
 	) {}
 
 	/**
@@ -74,7 +69,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Создание новой жалобы
 	 */
-	async createComplaint(createDto: CreateComplaintDto): Promise<any> {
+	async createComplaint(
+		createDto: CreateComplaintDto
+	): Promise<ApiResponse<ComplaintResponse>> {
 		try {
 			const {
 				fromUserId,
@@ -177,6 +174,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 
 			// Сохраняем дополнительные данные в Redis
 			const complaintKey = `complaint:${complaint.id}`
+			const timestamp = Date.now()
+
 			await this.redisService.setKey(
 				complaintKey,
 				JSON.stringify({
@@ -185,7 +184,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					type,
 					description,
 					reportedContentId,
-					createdAt: Date.now(),
+					createdAt: timestamp,
+					fromUserId,
+					reportedUserId,
 				}),
 				this.COMPLAINT_TTL
 			)
@@ -194,26 +195,42 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			await this.invalidateComplaintsCache(fromUserId)
 			await this.invalidateComplaintsCache(reportedUserId)
 
-			// Отправляем уведомление через WebSocket для админов
-			this.notifyAdminsAboutNewComplaint({
+			// Отправляем уведомление через Redis Pub/Sub для WebSocket сервера
+			await this.redisPubSub.publishComplaintUpdate({
 				id: complaint.id.toString(),
-				status: ComplaintStatus.PENDING,
-				type: type as ComplaintType,
 				fromUserId,
 				reportedUserId,
-				description,
-				reportedContentId,
-				createdAt: Date.now(),
+				status: ComplaintStatus.PENDING,
+				timestamp,
 			})
+
+			// Получаем список админов для отправки уведомлений
+			const admins = await this.prisma.user.findMany({
+				where: { role: 'Admin' },
+				select: { telegramId: true },
+			})
+
+			// Публикуем событие новой жалобы для админов через Redis Pub/Sub
+			for (const admin of admins) {
+				await this.redisPubSub.publish('complaint:new:admin', {
+					adminId: admin.telegramId,
+					complaintId: complaint.id.toString(),
+					fromUserId,
+					reportedUserId,
+					type,
+					status: ComplaintStatus.PENDING,
+					timestamp,
+				})
+			}
 
 			this.logger.debug(`Жалоба #${complaint.id} успешно создана`, this.CONTEXT)
 
 			return successResponse(
 				{
-					id: complaint.id,
+					id: complaint.id.toString(),
 					status: ComplaintStatus.PENDING,
-					type,
-					createdAt: Date.now(),
+					type: type as ComplaintType,
+					createdAt: timestamp,
 				},
 				'Жалоба успешно создана'
 			)
@@ -231,7 +248,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Обновление статуса жалобы
 	 */
-	async updateComplaint(updateDto: UpdateComplaintDto): Promise<any> {
+	async updateComplaint(
+		updateDto: UpdateComplaintDto
+	): Promise<ApiResponse<any>> {
 		try {
 			const { complaintId, status, resolutionNotes, telegramId } = updateDto
 
@@ -291,8 +310,12 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Обновляем данные жалобы
+			const timestamp = Date.now()
+
 			complaintData.status = status
-			complaintData.updatedAt = Date.now()
+			complaintData.updatedAt = timestamp
+			complaintData.fromUserId = complaint.fromUser.telegramId
+			complaintData.reportedUserId = complaint.toUser.telegramId
 
 			if (resolutionNotes) {
 				complaintData.resolutionNotes = resolutionNotes
@@ -313,15 +336,19 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			const responseData = {
 				id: complaintId,
 				status,
-				updatedAt: complaintData.updatedAt,
+				updatedAt: timestamp,
 				resolutionNotes: complaintData.resolutionNotes,
-			}
-
-			// Отправляем уведомление о смене статуса через WebSocket
-			this.wsClient.emit(SendComplaintTcpPatterns.ComplaintStatusChanged, {
-				...responseData,
 				fromUserId: complaint.fromUser.telegramId,
 				reportedUserId: complaint.toUser.telegramId,
+			}
+
+			// Отправляем уведомление через Redis Pub/Sub для WebSocket
+			await this.redisPubSub.publishComplaintUpdate({
+				id: complaintId,
+				fromUserId: complaint.fromUser.telegramId,
+				reportedUserId: complaint.toUser.telegramId,
+				status,
+				timestamp,
 			})
 
 			this.logger.debug(
@@ -344,7 +371,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Получение жалоб
 	 */
-	async getComplaints(getDto: GetComplaintsDto): Promise<any> {
+	async getComplaints(
+		getDto: GetComplaintsDto
+	): Promise<ApiResponse<ComplaintWithUsers[]>> {
 		try {
 			const { telegramId, type } = getDto
 
@@ -435,7 +464,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			})
 
 			// Получаем дополнительные данные из Redis
-			const enrichedComplaints = await Promise.all(
+			const enrichedComplaints: ComplaintWithUsers[] = await Promise.all(
 				complaints.map(async complaint => {
 					const complaintKey = `complaint:${complaint.id}`
 					const complaintDataResponse =
@@ -465,7 +494,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 							name: complaint.toUser.name,
 							avatar: complaint.toUser.photos[0]?.key || '',
 						},
-						type: complaint.reason.value,
+						type: complaint.reason.value as ComplaintType,
 						status: complaintData.status || ComplaintStatus.PENDING,
 						description: complaintData.description || '',
 						reportedContentId: complaintData.reportedContentId,
@@ -503,22 +532,22 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Получение статистики жалоб для админов
 	 */
-	async getComplaintStats(telegramId: string): Promise<any> {
+	async getComplaintStats(adminId: string): Promise<ApiResponse<any>> {
 		try {
 			this.logger.debug(
-				`Получение статистики жалоб для админа ${telegramId}`,
+				`Получение статистики жалоб для админа ${adminId}`,
 				this.CONTEXT
 			)
 
 			// Проверяем, что пользователь является админом
 			const admin = await this.prisma.user.findUnique({
-				where: { telegramId, role: 'Admin' },
+				where: { telegramId: adminId, role: 'Admin' },
 				select: { telegramId: true },
 			})
 
 			if (!admin) {
 				this.logger.warn(
-					`Неадминистратор ${telegramId} пытается получить статистику жалоб`,
+					`Неадминистратор ${adminId} пытается получить статистику жалоб`,
 					this.CONTEXT
 				)
 				return errorResponse('Недостаточно прав для просмотра статистики жалоб')
@@ -562,9 +591,38 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				},
 			})
 
-			// Получаем количество жалоб по статусам
-			// Примечание: статусы хранятся в Redis, не в Prisma,
-			// поэтому нужно использовать Redis для получения точной статистики
+			// Получаем статус для каждой жалобы из Redis
+			const complaintKeys = await this.redisService.redis.keys('complaint:*')
+
+			// Подсчитываем количество жалоб для каждого статуса
+			const statusCounts = {
+				[ComplaintStatus.PENDING]: 0,
+				[ComplaintStatus.UNDER_REVIEW]: 0,
+				[ComplaintStatus.RESOLVED]: 0,
+				[ComplaintStatus.REJECTED]: 0,
+			}
+
+			// Получаем данные о статусах из Redis
+			await Promise.all(
+				complaintKeys.map(async key => {
+					const complaintDataResponse = await this.redisService.getKey(key)
+					if (complaintDataResponse.success && complaintDataResponse.data) {
+						try {
+							const complaintData = JSON.parse(complaintDataResponse.data)
+
+							// Проверяем, что статус является допустимым ключом для statusCounts
+							if (complaintData.status) {
+								const status = complaintData.status as keyof typeof statusCounts
+								if (status in statusCounts) {
+									statusCounts[status]++
+								}
+							}
+						} catch (e) {
+							// Игнорируем ошибки парсинга
+						}
+					}
+				})
+			)
 
 			// Преобразуем результаты
 			const stats = {
@@ -574,14 +632,10 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					label: reason.label,
 					count: reason._count.complaints,
 				})),
-				// Поскольку статусы хранятся в Redis, здесь будет заглушка
-				// В реальном приложении нужно будет разработать более сложную логику
-				byStatus: [
-					{ status: ComplaintStatus.PENDING, count: 0 },
-					{ status: ComplaintStatus.UNDER_REVIEW, count: 0 },
-					{ status: ComplaintStatus.RESOLVED, count: 0 },
-					{ status: ComplaintStatus.REJECTED, count: 0 },
-				],
+				byStatus: Object.entries(statusCounts).map(([status, count]) => ({
+					status,
+					count,
+				})),
 			}
 
 			// Кэшируем результат
@@ -602,15 +656,11 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				`Ошибка при получении статистики жалоб`,
 				error?.stack,
 				this.CONTEXT,
-				{ telegramId, error }
+				{ adminId, error }
 			)
 			return errorResponse('Ошибка при получении статистики жалоб', error)
 		}
 	}
-
-	/**
-	 * Вспомогательные методы
-	 */
 
 	/**
 	 * Инвалидация кэша жалоб пользователя
@@ -640,50 +690,6 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
-	 * Уведомление админов о новой жалобе
-	 */
-	private async notifyAdminsAboutNewComplaint(
-		complaintData: any
-	): Promise<void> {
-		try {
-			// Находим всех админов
-			const admins = await this.prisma.user.findMany({
-				where: { role: 'Admin' },
-				select: { telegramId: true },
-			})
-
-			// Отправляем уведомление каждому админу через WebSocket
-			for (const admin of admins) {
-				// Получаем комнату админа
-				const adminRoomResponse = await this.redisService.getKey(
-					`user:${admin.telegramId}:room`
-				)
-
-				if (adminRoomResponse.success && adminRoomResponse.data) {
-					// Отправляем уведомление через WebSocket
-					this.wsClient.emit(SendComplaintTcpPatterns.CreateComplaint, {
-						roomName: adminRoomResponse.data,
-						telegramId: admin.telegramId,
-						...complaintData,
-					})
-
-					this.logger.debug(
-						`Отправлено уведомление о новой жалобе админу ${admin.telegramId}`,
-						this.CONTEXT
-					)
-				}
-			}
-		} catch (error: any) {
-			this.logger.error(
-				`Ошибка при отправке уведомлений админам о новой жалобе`,
-				error?.stack,
-				this.CONTEXT,
-				{ complaintData, error }
-			)
-		}
-	}
-
-	/**
 	 * Выполнение задачи очистки жалоб с механизмом блокировки
 	 */
 	private async runComplaintCleanupWithLock(): Promise<void> {
@@ -709,17 +715,61 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			this.logger.log('Начало задачи очистки устаревших жалоб', this.CONTEXT)
 
 			// Архивация старых разрешенных/отклоненных жалоб
-			// Реализация логики очистки...
+			const complaintKeys = await this.redisService.redis.keys('complaint:*')
+
+			let archivedCount = 0
+			let errorCount = 0
+			const currentTime = Date.now()
+			const maxAge = 180 * 24 * 60 * 60 * 1000 // 180 дней в мс
+
+			for (const key of complaintKeys) {
+				try {
+					const complaintData = await this.redisService.getKey(key)
+
+					if (complaintData.success && complaintData.data) {
+						const complaint = JSON.parse(complaintData.data)
+
+						// Проверяем возраст и статус жалобы
+						if (
+							(complaint.status === ComplaintStatus.RESOLVED ||
+								complaint.status === ComplaintStatus.REJECTED) &&
+							complaint.updatedAt &&
+							currentTime - complaint.updatedAt > maxAge
+						) {
+							// Архивируем жалобу
+							await this.archiveComplaint(complaint)
+
+							// Удаляем данные из Redis
+							await this.redisService.deleteKey(key)
+
+							archivedCount++
+						}
+					}
+				} catch (error) {
+					errorCount++
+					this.logger.error(
+						`Ошибка при обработке жалобы ${key}`,
+						(error as any)?.stack,
+						this.CONTEXT,
+						{ error }
+					)
+				}
+			}
+
+			this.logger.log(
+				`Очистка жалоб завершена. Архивировано: ${archivedCount}, ошибок: ${errorCount}`,
+				this.CONTEXT
+			)
 		} finally {
 			// Освобождаем блокировку
 			try {
 				const script = `
-                    if redis.call("get", KEYS[1]) == ARGV[1] then
-                        return redis.call("del", KEYS[1])
-                    else
-                        return 0
-                    end
-                `
+          if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+          else
+            return 0
+          end
+        `
 				await this.redisService.redis.eval(script, 1, this.lockKey, lockId)
 				this.logger.debug('Блокировка очистки жалоб освобождена', this.CONTEXT)
 			} catch (error: any) {
@@ -731,5 +781,20 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				)
 			}
 		}
+	}
+
+	/**
+	 * Архивация жалобы
+	 */
+	private async archiveComplaint(complaintData: any): Promise<void> {
+		// Здесь можно реализовать логику архивации, например,
+		// сохранение в S3 или отдельную таблицу архива
+		this.logger.debug(`Архивация жалобы #${complaintData.id}`, this.CONTEXT)
+
+		// Для примера, просто логируем событие
+		this.logger.log(
+			`Жалоба #${complaintData.id} архивирована. Статус: ${complaintData.status}`,
+			this.CONTEXT
+		)
 	}
 }

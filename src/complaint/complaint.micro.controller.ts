@@ -1,43 +1,115 @@
 import { Controller } from '@nestjs/common'
-import { MicroController } from '@/common/abstract/micro/micro.controller'
-import { ComplaintMicroService } from './complaint.micro.service'
 import { MessagePattern, Payload } from '@nestjs/microservices'
-import { SendComplaintTcpPatterns } from './complaint.types'
+import { ComplaintService } from './complaint.service'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { SendComplaintTcpPatterns } from './complaint.types'
 
-@Controller()     
-export class ComplaintMicroController extends MicroController<ComplaintMicroService> {
+@Controller()
+export class ComplaintMicroController {
 	constructor(
-		protected readonly complaintMicroService: ComplaintMicroService,
-		private readonly logger: AppLogger
+		private readonly complaintService: ComplaintService,
+		private readonly logger: AppLogger,
+		private readonly redisPubSub: RedisPubSubService
+	) {}
+
+	@MessagePattern('getUserComplaints')
+	async getUserComplaints(
+		@Payload() data: { userId: string; type: 'sent' | 'received' | 'admin' }
 	) {
-		super(complaintMicroService)
-	}
- 
-	@MessagePattern(SendComplaintTcpPatterns.CreateComplaint)
-	async handleCreateComplaint(@Payload() complaintData: any): Promise<void> {
 		this.logger.debug(
-			`MicroService: Создание жалобы от ${complaintData.fromUserId} на ${complaintData.reportedUserId}`,
+			`TCP: Получение жалоб пользователя ${data.userId} типа ${data.type}`,
 			'ComplaintMicroController'
-		) 
-		await this.complaintMicroService.createComplaint(complaintData)
+		)
+
+		return this.complaintService.getComplaints({
+			telegramId: data.userId,
+			type: data.type,
+		})
+	}
+
+	@MessagePattern('getComplaintStats')
+	async getComplaintStats(@Payload() data: { adminId: string }) {
+		this.logger.debug(
+			`TCP: Получение статистики жалоб для админа ${data.adminId}`,
+			'ComplaintMicroController'
+		)
+
+		return this.complaintService.getComplaintStats(data.adminId)
+	}
+
+	@MessagePattern('checkUserRole')
+	async checkUserRole(@Payload() data: { userId: string }) {
+		this.logger.debug(
+			`TCP: Проверка роли пользователя ${data.userId}`,
+			'ComplaintMicroController'
+		)
+
+		// Проверка роли пользователя через Prisma
+		const user = await this.complaintService['prisma'].user.findUnique({
+			where: { telegramId: data.userId },
+			select: { role: true },
+		})
+
+		return user || { role: null }
+	}
+
+	@MessagePattern(SendComplaintTcpPatterns.CreateComplaint)
+	async handleCreateComplaint(@Payload() complaintData: any) {
+		this.logger.debug(
+			`TCP: Создание жалобы от ${complaintData.fromUserId} на ${complaintData.reportedUserId}`,
+			'ComplaintMicroController'
+		)
+
+		// В данном случае, мы только публикуем событие, так как основная обработка
+		// происходит в WebSocket сервере
+		await this.redisPubSub.publishComplaintUpdate({
+			id: complaintData.id || complaintData.complaintId,
+			fromUserId: complaintData.fromUserId,
+			reportedUserId: complaintData.reportedUserId,
+			status: complaintData.status,
+			timestamp: Date.now(),
+		})
+
+		return { success: true }
 	}
 
 	@MessagePattern(SendComplaintTcpPatterns.UpdateComplaint)
-	async handleUpdateComplaint(@Payload() complaintData: any): Promise<void> {
+	async handleUpdateComplaint(@Payload() complaintData: any) {
 		this.logger.debug(
-			`MicroService: Обновление жалобы #${complaintData.complaintId}`,
+			`TCP: Обновление жалобы #${complaintData.complaintId} со статусом ${complaintData.status}`,
 			'ComplaintMicroController'
 		)
-		await this.complaintMicroService.updateComplaint(complaintData)
+
+		// В данном случае, мы только публикуем событие, так как основная обработка
+		// происходит в WebSocket сервере
+		await this.redisPubSub.publishComplaintUpdate({
+			id: complaintData.id || complaintData.complaintId,
+			fromUserId: complaintData.fromUserId,
+			reportedUserId: complaintData.reportedUserId,
+			status: complaintData.status,
+			timestamp: Date.now(),
+		})
+
+		return { success: true }
 	}
 
 	@MessagePattern(SendComplaintTcpPatterns.ComplaintStatusChanged)
-	async handleStatusChange(@Payload() statusData: any): Promise<void> {
+	async handleStatusChange(@Payload() statusData: any) {
 		this.logger.debug(
-			`MicroService: Изменение статуса жалобы #${statusData.id} на ${statusData.status}`,
+			`TCP: Изменение статуса жалобы #${statusData.id} на ${statusData.status}`,
 			'ComplaintMicroController'
 		)
-		await this.complaintMicroService.sendComplaintStatusChange(statusData)
+
+		// Публикуем событие изменения статуса жалобы
+		await this.redisPubSub.publishComplaintUpdate({
+			id: statusData.id,
+			fromUserId: statusData.fromUserId,
+			reportedUserId: statusData.reportedUserId,
+			status: statusData.status,
+			timestamp: statusData.timestamp || Date.now(),
+		})
+
+		return { success: true }
 	}
 }

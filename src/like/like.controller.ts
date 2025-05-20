@@ -20,7 +20,6 @@ import {
 	ApiQuery,
 	ApiBody,
 	ApiResponse,
-	ApiBearerAuth,
 } from '@nestjs/swagger'
 
 @ApiTags('likes')

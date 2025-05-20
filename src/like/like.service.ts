@@ -1,30 +1,28 @@
-import { Inject, Injectable } from '@nestjs/common'
-import { PrismaService } from '../../prisma/prisma.service'
+import { Injectable } from '@nestjs/common'
+import { PrismaService } from '~/prisma/prisma.service'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisService } from '../redis/redis.service'
+import { UserService } from '../user/user.service'
+import { ChatsService } from '../chats/chats.service'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
 import {
 	errorResponse,
 	successResponse,
 } from '../common/helpers/api.response.helper'
 import { CreateLikeDto } from './dto/create-like.dto'
-import { UserService } from '../user/user.service'
 import { GetLikesDto } from './dto/get-likes.dto'
-import { ChatsService } from '../chats/chats.service'
-import { LikeTriggerDto } from './dto/like-trigger.dto'
-import { SendMatchTcpPatterns } from './like.types'
-import { RedisService } from '../redis/redis.service'
-import { ClientProxy } from '@nestjs/microservices'
 
 @Injectable()
 export class LikeService {
 	private readonly CONTEXT = 'LikeService'
 
 	constructor(
-		private prisma: PrismaService,
-		private userService: UserService,
-		private chatsService: ChatsService,
-		private logger: AppLogger,
-		private redisService: RedisService,
-		@Inject('LIKE_SERVICE') private readonly wsClient: ClientProxy
+		private readonly prisma: PrismaService,
+		private readonly userService: UserService,
+		private readonly chatsService: ChatsService,
+		private readonly logger: AppLogger,
+		private readonly redisService: RedisService,
+		private readonly redisPubSubService: RedisPubSubService
 	) {}
 
 	async createLike(dto: CreateLikeDto) {
@@ -115,6 +113,13 @@ export class LikeService {
 				{ likeId: like.id }
 			)
 
+			// Отправка уведомления о новом лайке (всегда)
+			await this.redisPubSubService.publishNewLike({
+				fromUserId: dto.fromUserId,
+				toUserId: dto.toUserId,
+				timestamp: Date.now(),
+			})
+
 			if (reverseLike) {
 				// Обновляем обратный лайк до статуса матча
 				const avatarKey =
@@ -132,64 +137,28 @@ export class LikeService {
 					this.CONTEXT
 				)
 
-				// Отправляем уведомление о матче через WebSocket
-				try {
-					// Получаем комнату получателя
-					const receiverRoomResponse = await this.redisService.getKey(
-						`user:${dto.toUserId}:room`
-					)
-
-					if (receiverRoomResponse.success && receiverRoomResponse.data) {
-						const likeTriggerDto: LikeTriggerDto = {
-							roomName: receiverRoomResponse.data,
-							telegramId: dto.toUserId,
-							isTrigger: true,
-							fromUser: {
-								id: dto.fromUserId,
-								avatar: avatarKey,
-								name: fromUser.name,
-							},
-						}
-
-						this.wsClient.emit(SendMatchTcpPatterns.Trigger, likeTriggerDto)
-
-						this.logger.debug(
-							`Отправлено уведомление о матче для пользователя ${dto.toUserId}`,
-							this.CONTEXT
-						)
-					} else {
-						this.logger.debug(
-							`Пользователь ${dto.toUserId} не в комнате, уведомление о матче не отправлено`,
-							this.CONTEXT
-						)
-					}
-				} catch (wsError: any) {
-					this.logger.error(
-						`Ошибка при отправке уведомления о матче через WebSocket`,
-						wsError?.stack,
-						this.CONTEXT,
-						{ error: wsError }
-					)
-					// Не прерываем выполнение, так как основная операция успешна
-				}
-
 				// Создаем чат в Redis для матча
 				const chatCreationResult = await this.createChatForMatch(
 					dto.fromUserId,
 					dto.toUserId
 				)
 
-				if (!chatCreationResult.success) {
-					this.logger.error(
-						`Ошибка при создании чата для матча`,
-						undefined,
-						this.CONTEXT,
-						{ error: chatCreationResult.message, dto }
-					)
-				}
+				// Отправляем уведомление о матче через Redis Pub/Sub
+				await this.redisPubSubService.publishNewMatch({
+					user1Id: dto.fromUserId,
+					user2Id: dto.toUserId,
+					chatId: chatCreationResult.success
+						? chatCreationResult.data?.chatId || ''
+						: '',
+					timestamp: Date.now(),
+				})
 
 				return successResponse(
-					{ like, isMatch: true, chatId: chatCreationResult.data?.chatId },
+					{
+						like,
+						isMatch: true,
+						chatId: chatCreationResult.data?.chatId,
+					},
 					'Симпатия взаимна! Теперь вы можете общаться'
 				)
 			}
@@ -399,6 +368,13 @@ export class LikeService {
 						{ reverseLikeId: reverseLike.id }
 					)
 				}
+
+				// Публикуем событие об отмене матча
+				await this.redisPubSubService.publish('match:cancel', {
+					user1Id: fromUserId,
+					user2Id: toUserId,
+					timestamp: Date.now(),
+				})
 
 				// Удаляем чат при отмене матча
 				const chatDeletionResult = await this.removeChat(fromUserId, toUserId)

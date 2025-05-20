@@ -44,7 +44,7 @@ export class ComplaintController {
 		return this.complaintService.createComplaint(createComplaintDto)
 	}
 
-	@ApiOperation({ summary: 'Обновить статус жалобы' })
+	@ApiOperation({ summary: 'Обновить статус жалобы (только для админов)' })
 	@ApiResponse({ status: 200, description: 'Статус жалобы успешно обновлен' })
 	@Post('update')
 	@AdminOnly()
