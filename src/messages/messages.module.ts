@@ -10,14 +10,9 @@ import { MessegesService } from './messages.service'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 
 @Module({
-  imports: [
-    PrismaModule,
-    RedisModule,
-    RedisPubSubModule,
-    ConfigModule,
-  ],
-  controllers: [MessagesController, MessagesMicroController],
-  providers: [MessegesService, AppLogger, StorageService],
-  exports: [MessegesService],
+	imports: [PrismaModule, RedisModule, RedisPubSubModule, ConfigModule],
+	controllers: [MessagesController, MessagesMicroController],
+	providers: [MessegesService, AppLogger, StorageService],
+	exports: [MessegesService],
 })
 export class MessagesModule {}

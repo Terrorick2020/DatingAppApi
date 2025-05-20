@@ -11,17 +11,12 @@ import {
 	UploadedFile,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { MessagePattern, Payload, EventPattern } from '@nestjs/microservices'
 import { MessegesService } from './messages.service'
 import { FindDto } from './dto/find.dto'
 import { CreateDto } from './dto/create.dto'
 import { UpdateDto } from './dto/update.dto'
-import { WsServerMethod } from '@/chats/base.types'
-import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
-import { SendMsgsTcpPatterns } from './messages.type'
-import { UpdateMicroPartnerDto } from './dto/update-partner.micro.dto'
-import { UpdateMicroMsgDto } from './dto/update-msg.micro.dto'
 import { multerOptions } from '../config/multer.config'
+import { ReadMessagesDto } from '../chats/dto/read-messages.dto'
 import {
 	ApiTags,
 	ApiOperation,
@@ -40,9 +35,8 @@ export class MessagesController {
 	) {}
 
 	/**
-	 * === REST API методы ===
+	 * Получение сообщений чата
 	 */
-
 	@ApiOperation({ summary: 'Получить все сообщения чата' })
 	@ApiResponse({ status: 200, description: 'Сообщения чата получены' })
 	@Get()
@@ -54,6 +48,9 @@ export class MessagesController {
 		return await this.messagesService.findAll(findDto)
 	}
 
+	/**
+	 * Отправка нового сообщения
+	 */
 	@ApiOperation({ summary: 'Отправить новое сообщение' })
 	@ApiResponse({ status: 201, description: 'Сообщение отправлено' })
 	@Post()
@@ -65,6 +62,9 @@ export class MessagesController {
 		return await this.messagesService.create(createDto)
 	}
 
+	/**
+	 * Обновление сообщения
+	 */
 	@ApiOperation({ summary: 'Обновить сообщение' })
 	@ApiResponse({ status: 200, description: 'Сообщение обновлено' })
 	@Patch(':msgId')
@@ -79,17 +79,26 @@ export class MessagesController {
 		return await this.messagesService.update(msgId, updateDto)
 	}
 
+	/**
+	 * Удаление сообщения
+	 */
 	@ApiOperation({ summary: 'Удалить сообщение' })
 	@ApiResponse({ status: 200, description: 'Сообщение удалено' })
 	@Delete(':msgId')
-	async delete(@Param('msgId') msgId: string): Promise<any> {
+	async delete(
+		@Param('msgId') msgId: string,
+		@Query('chatId') chatId: string
+	): Promise<any> {
 		this.logger.debug(
-			`Запрос на удаление сообщения ${msgId}`,
+			`Запрос на удаление сообщения ${msgId} из чата ${chatId}`,
 			'MessagesController'
 		)
-		return await this.messagesService.delete(msgId)
+		return await this.messagesService.delete(msgId, chatId)
 	}
 
+	/**
+	 * Загрузка медиафайла
+	 */
 	@ApiOperation({ summary: 'Загрузить медиафайл для сообщения' })
 	@ApiConsumes('multipart/form-data')
 	@ApiBody({
@@ -123,6 +132,9 @@ export class MessagesController {
 		return this.messagesService.uploadMediaFile(file, chatId, fromUser)
 	}
 
+	/**
+	 * Отправка сообщения с медиафайлом
+	 */
 	@ApiOperation({ summary: 'Отправить сообщение с медиафайлом' })
 	@ApiResponse({
 		status: 201,
@@ -154,6 +166,9 @@ export class MessagesController {
 		)
 	}
 
+	/**
+	 * Установка статуса "печатает"
+	 */
 	@ApiOperation({ summary: 'Установить статус "печатает"' })
 	@ApiResponse({ status: 200, description: 'Статус установлен' })
 	@Post('typing')
@@ -164,70 +179,27 @@ export class MessagesController {
 			`Запрос на установку статуса "печатает" для ${data.userId} в чате ${data.chatId}`,
 			'MessagesController'
 		)
-		return this.messagesService.setWritingStatus(
+		return this.messagesService.setTypingStatus(
 			data.userId,
 			data.chatId,
 			data.isTyping
 		)
 	}
 
-	@ApiOperation({ summary: 'Получить статус собеседника' })
-	@ApiResponse({ status: 200, description: 'Статус получен' })
-	@Get('status/:userId')
-	async getPartnerStatus(@Param('userId') userId: string) {
-		this.logger.debug(
-			`Запрос на получение статуса пользователя ${userId}`,
-			'MessagesController'
-		)
-		return this.messagesService.getPartnerStatus(userId)
-	}
-
 	/**
-	 * === WebSocket методы ===
+	 * Пометить сообщения как прочитанные
 	 */
-
-	@MessagePattern(WsServerMethod.JoinRoom)
-	async joinRoom(@Payload() data: ConnectionDto) {
+	@ApiOperation({ summary: 'Отметить сообщения как прочитанные' })
+	@ApiResponse({
+		status: 200,
+		description: 'Сообщения отмечены как прочитанные',
+	})
+	@Post('read')
+	async readMessages(@Body() readMessagesDto: ReadMessagesDto) {
 		this.logger.debug(
-			`WS: Пользователь ${data.telegramId} присоединяется к комнате ${data.roomName}`,
+			`Запрос на отметку прочтения сообщений в чате ${readMessagesDto.chatId}`,
 			'MessagesController'
 		)
-		return this.messagesService.joinRoom(data)
-	}
-
-	@MessagePattern(WsServerMethod.LeaveRoom)
-	async leaveRoom(@Payload() data: ConnectionDto) {
-		this.logger.debug(
-			`WS: Пользователь ${data.telegramId} покидает комнату ${data.roomName}`,
-			'MessagesController'
-		)
-		return this.messagesService.leaveRoom(data)
-	}
-
-	@MessagePattern(SendMsgsTcpPatterns.UpdatePartner)
-	async handleUpdatePartner(@Payload() data: UpdateMicroPartnerDto) {
-		this.logger.debug(
-			`WS: Обновление статуса собеседника ${data.telegramId}`,
-			'MessagesController'
-		)
-		return this.messagesService.handleUpdatePartner(data)
-	}
-
-	@MessagePattern(SendMsgsTcpPatterns.UpdateMsg)
-	async handleUpdateMsg(@Payload() data: UpdateMicroMsgDto) {
-		this.logger.debug(
-			`WS: Обновление сообщения в чате ${data.chatId}`,
-			'MessagesController'
-		)
-		return this.messagesService.handleUpdateMessage(data)
-	}
-
-	@EventPattern('messageRead')
-	async handleMessageRead(@Payload() data: any) {
-		this.logger.debug(
-			`WS Event: Сообщение прочитано в чате ${data.chatId}`,
-			'MessagesController'
-		)
-		return this.messagesService.handleMessageRead(data)
+		return this.messagesService.readMessages(readMessagesDto)
 	}
 }
