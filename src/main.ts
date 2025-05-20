@@ -8,7 +8,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ValidationPipe } from '@nestjs/common'
 import { WebsocketAdapter } from './websocket/websocket.adapter'
-import { ConfigService } from 'aws-sdk'
+import { ConfigService } from '@nestjs/config'
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule)
@@ -56,7 +56,8 @@ async function bootstrap() {
 	await app.startAllMicroservices()
 	appLogger.log(`TCP микросервис запущен на ${tcpHost}:${tcpPort}`, 'Bootstrap')
 
-	const websocketAdapter = new WebsocketAdapter(app, app.get(ConfigService))
+	const configService = app.get(ConfigService) // Импортируйте из @nestjs/config
+	const websocketAdapter = new WebsocketAdapter(app, configService)
 	app.useWebSocketAdapter(websocketAdapter)
 
 	// Конфигурация Swagger
