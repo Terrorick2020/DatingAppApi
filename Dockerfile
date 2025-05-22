@@ -1,28 +1,24 @@
-FROM node:20-alpine AS deps
+FROM oven/bun:latest
 WORKDIR /api
 
-RUN npm install -g @nestjs/cli@latest
-
+# Копирование package.json и package-lock.json
 COPY package*.json ./
-RUN npm install --legacy-peer-deps --prefer-offline
+COPY bun.lockb ./
 
+# Установка зависимостей
+RUN bun install
 
-FROM node:20-alpine AS builder
-WORKDIR /api
-COPY --from=deps /api/node_modules ./node_modules
+# Копирование всего проекта
 COPY . .
 
-RUN npm install -g @nestjs/cli
-RUN npx prisma generate
-RUN npm run build
+# Генерация Prisma клиента
+RUN bunx prisma generate
 
+# Сборка приложения
+RUN bun run build
 
-FROM node:20-alpine
-WORKDIR /api
-COPY --from=builder /api/node_modules ./node_modules
-COPY --from=builder /api/dist ./dist
-COPY package*.json ./
-
+# Открытие порта
 EXPOSE 3000
 
-CMD ["node", "dist/src/main.js"]
+# Запуск приложения
+CMD ["bun", "run", "dist/src/main.js"]
