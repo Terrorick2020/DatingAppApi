@@ -18,6 +18,7 @@ import { ComplaintModule } from '../complaint/complaint.module'
 import { WebsocketModule } from '../websocket/websocket.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { LoggerModule } from '../common/logger/logger.module'
+import { CoreModule } from '../core/core.module'
 
 @Module({
 	imports: [
@@ -25,6 +26,7 @@ import { LoggerModule } from '../common/logger/logger.module'
 			isGlobal: true,
 			load: [microservicesConfig],
 		}),
+		CoreModule,
 		LoggerModule,
 		ChatsModule,
 		MessagesModule,

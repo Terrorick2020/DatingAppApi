@@ -1,28 +1,26 @@
-import { Module, Global } from '@nestjs/common'
+import { Global, Module } from '@nestjs/common'
 import Redis from 'ioredis'
+import { ConfigService } from '@nestjs/config'
 import { RedisController } from './redis.controller'
 import { RedisService } from './redis.service'
 import { RedisErrorHandler } from './redis.error-handler'
-import { PrismaService } from '~/prisma/prisma.service'
-import { LoggerModule } from '../common/logger/logger.module'
 
 @Global()
 @Module({
-	imports: [LoggerModule], 
 	providers: [
 		{
 			provide: 'REDIS_CLIENT',
-			useFactory: () => {
+			useFactory: (configService: ConfigService) => {
 				return new Redis({
-					host: process.env.REDIS_HOST || 'redis',
-					port: Number(process.env.REDIS_PORT) || 6379,
-					password: process.env.REDIS_PASSWORD,
+					host: configService.get('REDIS_HOST', 'redis'),
+					port: configService.get('REDIS_PORT', 6379),
+					password: configService.get('REDIS_PASSWORD'),
 				})
 			},
+			inject: [ConfigService],
 		},
 		RedisService,
 		RedisErrorHandler,
-		PrismaService,
 	],
 	controllers: [RedisController],
 	exports: ['REDIS_CLIENT', RedisService],
