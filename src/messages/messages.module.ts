@@ -8,9 +8,10 @@ import { MessagesController } from './messages.controller'
 import { MessagesMicroController } from './messages.micro.controller'
 import { MessegesService } from './messages.service'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
+import { LoggerModule } from '../common/logger/logger.module'
 
 @Module({
-	imports: [PrismaModule, RedisModule, RedisPubSubModule, ConfigModule],
+	imports: [PrismaModule, RedisModule, RedisPubSubModule, ConfigModule, LoggerModule],
 	controllers: [MessagesController, MessagesMicroController],
 	providers: [MessegesService, AppLogger, StorageService],
 	exports: [MessegesService],

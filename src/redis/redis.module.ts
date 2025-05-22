@@ -2,12 +2,13 @@ import { Module, Global } from '@nestjs/common'
 import Redis from 'ioredis'
 import { RedisController } from './redis.controller'
 import { RedisService } from './redis.service'
-import { AppLogger } from '../common/logger/logger.service'
 import { RedisErrorHandler } from './redis.error-handler'
 import { PrismaService } from '~/prisma/prisma.service'
+import { LoggerModule } from '../common/logger/logger.module'
 
 @Global()
 @Module({
+	imports: [LoggerModule], 
 	providers: [
 		{
 			provide: 'REDIS_CLIENT',
@@ -20,7 +21,6 @@ import { PrismaService } from '~/prisma/prisma.service'
 			},
 		},
 		RedisService,
-		AppLogger,
 		RedisErrorHandler,
 		PrismaService,
 	],

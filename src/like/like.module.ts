@@ -9,6 +9,7 @@ import { AppLogger } from '../common/logger/logger.service'
 import { UserModule } from '../user/user.module'
 import { ChatsModule } from '../chats/chats.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
+import { LoggerModule } from '../common/logger/logger.module'
 
 @Module({
 	imports: [
@@ -18,6 +19,7 @@ import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 		UserModule,
 		ChatsModule,
 		ConfigModule,
+		LoggerModule,
 	],
 	controllers: [LikeController, LikeMicroController],
 	providers: [LikeService, AppLogger],

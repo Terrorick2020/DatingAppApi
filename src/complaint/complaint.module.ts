@@ -7,6 +7,7 @@ import { ComplaintService } from './complaint.service';
 import { ComplaintMicroController } from './complaint.micro.controller';
 import { AppLogger } from '../common/logger/logger.service';
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module';
+import { LoggerModule } from '../common/logger/logger.module'
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
     RedisModule,
     RedisPubSubModule,
     ConfigModule,
+    LoggerModule,
   ],
   controllers: [ComplaintController, ComplaintMicroController],
   providers: [ComplaintService, AppLogger],
