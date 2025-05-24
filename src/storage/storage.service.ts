@@ -77,7 +77,7 @@ export class StorageService {
 		}
 	}
 
-	async getPresignedUrl(key: string, expiresIn: number = 60): Promise<string> {
+	async getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
 		try {
 			const command = new GetObjectCommand({
 				Bucket: this.bucketName,

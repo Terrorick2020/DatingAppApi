@@ -6,6 +6,7 @@ import { AuthService } from './auth.service'
 import { StorageService } from '../storage/storage.service'
 import { AppLogger } from '../common/logger/logger.service'
 import { APP_PIPE } from '@nestjs/core'
+import { GeoService } from '../geo/geo.service'
 
 @Module({
 	controllers: [AuthController],
@@ -15,6 +16,7 @@ import { APP_PIPE } from '@nestjs/core'
 		UserService,
 		StorageService,
 		AppLogger,
+		GeoService,
 		{
 			provide: APP_PIPE,
 			useFactory: () =>

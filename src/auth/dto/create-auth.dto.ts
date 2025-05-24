@@ -14,6 +14,7 @@ import {
 } from 'class-validator'
 import { Transform } from 'class-transformer'
 import { Sex } from '@prisma/client'
+import { IsGeoDataValid } from '~/src/geo/validators/geo-validation.validator'
 
 export class CreateAuthDto {
 	@ApiProperty({
@@ -74,7 +75,34 @@ export class CreateAuthDto {
 	})
 	@IsBoolean()
 	@Transform(({ value }) => value === 'true' || value === true)
+	@IsGeoDataValid()
 	enableGeo: boolean
+
+	@ApiPropertyOptional({
+		description: 'Широта (обязательно если enableGeo = true)',
+		example: 55.7558,
+		minimum: -90,
+		maximum: 90,
+	})
+	@IsOptional()
+	@IsNumber()
+	@Min(-90)
+	@Max(90)
+	@Transform(({ value }) => (value ? parseFloat(value) : undefined))
+	latitude?: number
+
+	@ApiPropertyOptional({
+		description: 'Долгота (обязательно если enableGeo = true)',
+		example: 37.6176,
+		minimum: -180,
+		maximum: 180,
+	})
+	@IsOptional()
+	@IsNumber()
+	@Min(-180)
+	@Max(180)
+	@Transform(({ value }) => (value ? parseFloat(value) : undefined))
+	longitude?: number
 
 	@ApiProperty({
 		description: 'Язык пользователя',
@@ -106,12 +134,6 @@ export class CreateAuthDto {
 	@ApiPropertyOptional({
 		description: 'Реферальный код пригласившего пользователя',
 		example: 'abcd1234',
-	})
-	@ApiPropertyOptional({
-		description: 'Реферальный код пригласившего пользователя',
-		example: 'abcd1234',
-		maxLength: 8,
-		minLength: 8,
 	})
 	@IsOptional()
 	@IsString()

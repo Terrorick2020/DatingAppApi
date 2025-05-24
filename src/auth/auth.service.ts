@@ -13,7 +13,8 @@ import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { LoginDto } from './dto/login.dto'
 import { StorageService } from '../storage/storage.service'
-import { UserProfileResponse } from './interfaces/auth-response.interface'
+import { PhotoResponse, UserProfileResponse } from './interfaces/auth-response.interface'
+import { GeoService } from '../geo/geo.service'
 
 @Injectable()
 export class AuthService {
@@ -24,7 +25,8 @@ export class AuthService {
 		private userService: UserService,
 		private logger: AppLogger,
 		private redisService: RedisService,
-		private storageService: StorageService
+		private storageService: StorageService,
+		private geoService: GeoService
 	) {}
 
 	async check(checkAuthDto: CheckAuthDto) {
@@ -139,6 +141,10 @@ export class AuthService {
 					photoIds,
 					invitedByReferralCode,
 					interestId,
+					latitude,
+					longitude,
+					enableGeo,
+					town, // Может быть переопределен из геолокации
 					...userData
 				} = dto
 
@@ -156,11 +162,6 @@ export class AuthService {
 				}
 
 				// Проверяем наличие фотографий
-				this.logger.debug(
-					`Проверка фотографий: ${photoIds.join(', ')}`,
-					this.CONTEXT
-				)
-
 				const photos = await tx.photo.findMany({
 					where: { id: { in: photoIds } },
 				})
@@ -168,21 +169,17 @@ export class AuthService {
 				if (photos.length !== photoIds.length) {
 					const foundIds = photos.map(p => p.id)
 					const missingIds = photoIds.filter(id => !foundIds.includes(id))
-
 					this.logger.warn(
 						`Не найдены фотографии: ${missingIds.join(', ')}`,
-						this.CONTEXT,
-						{ missingIds }
+						this.CONTEXT
 					)
-
 					return errorResponse('Некоторые фотографии не найдены в базе данных')
 				}
 
+				// Проверяем интерес
 				const interest = await tx.interest.findUnique({
 					where: { id: interestId },
 				})
-				const interests = await tx.interest.findMany()
-				console.log(interestId, interest, interests)
 
 				if (!interest) {
 					this.logger.warn(
@@ -192,14 +189,51 @@ export class AuthService {
 					return errorResponse('Выбранный интерес не существует')
 				}
 
-				// Обработка реферального кода
-				let invitedById: string | undefined = undefined
-				if (invitedByReferralCode) {
+				// ⭐ ОБРАБОТКА ГЕОЛОКАЦИИ
+				let finalTown = town
+				let finalLatitude = latitude
+				let finalLongitude = longitude
+
+				if (enableGeo && latitude && longitude) {
 					this.logger.debug(
-						`Проверка реферального кода: ${invitedByReferralCode}`,
+						`Определение города по координатам: ${latitude}, ${longitude}`,
 						this.CONTEXT
 					)
 
+					try {
+						// Определяем город по координатам
+						const geoResult = await this.geoService.getCityByCoordinates({
+							latitude,
+							longitude,
+							enableGeo: true,
+						})
+
+						if (geoResult.success && geoResult.data?.city) {
+							finalTown = geoResult.data.city
+							this.logger.debug(
+								`Город определен по координатам: ${finalTown}`,
+								this.CONTEXT
+							)
+						} else {
+							this.logger.warn(
+								`Не удалось определить город по координатам, используем указанный: ${town}`,
+								this.CONTEXT
+							)
+						}
+					} catch (geoError: any) {
+						this.logger.error(
+							`Ошибка при определении города по координатам`,
+							geoError?.stack,
+							this.CONTEXT,
+							{ latitude, longitude, error: geoError }
+						)
+						// Продолжаем с указанным городом
+					}
+				}
+
+				// Обработка реферального кода
+				let invitedById: string | undefined = undefined
+				if (invitedByReferralCode) {
 					const inviter = await tx.user.findUnique({
 						where: { referralCode: invitedByReferralCode },
 					})
@@ -210,130 +244,78 @@ export class AuthService {
 							`Пользователь приглашен по коду от: ${invitedById}`,
 							this.CONTEXT
 						)
-					} else {
-						this.logger.warn(
-							`Указан недействительный реферальный код: ${invitedByReferralCode}`,
-							this.CONTEXT
-						)
 					}
 				}
 
 				// Создаем уникальный реферальный код
 				const referralCode = uuidv4().slice(0, 8)
 
-				this.logger.debug(
-					`Создание пользователя с реферальным кодом: ${referralCode}`,
-					this.CONTEXT,
-					{ userData }
-				)
-
-				// Создаем пользователя
-				try {
-					const createdUser = await tx.user.create({
-						data: {
-							...userData,
-							telegramId,
-							referralCode,
-							interest: { connect: { id: interestId } },
-							photos: {
-								connect: photoIds.map(id => ({ id })),
-							},
-							...(invitedById !== undefined
-								? { invitedBy: { connect: { telegramId: invitedById } } }
-								: {}),
+				// ⭐ СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ С КООРДИНАТАМИ
+				const createdUser = await tx.user.create({
+					data: {
+						...userData,
+						telegramId,
+						town: finalTown, // Используем определенный или указанный город
+						enableGeo,
+						latitude: enableGeo ? finalLatitude : null,
+						longitude: enableGeo ? finalLongitude : null,
+						referralCode,
+						interest: { connect: { id: interestId } },
+						photos: {
+							connect: photoIds.map(id => ({ id })),
 						},
-					})
-
-					this.logger.debug(
-						`Пользователь ${telegramId} успешно создан`,
-						this.CONTEXT
-					)
-				} catch (createError: any) {
-					this.logger.error(
-						`Ошибка при создании пользователя ${telegramId}`,
-						createError?.stack,
-						this.CONTEXT,
-						{
-							error: createError,
-							prismaCode: createError?.code,
-							prismaClientVersion: createError?.clientVersion,
-							prismaInfo: createError?.meta,
-						}
-					)
-
-					throw createError
-				}
+						...(invitedById !== undefined
+							? { invitedBy: { connect: { telegramId: invitedById } } }
+							: {}),
+					},
+				})
 
 				// Обновляем связи фотографий
-				try {
-					await tx.photo.updateMany({
-						where: {
-							tempTgId: telegramId,
-							telegramId: null,
+				await tx.photo.updateMany({
+					where: {
+						tempTgId: telegramId,
+						telegramId: null,
+					},
+					data: {
+						telegramId,
+						tempTgId: null,
+					},
+				})
+
+				this.logger.debug(
+					`Пользователь ${telegramId} успешно создан с геолокацией: ${enableGeo}`,
+					this.CONTEXT,
+					{
+						town: finalTown,
+						hasCoordinates: !!(finalLatitude && finalLongitude),
+						coordinates: enableGeo
+							? { lat: finalLatitude, lng: finalLongitude }
+							: null,
+					}
+				)
+
+				return successResponse(
+					{
+						user: {
+							telegramId: createdUser.telegramId,
+							town: finalTown,
+							enableGeo,
+							coordinates: enableGeo
+								? { latitude: finalLatitude, longitude: finalLongitude }
+								: null,
 						},
-						data: {
-							telegramId,
-							tempTgId: null,
-						},
-					})
-
-					this.logger.debug(
-						`Фотографии успешно привязаны к пользователю ${telegramId}`,
-						this.CONTEXT
-					)
-				} catch (photoError: any) {
-					this.logger.error(
-						`Ошибка при привязке фотографий к пользователю ${telegramId}`,
-						photoError?.stack,
-						this.CONTEXT,
-						{ error: photoError }
-					)
-
-					throw photoError
-				}
-
-				return successResponse('Пользователь создан и фото привязаны')
+					},
+					'Пользователь создан и фото привязаны'
+				)
 			})
 		} catch (error: any) {
-			// Детализируем ошибку в зависимости от её типа
-			let errorMessage = 'Ошибка при регистрации пользователя:'
-			let errorDetails = error
-
-			// Обработка ошибок Prisma
-			if (error?.name === 'PrismaClientKnownRequestError') {
-				switch (error.code) {
-					case 'P2002':
-						errorMessage = 'Пользователь с таким идентификатором уже существует'
-						break
-					case 'P2003':
-						errorMessage =
-							'Указаны некорректные связи (foreign key constraint failed)'
-						break
-					case 'P2025':
-						errorMessage = 'Запись не найдена (указан несуществующий ID)'
-						break
-					default:
-						errorMessage = `Ошибка базы данных (код ${error.code})`
-				}
-			} else if (error?.name === 'PrismaClientValidationError') {
-				errorMessage = 'Ошибка валидации данных:'
-			}
-
 			this.logger.error(
 				`Ошибка при регистрации пользователя: ${dto.telegramId}`,
 				error?.stack,
 				this.CONTEXT,
-				{
-					dto,
-					error,
-					errorName: error?.name,
-					prismaCode: error?.code,
-					prismaClientVersion: error?.clientVersion,
-					prismaInfo: error?.meta,
-				}
+				{ dto, error }
 			)
-
-			return errorResponse(errorMessage, errorDetails)
+			return errorResponse('Ошибка при регистрации пользователя', error)
 		}
 	}
 
@@ -371,11 +353,14 @@ export class AuthService {
 			const user = await this.prisma.user.findUnique({
 				where: {
 					telegramId,
-					status: { not: 'Blocked' }, // Исключаем заблокированных
+					status: { not: 'Blocked' },
 				},
 				include: {
 					photos: {
-						select: { key: true },
+						select: {
+							id: true, // ⭐ Добавили ID
+							key: true,
+						},
 						orderBy: { createdAt: 'asc' },
 					},
 					interest: {
@@ -397,7 +382,7 @@ export class AuthService {
 							telegramId: true,
 							name: true,
 						},
-						take: 10, // Ограничиваем количество приглашенных
+						take: 10,
 					},
 				},
 			})
@@ -410,22 +395,31 @@ export class AuthService {
 				return errorResponse('Пользователь не найден или заблокирован')
 			}
 
-			// Генерируем presigned URLs для фотографий
+			// ⭐ Генерируем presigned URLs для фотографий с ID
 			const photoPromises = user.photos.map(async photo => {
 				try {
-					return await this.storageService.getPresignedUrl(photo.key)
+					const presignedUrl = await this.storageService.getPresignedUrl(
+						photo.key,
+						7200
+					) // 2 часа
+					return {
+						id: photo.id,
+						url: presignedUrl,
+					}
 				} catch (error) {
 					this.logger.warn(
-						`Ошибка получения presigned URL для фото ${photo.key}`,
+						`Ошибка получения presigned URL для фото ID ${photo.id}, key: ${photo.key}`,
 						this.CONTEXT,
-						{ error }
+						{ error, photoId: photo.id, photoKey: photo.key }
 					)
 					return null
 				}
 			})
 
-			const photoUrls = await Promise.all(photoPromises)
-			const validPhotoUrls = photoUrls.filter(url => url !== null) as string[]
+			const photoResults = await Promise.all(photoPromises)
+			const validPhotos = photoResults.filter(
+				photo => photo !== null
+			) as PhotoResponse[]
 
 			// Формируем ответ
 			const userProfile: UserProfileResponse = {
@@ -445,14 +439,14 @@ export class AuthService {
 				referralCode: user.referralCode || undefined,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
-				photos: validPhotoUrls,
+				photos: validPhotos, // ⭐ Теперь массив объектов с ID и URL
 				interest: user.interest,
 				invitedBy: user.invitedBy || undefined,
 				invitedUsers: user.invitedUsers,
 			}
 
 			// Кэшируем профиль на 10 минут
-			const cacheTTL = 600 // 10 минут
+			const cacheTTL = 600
 			await this.redisService.setKey(
 				cacheKey,
 				JSON.stringify(userProfile),
@@ -463,13 +457,17 @@ export class AuthService {
 			await this.redisService.setKey(
 				`user:${telegramId}:status`,
 				user.status,
-				300 // 5 минут
+				300
 			)
 
 			this.logger.debug(
 				`Профиль пользователя ${telegramId} успешно получен`,
 				this.CONTEXT,
-				{ photosCount: validPhotoUrls.length }
+				{
+					photosCount: validPhotos.length,
+					totalPhotosInDb: user.photos.length,
+					failedPhotos: user.photos.length - validPhotos.length,
+				}
 			)
 
 			return successResponse(userProfile, 'Авторизация успешна')
