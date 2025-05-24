@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger'
 import { RegistrationRateLimitGuard } from '../common/guards/rate-limit.guard'
 import { LoginDto } from './dto/login.dto'
+import { DeletePhotoDto } from './dto/delete-photo.dto'
 
 @ApiTags('auth')
 @Controller('auth')
@@ -61,7 +62,7 @@ export class AuthController {
 					description: 'Telegram ID пользователя',
 				},
 			},
-			required: ['photo', 'telegramId'],
+			required: ['file', 'telegramId'],
 		},
 	})
 	@ApiResponse({
@@ -154,5 +155,21 @@ export class AuthController {
 	@Post('login')
 	login(@Body() loginDto: LoginDto): Promise<any> {
 		return this.authService.login(loginDto)
+	}
+
+	@ApiOperation({ summary: 'Удаление фотографии пользователя' })
+	@ApiResponse({
+		status: 200,
+		description: 'Фотография успешно удалена',
+	})
+	@ApiResponse({
+		status: 404,
+		description: 'Фотография не найдена',
+	})
+	@ApiBody({ type: DeletePhotoDto })
+	@HttpCode(200)
+	@Post('delete-photo')
+	async deletePhoto(@Body() deletePhotoDto: DeletePhotoDto) {
+		return this.authService.deletePhoto(deletePhotoDto)
 	}
 }

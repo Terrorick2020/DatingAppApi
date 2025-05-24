@@ -11,6 +11,14 @@ import { FindAllUsersDto } from './dto/find-all-users.dto'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { ApiResponse } from '../common/interfaces/api-response.interface'
+import { DeleteUserDto } from './dto/delete-user.dto'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import {
+	UserWithRelations,
+	UserArchiveData,
+	PhotoData,
+} from './interfaces/user-data.interface'
+
 interface PhotoResponse {
 	id: number
 	url: string
@@ -24,7 +32,8 @@ export class UserService {
 		private readonly prisma: PrismaService,
 		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
-		private readonly storageService: StorageService
+		private readonly storageService: StorageService,
+		private readonly redisPubSubService: RedisPubSubService
 	) {}
 
 	// Добавьте этот метод
@@ -318,6 +327,327 @@ export class UserService {
 			return successResponse(publicProfile, 'Публичный профиль получен')
 		} catch (error) {
 			return errorResponse('Ошибка при получении публичного профиля:', error)
+		}
+	}
+
+	async deleteUser(dto: DeleteUserDto) {
+		try {
+			this.logger.debug(
+				`Начало процесса удаления пользователя: ${dto.telegramId}`,
+				this.CONTEXT,
+				{ reason: dto.reason }
+			)
+
+			return await this.prisma.$transaction(async tx => {
+				// Проверяем существование пользователя с правильной типизацией
+				const user = (await tx.user.findUnique({
+					where: { telegramId: dto.telegramId },
+					include: {
+						photos: {
+							select: {
+								id: true,
+								key: true,
+								createdAt: true,
+							},
+						},
+						likesSent: {
+							select: { id: true },
+						},
+						likesReceived: {
+							select: { id: true },
+						},
+						sentComplaints: {
+							select: { id: true },
+						},
+						receivedComplaints: {
+							select: { id: true },
+						},
+						invitedUsers: {
+							select: { telegramId: true },
+						},
+					},
+				})) as UserWithRelations | null
+
+				if (!user) {
+					this.logger.warn(
+						`Пользователь ${dto.telegramId} не найден для удаления`,
+						this.CONTEXT
+					)
+					return errorResponse('Пользователь не найден')
+				}
+
+				this.logger.debug(
+					`Найден пользователь для удаления: ${user.name} (${user.telegramId})`,
+					this.CONTEXT,
+					{
+						photosCount: user.photos.length,
+						sentLikes: user.likesSent.length,
+						receivedLikes: user.likesReceived.length,
+						sentComplaints: user.sentComplaints.length,
+						receivedComplaints: user.receivedComplaints.length,
+						invitedUsers: user.invitedUsers.length,
+					}
+				)
+
+				// 1. Удаляем все фотографии пользователя из S3
+				if (user.photos.length > 0) {
+					this.logger.debug(
+						`Удаление ${user.photos.length} фотографий из хранилища`,
+						this.CONTEXT
+					)
+
+					const photoDeletePromises = user.photos.map((photo: PhotoData) =>
+						this.storageService.deletePhoto(photo.key).catch(error => {
+							this.logger.error(
+								`Ошибка при удалении фото ${photo.key} из хранилища`,
+								error?.stack,
+								this.CONTEXT,
+								{ error }
+							)
+							// Не прерываем процесс, если не удалось удалить фото из S3
+						})
+					)
+
+					await Promise.all(photoDeletePromises)
+				}
+
+				// 2. Архивируем данные пользователя перед удалением
+				await this.archiveUserData(user, dto.reason)
+
+				// 3. Обновляем реферальные связи - назначаем NULL вместо удаления связанных пользователей
+				if (user.invitedUsers.length > 0) {
+					await tx.user.updateMany({
+						where: { invitedById: dto.telegramId },
+						data: { invitedById: null },
+					})
+
+					this.logger.debug(
+						`Обновлены реферальные связи для ${user.invitedUsers.length} пользователей`,
+						this.CONTEXT
+					)
+				}
+
+				// 4. Удаляем пользователя из базы данных
+				// Cascading delete автоматически удалит связанные записи:
+				// - photos, likes, complaints благодаря onDelete: Cascade
+				await tx.user.delete({
+					where: { telegramId: dto.telegramId },
+				})
+
+				this.logger.debug(
+					`Пользователь ${dto.telegramId} успешно удален из базы данных`,
+					this.CONTEXT
+				)
+
+				// 5. Очищаем все кэши, связанные с пользователем
+				await this.clearAllUserCaches(dto.telegramId)
+
+				// 6. Удаляем данные пользователя из Redis (чаты, сообщения и т.д.)
+				await this.cleanupUserDataFromRedis(dto.telegramId)
+
+				// 7. Отправляем уведомления через Redis Pub/Sub
+				await this.redisPubSubService.publish('user:deleted', {
+					telegramId: dto.telegramId,
+					reason: dto.reason,
+					timestamp: Date.now(),
+				})
+
+				this.logger.log(
+					`Пользователь ${dto.telegramId} полностью удален из системы`,
+					this.CONTEXT
+				)
+
+				return successResponse(
+					null,
+					'Пользователь и все связанные данные успешно удалены'
+				)
+			})
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении пользователя ${dto.telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при удалении пользователя', error)
+		}
+	}
+
+	/**
+	 * Архивация данных пользователя перед удалением
+	 */
+	private async archiveUserData(
+		user: UserWithRelations,
+		reason?: string
+	): Promise<void> {
+		try {
+			const archiveData: UserArchiveData = {
+				user: {
+					telegramId: user.telegramId,
+					name: user.name,
+					town: user.town,
+					age: user.age,
+					bio: user.bio,
+					createdAt: user.createdAt,
+					role: user.role,
+					status: user.status,
+				},
+				photos: user.photos.map((photo: PhotoData) => ({
+					id: photo.id,
+					key: photo.key,
+					createdAt: photo.createdAt,
+				})),
+				statistics: {
+					sentLikes: user.likesSent.length,
+					receivedLikes: user.likesReceived.length,
+					sentComplaints: user.sentComplaints.length,
+					receivedComplaints: user.receivedComplaints.length,
+					invitedUsers: user.invitedUsers.length,
+				},
+				deletion: {
+					reason: reason || 'Не указана',
+					timestamp: new Date().toISOString(),
+				},
+			}
+
+			// Сохраняем архив в S3
+			const archiveKey = `user_archives/${user.telegramId}_${Date.now()}.json`
+			const archiveBuffer = Buffer.from(JSON.stringify(archiveData, null, 2))
+
+			await this.storageService.uploadUserArchive(archiveKey, archiveBuffer)
+
+			this.logger.debug(
+				`Данные пользователя ${user.telegramId} архивированы в ${archiveKey}`,
+				this.CONTEXT
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при архивации данных пользователя ${user.telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ error }
+			)
+			// Не прерываем процесс удаления, если архивация не удалась
+		}
+	}
+
+	/**
+	 * Очистка всех кэшей пользователя
+	 */
+	private async clearAllUserCaches(telegramId: string): Promise<void> {
+		try {
+			const cacheKeys = [
+				`user:${telegramId}:status`,
+				`user:${telegramId}:profile`,
+				`user:${telegramId}:chats`,
+				`user:${telegramId}:chats_preview`,
+				`user:${telegramId}:likes:sent`,
+				`user:${telegramId}:likes:received`,
+				`user:${telegramId}:likes:matches`,
+				`user:${telegramId}:complaints:sent`,
+				`user:${telegramId}:complaints:received`,
+			]
+
+			const deletePromises = cacheKeys.map(key =>
+				this.redisService.deleteKey(key).catch(error => {
+					this.logger.warn(
+						`Ошибка при удалении кэш-ключа ${key}`,
+						this.CONTEXT,
+						{ error }
+					)
+				})
+			)
+
+			await Promise.all(deletePromises)
+
+			this.logger.debug(
+				`Очищены кэши для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при очистке кэшей пользователя ${telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ error }
+			)
+		}
+	}
+
+	/**
+	 * Очистка данных пользователя из Redis
+	 */
+	private async cleanupUserDataFromRedis(telegramId: string): Promise<void> {
+		try {
+			// Получаем все ключи, связанные с пользователем
+			const userKeys = await this.redisService.getKeysByPattern(
+				`*${telegramId}*`
+			)
+
+			if (userKeys.success && userKeys.data && userKeys.data.length > 0) {
+				const deletePromises = userKeys.data.map(key =>
+					this.redisService.deleteKey(key).catch(error => {
+						this.logger.warn(
+							`Ошибка при удалении Redis ключа ${key}`,
+							this.CONTEXT,
+							{ error }
+						)
+					})
+				)
+
+				await Promise.all(deletePromises)
+
+				this.logger.debug(
+					`Удалено ${userKeys.data.length} ключей из Redis для пользователя ${telegramId}`,
+					this.CONTEXT
+				)
+			}
+
+			// Дополнительно очищаем специфичные ключи
+			const specificKeys = [
+				`user:${telegramId}:status`,
+				`user:${telegramId}:room`,
+				`user:${telegramId}:activity`,
+			]
+
+			await Promise.all(
+				specificKeys.map(key => this.redisService.deleteKey(key))
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при очистке данных пользователя из Redis`,
+				error?.stack,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
+		}
+	}
+
+	/**
+	 * Инвалидация кэша пользователя (вспомогательный метод)
+	 */
+	private async invalidateUserCache(telegramId: string): Promise<void> {
+		try {
+			const cacheKeys = [
+				`user:${telegramId}:status`,
+				`user:${telegramId}:profile`,
+				`user:${telegramId}:chats_preview`,
+			]
+
+			for (const key of cacheKeys) {
+				await this.redisService.deleteKey(key)
+			}
+
+			this.logger.debug(
+				`Кэш пользователя ${telegramId} инвалидирован`,
+				this.CONTEXT
+			)
+		} catch (error) {
+			this.logger.warn(
+				`Ошибка при инвалидации кэша пользователя`,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
 		}
 	}
 }

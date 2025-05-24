@@ -77,7 +77,10 @@ export class StorageService {
 		}
 	}
 
-	async getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+	async getPresignedUrl(
+		key: string,
+		expiresIn: number = 3600
+	): Promise<string> {
 		try {
 			const command = new GetObjectCommand({
 				Bucket: this.bucketName,
@@ -227,5 +230,32 @@ export class StorageService {
 			)
 			return []
 		}
+	}
+
+	async uploadUserArchive(key: string, buffer: Buffer): Promise<void> {
+		try {
+			const command = new PutObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+				Body: buffer,
+				ContentType: 'application/json',
+				ServerSideEncryption: 'AES256',
+			})
+
+			await this.s3.send(command)
+			this.logger.debug(`Архив пользователя ${key} успешно загружен в S3`)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при загрузке архива пользователя ${key} в S3`,
+				error?.stack,
+				'StorageService',
+				{ error }
+			)
+			throw error
+		}
+	}
+
+	private getFileExtension(filename: string): string {
+		return filename.split('.').pop() || 'jpg'
 	}
 }

@@ -13,8 +13,12 @@ import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { LoginDto } from './dto/login.dto'
 import { StorageService } from '../storage/storage.service'
-import { PhotoResponse, UserProfileResponse } from './interfaces/auth-response.interface'
+import {
+	PhotoResponse,
+	UserProfileResponse,
+} from './interfaces/auth-response.interface'
 import { GeoService } from '../geo/geo.service'
+import { DeletePhotoDto } from './dto/delete-photo.dto'
 
 @Injectable()
 export class AuthService {
@@ -479,6 +483,123 @@ export class AuthService {
 				{ error }
 			)
 			return errorResponse('Ошибка при авторизации пользователя', error)
+		}
+	}
+
+	async deletePhoto(dto: DeletePhotoDto) {
+		try {
+			this.logger.debug(
+				`Удаление фото ${dto.photoId} для пользователя ${dto.telegramId}`,
+				this.CONTEXT
+			)
+
+			return await this.prisma.$transaction(async tx => {
+				// Проверяем существование пользователя
+				const user = await tx.user.findUnique({
+					where: { telegramId: dto.telegramId },
+					include: { photos: true },
+				})
+
+				if (!user) {
+					this.logger.warn(
+						`Пользователь ${dto.telegramId} не найден при удалении фото`,
+						this.CONTEXT
+					)
+					return errorResponse('Пользователь не найден')
+				}
+
+				// Проверяем существование фото и принадлежность пользователю
+				const photo = await tx.photo.findFirst({
+					where: {
+						id: dto.photoId,
+						telegramId: dto.telegramId,
+					},
+				})
+
+				if (!photo) {
+					this.logger.warn(
+						`Фото ${dto.photoId} не найдено или не принадлежит пользователю ${dto.telegramId}`,
+						this.CONTEXT
+					)
+					return errorResponse('Фотография не найдена или не принадлежит вам')
+				}
+
+				// Проверяем, не последняя ли это фотография
+				if (user.photos.length <= 1) {
+					this.logger.warn(
+						`Попытка удалить единственную фотографию пользователя ${dto.telegramId}`,
+						this.CONTEXT
+					)
+					return errorResponse(
+						'Нельзя удалить последнюю фотографию. У вас должна быть хотя бы одна фотография'
+					)
+				}
+
+				// Удаляем фото из базы данных
+				await tx.photo.delete({
+					where: { id: dto.photoId },
+				})
+
+				// Удаляем фото из S3
+				try {
+					await this.storageService.deletePhoto(photo.key)
+					this.logger.debug(
+						`Фото ${photo.key} успешно удалено из хранилища`,
+						this.CONTEXT
+					)
+				} catch (storageError: any) {
+					this.logger.error(
+						`Ошибка при удалении фото из хранилища: ${photo.key}`,
+						storageError?.stack,
+						this.CONTEXT,
+						{ error: storageError }
+					)
+					// Продолжаем выполнение, так как фото уже удалено из БД
+				}
+
+				// Инвалидируем кэш пользователя
+				await this.invalidateUserCache(dto.telegramId)
+
+				this.logger.debug(
+					`Фото ${dto.photoId} успешно удалено для пользователя ${dto.telegramId}`,
+					this.CONTEXT
+				)
+
+				return successResponse(null, 'Фотография успешно удалена')
+			})
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении фото ${dto.photoId} для пользователя ${dto.telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при удалении фотографии', error)
+		}
+	}
+
+	private async invalidateUserCache(telegramId: string): Promise<void> {
+		try {
+			const cacheKeys = [
+				`user:${telegramId}:status`,
+				`user:${telegramId}:profile`,
+				`user:${telegramId}:chats_preview`,
+			]
+
+			for (const key of cacheKeys) {
+				await this.redisService.deleteKey(key)
+			}
+
+			this.logger.debug(
+				`Кэш пользователя ${telegramId} инвалидирован`,
+				this.CONTEXT
+			)
+		} catch (error) {
+			this.logger.warn(
+				`Ошибка при инвалидации кэша пользователя`,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
 		}
 	}
 }
