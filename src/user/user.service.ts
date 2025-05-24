@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
-import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import {
 	successResponse,
@@ -12,16 +11,76 @@ import { FindAllUsersDto } from './dto/find-all-users.dto'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { ApiResponse } from '../common/interfaces/api-response.interface'
+interface PhotoResponse {
+	id: number
+	url: string
+}
 
 @Injectable()
 export class UserService {
+	private readonly CONTEXT = 'UserService'
+
 	constructor(
-		private prisma: PrismaService,
-		private readonly storageService: StorageService,
+		private readonly prisma: PrismaService,
+		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
-		private readonly logger: AppLogger
+		private readonly storageService: StorageService
 	) {}
 
+	// Добавьте этот метод
+	private async getPhotoUrlsWithIds(
+		photos: { id: number; key: string }[]
+	): Promise<PhotoResponse[]> {
+		const photoResponses: PhotoResponse[] = []
+
+		for (const photo of photos) {
+			const cacheKey = `photo:${photo.id}:url`
+
+			// Проверяем кеш по ID фотографии
+			const cachedUrl = await this.redisService.getKey(cacheKey)
+
+			if (cachedUrl.success && cachedUrl.data) {
+				this.logger.debug(
+					`URL фото ID ${photo.id} получен из кеша`,
+					this.CONTEXT
+				)
+				photoResponses.push({
+					id: photo.id,
+					url: cachedUrl.data,
+				})
+				continue
+			}
+
+			// Генерируем новый URL
+			try {
+				const presignedUrl = await this.storageService.getPresignedUrl(
+					photo.key,
+					7200
+				)
+
+				// Кешируем на 1 час 50 минут (меньше чем живет URL)
+				await this.redisService.setKey(cacheKey, presignedUrl, 6600)
+
+				photoResponses.push({
+					id: photo.id,
+					url: presignedUrl,
+				})
+
+				this.logger.debug(
+					`Presigned URL создан и закеширован для фото ID ${photo.id}`,
+					this.CONTEXT
+				)
+			} catch (error: any) {
+				this.logger.warn(
+					`Пропускаем фото ID ${photo.id} из-за ошибки: ${error.message}`,
+					this.CONTEXT,
+					{ photoId: photo.id, photoKey: photo.key, error }
+				)
+			}
+		}
+
+		return photoResponses
+	}
 	async findAll(params: FindAllUsersDto) {
 		try {
 			const {
@@ -103,15 +162,43 @@ export class UserService {
 		}
 	}
 
-	async findByTelegramId(telegramId: string) {
+	async findByTelegramId(telegramId: string): Promise<ApiResponse<any>> {
 		try {
 			const user = await this.prisma.user.findUnique({
 				where: { telegramId },
-				include: { photos: true },
+				include: {
+					photos: {
+						select: {
+							id: true,
+							key: true,
+						},
+					},
+					interest: true,
+				},
 			})
-			return successResponse(user)
-		} catch (error) {
-			return errorResponse('Ошибка при получении по Telegram ID', error)
+
+			if (!user) {
+				return errorResponse('Пользователь не найден')
+			}
+
+			// Используем метод кеширования для получения URL фотографий
+			const photoUrls = await this.getPhotoUrlsWithIds(user.photos)
+
+			return successResponse(
+				{
+					...user,
+					photos: photoUrls,
+				},
+				'Пользователь найден'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при поиске пользователя ${telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ error }
+			)
+			return errorResponse('Ошибка при поиске пользователя', error)
 		}
 	}
 
