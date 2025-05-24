@@ -11,6 +11,9 @@ import { CheckAuthDto } from './dto/check-auth.dto'
 import { v4 as uuidv4 } from 'uuid'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
+import { LoginDto } from './dto/login.dto'
+import { StorageService } from '../storage/storage.service'
+import { UserProfileResponse } from './interfaces/auth-response.interface'
 
 @Injectable()
 export class AuthService {
@@ -20,7 +23,8 @@ export class AuthService {
 		private prisma: PrismaService,
 		private userService: UserService,
 		private logger: AppLogger,
-		private redisService: RedisService
+		private redisService: RedisService,
+		private storageService: StorageService
 	) {}
 
 	async check(checkAuthDto: CheckAuthDto) {
@@ -328,6 +332,153 @@ export class AuthService {
 			)
 
 			return errorResponse(errorMessage, errorDetails)
+		}
+	}
+
+	async login(loginDto: LoginDto) {
+		const { telegramId } = loginDto
+
+		try {
+			this.logger.debug(`Авторизация пользователя: ${telegramId}`, this.CONTEXT)
+
+			// Проверяем кэш профиля пользователя
+			const cacheKey = `user:${telegramId}:profile`
+			const cachedProfile = await this.redisService.getKey(cacheKey)
+
+			if (cachedProfile.success && cachedProfile.data) {
+				try {
+					const profile = JSON.parse(cachedProfile.data)
+					this.logger.debug(
+						`Профиль пользователя ${telegramId} получен из кэша`,
+						this.CONTEXT
+					)
+					return successResponse(
+						profile,
+						'Профиль пользователя получен из кэша'
+					)
+				} catch (e) {
+					this.logger.warn(
+						`Ошибка парсинга кэша профиля для ${telegramId}`,
+						this.CONTEXT,
+						{ error: e }
+					)
+				}
+			}
+
+			// Получаем полные данные пользователя из БД
+			const user = await this.prisma.user.findUnique({
+				where: {
+					telegramId,
+					status: { not: 'Blocked' }, // Исключаем заблокированных
+				},
+				include: {
+					photos: {
+						select: { key: true },
+						orderBy: { createdAt: 'asc' },
+					},
+					interest: {
+						select: {
+							id: true,
+							value: true,
+							label: true,
+							isOppos: true,
+						},
+					},
+					invitedBy: {
+						select: {
+							telegramId: true,
+							name: true,
+						},
+					},
+					invitedUsers: {
+						select: {
+							telegramId: true,
+							name: true,
+						},
+						take: 10, // Ограничиваем количество приглашенных
+					},
+				},
+			})
+
+			if (!user) {
+				this.logger.warn(
+					`Пользователь ${telegramId} не найден или заблокирован`,
+					this.CONTEXT
+				)
+				return errorResponse('Пользователь не найден или заблокирован')
+			}
+
+			// Генерируем presigned URLs для фотографий
+			const photoPromises = user.photos.map(async photo => {
+				try {
+					return await this.storageService.getPresignedUrl(photo.key)
+				} catch (error) {
+					this.logger.warn(
+						`Ошибка получения presigned URL для фото ${photo.key}`,
+						this.CONTEXT,
+						{ error }
+					)
+					return null
+				}
+			})
+
+			const photoUrls = await Promise.all(photoPromises)
+			const validPhotoUrls = photoUrls.filter(url => url !== null) as string[]
+
+			// Формируем ответ
+			const userProfile: UserProfileResponse = {
+				telegramId: user.telegramId,
+				name: user.name,
+				town: user.town,
+				sex: user.sex,
+				age: user.age,
+				bio: user.bio,
+				lang: user.lang,
+				enableGeo: user.enableGeo,
+				isVerify: user.isVerify,
+				latitude: user.latitude || undefined,
+				longitude: user.longitude || undefined,
+				role: user.role,
+				status: user.status,
+				referralCode: user.referralCode || undefined,
+				createdAt: user.createdAt.toISOString(),
+				updatedAt: user.updatedAt.toISOString(),
+				photos: validPhotoUrls,
+				interest: user.interest,
+				invitedBy: user.invitedBy || undefined,
+				invitedUsers: user.invitedUsers,
+			}
+
+			// Кэшируем профиль на 10 минут
+			const cacheTTL = 600 // 10 минут
+			await this.redisService.setKey(
+				cacheKey,
+				JSON.stringify(userProfile),
+				cacheTTL
+			)
+
+			// Обновляем кэш статуса пользователя
+			await this.redisService.setKey(
+				`user:${telegramId}:status`,
+				user.status,
+				300 // 5 минут
+			)
+
+			this.logger.debug(
+				`Профиль пользователя ${telegramId} успешно получен`,
+				this.CONTEXT,
+				{ photosCount: validPhotoUrls.length }
+			)
+
+			return successResponse(userProfile, 'Авторизация успешна')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при авторизации пользователя ${telegramId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ error }
+			)
+			return errorResponse('Ошибка при авторизации пользователя', error)
 		}
 	}
 }
