@@ -1,14 +1,15 @@
 #!/bin/bash
 
-echo "Waiting for database connection..."
-until nc -z db 5432; do
+# Ждем, пока база данных будет доступна на порту 5432
+until nc -z -v -w30 db 5432; do
+  echo "Waiting for database connection..."
   sleep 1
 done
 
-echo "Database is up, running Prisma migrations..."
+# Когда база данных доступна, выполняем миграции и запускаем приложение
+echo "Database is up, running prisma db push"
 npx prisma db push
-echo "Prisma migrations applied success"
 
-
+# Запускаем приложение
 npm run build
 npm run start:prod

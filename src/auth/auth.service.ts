@@ -44,6 +44,7 @@ export class AuthService {
 					`Пользователь ${telegramId} найден в кэше со статусом: ${cachedStatus.data}`,
 					this.CONTEXT
 				)
+
 				return successResponse(
 					cachedStatus.data,
 					cachedStatus.data === 'None'
@@ -73,6 +74,7 @@ export class AuthService {
 					`Пользователь ${telegramId} найден со статусом: ${status}`,
 					this.CONTEXT
 				)
+
 				return successResponse(status, 'Пользователь найден')
 			} else if (typeof status === 'object' && 'success' in status) {
 				// Если вернулся объект ApiResponse, возвращаем его напрямую

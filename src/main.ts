@@ -13,7 +13,7 @@ import { ConfigService } from '@nestjs/config'
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule)
 
-	app.setGlobalPrefix('api')
+	// app.setGlobalPrefix('api')
 	app.enableCors({
 		origin: '*',
 		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
