@@ -41,17 +41,6 @@ export class AuthService {
 					this.CONTEXT
 				)
 
-				const user = await this.userService.findByTelegramId(telegramId)
-
-				if(user.success && user.data) {
-					return successResponse(
-						user.data,
-						user.data === 'None'
-							? 'Пользователь не зарегистрирован'
-							: 'Пользователь найден'
-					)
-				}
-
 				return successResponse(
 					cachedStatus.data,
 					cachedStatus.data === 'None'
@@ -81,17 +70,6 @@ export class AuthService {
 					`Пользователь ${telegramId} найден со статусом: ${status}`,
 					this.CONTEXT
 				)
-
-				const user = await this.userService.findByTelegramId(telegramId)
-
-				if(user.success && user.data) {
-					return successResponse(
-						user.data,
-						user.data === 'None'
-							? 'Пользователь не зарегистрирован'
-							: 'Пользователь найден'
-					)
-				}
 
 				return successResponse(status, 'Пользователь найден')
 			} else if (typeof status === 'object' && 'success' in status) {
