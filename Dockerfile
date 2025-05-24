@@ -1,24 +1,22 @@
-FROM oven/bun:latest
+FROM node:22-alpine
+
+RUN apk add --no-cache bash
+
 WORKDIR /api
 
-# Копирование package.json и package-lock.json
-COPY package*.json ./
-COPY bun.lockb ./
+COPY package.json .
 
-# Установка зависимостей
-RUN bun install
+RUN npm install --legacy-peer-deps
 
-# Копирование всего проекта
 COPY . .
 
-# Генерация Prisma клиента
-RUN bunx prisma generate
+RUN npx prisma generate
 
-# Сборка приложения
-RUN bun run build
-
-# Открытие порта
 EXPOSE 3000
 
-# Запуск приложения
-CMD ["bun", "run", "dist/src/main.js"]
+COPY wait-for-db.sh /server/wait-for-db.sh
+
+RUN sed -i 's/\r//' /server/wait-for-db.sh
+RUN chmod +x /server/wait-for-db.sh
+
+CMD ["/bin/bash", "/server/wait-for-db.sh"]

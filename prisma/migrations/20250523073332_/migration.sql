@@ -83,32 +83,6 @@ CREATE TABLE "Like" (
     CONSTRAINT "Like_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Chats" (
-    "id" UUID NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "lastMsg" TEXT NOT NULL,
-    "unChkdCnt" INTEGER NOT NULL,
-    "userId" TEXT NOT NULL,
-
-    CONSTRAINT "Chats_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Messages" (
-    "id" UUID NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "msg" TEXT NOT NULL,
-    "isChecked" BOOLEAN NOT NULL DEFAULT false,
-    "fromUser" TEXT NOT NULL,
-    "toUser" TEXT NOT NULL,
-    "chatId" UUID NOT NULL,
-
-    CONSTRAINT "Messages_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "User_telegramId_key" ON "User"("telegramId");
 
@@ -134,10 +108,10 @@ ALTER TABLE "User" ADD CONSTRAINT "User_invitedById_fkey" FOREIGN KEY ("invitedB
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_telegramId_fkey" FOREIGN KEY ("telegramId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_reasonId_fkey" FOREIGN KEY ("reasonId") REFERENCES "ComplaintReason"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_fromUserId_fkey" FOREIGN KEY ("fromUserId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_fromUserId_fkey" FOREIGN KEY ("fromUserId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_reasonId_fkey" FOREIGN KEY ("reasonId") REFERENCES "ComplaintReason"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_toUserId_fkey" FOREIGN KEY ("toUserId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -147,15 +121,3 @@ ALTER TABLE "Like" ADD CONSTRAINT "Like_fromUserId_fkey" FOREIGN KEY ("fromUserI
 
 -- AddForeignKey
 ALTER TABLE "Like" ADD CONSTRAINT "Like_toUserId_fkey" FOREIGN KEY ("toUserId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Chats" ADD CONSTRAINT "Chats_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Messages" ADD CONSTRAINT "Messages_fromUser_fkey" FOREIGN KEY ("fromUser") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Messages" ADD CONSTRAINT "Messages_toUser_fkey" FOREIGN KEY ("toUser") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Messages" ADD CONSTRAINT "Messages_chatId_fkey" FOREIGN KEY ("chatId") REFERENCES "Chats"("id") ON DELETE CASCADE ON UPDATE CASCADE;

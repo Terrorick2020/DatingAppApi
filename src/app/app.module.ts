@@ -43,7 +43,11 @@ import { CoreModule } from '../core/core.module'
 		RedisPubSubModule,
 	],
 	controllers: [AppController],
-	providers: [AppService, AppLogger, PrismaService],
+	providers: [
+		AppService,
+		AppLogger,
+		PrismaService
+	],
 	exports: [AppLogger],
 })
 export class AppModule {}

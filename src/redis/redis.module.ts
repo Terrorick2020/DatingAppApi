@@ -4,10 +4,16 @@ import { ConfigService } from '@nestjs/config'
 import { RedisController } from './redis.controller'
 import { RedisService } from './redis.service'
 import { RedisErrorHandler } from './redis.error-handler'
+import { AppLogger } from '../common/logger/logger.service'
+import { LoggerModule } from '../common/logger/logger.module'
 
 @Global()
 @Module({
+	imports: [LoggerModule],
 	providers: [
+		AppLogger,
+		RedisService,
+		RedisErrorHandler,
 		{
 			provide: 'REDIS_CLIENT',
 			useFactory: (configService: ConfigService) => {
@@ -19,8 +25,6 @@ import { RedisErrorHandler } from './redis.error-handler'
 			},
 			inject: [ConfigService],
 		},
-		RedisService,
-		RedisErrorHandler,
 	],
 	controllers: [RedisController],
 	exports: ['REDIS_CLIENT', RedisService],
