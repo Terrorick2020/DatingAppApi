@@ -6,7 +6,7 @@ import { SetGeoDto } from './dto/set-geo.dto'
 export class GeoController {
   constructor(private readonly geoService: GeoService) {}
 
-@Post('set-geo')
+	@Post('set-geo')
 	async setGeo(@Body() setGeoDto: SetGeoDto): Promise<any> {
 		return this.geoService.getCityByCoordinates(setGeoDto)
 	}

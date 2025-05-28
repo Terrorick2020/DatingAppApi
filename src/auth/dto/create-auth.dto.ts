@@ -50,6 +50,14 @@ export class CreateAuthDto {
 	sex: Sex
 
 	@ApiProperty({
+		description: 'Искомы пол',
+		enum: Sex,
+		example: 'Female',
+	})
+	@IsEnum(Sex)
+	selSex: Sex
+
+	@ApiProperty({
 		description: 'Возраст пользователя',
 		example: 25,
 		minimum: 18,

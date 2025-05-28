@@ -8,6 +8,7 @@ export interface UserProfileResponse {
     name: string
     town: string
     sex: string
+    selSex: string,
     age: number
     bio: string
     lang: string

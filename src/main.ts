@@ -37,6 +37,7 @@ async function bootstrap() {
 
 	app.useGlobalInterceptors(new LoggingInterceptor(appLogger))
 	app.useGlobalFilters(new AllExceptionsFilter(appLogger))
+	// app.useGlobalGuards()
 
 	// Настройка TCP микросервиса для связи с WebSocket сервером
 	const tcpPort = parseInt(process.env.TCP_PORT || '7755')
