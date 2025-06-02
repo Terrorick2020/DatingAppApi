@@ -24,8 +24,6 @@ export class PlansService {
                 where: { userId: telegramId }
             })
 
-            console.log( plans )
-
             if(!plans) {
                 this.logger.warn(
                     `При получении планов пользователь по id: ${telegramId} не найден`,
@@ -56,12 +54,15 @@ export class PlansService {
                 return successResponse('None', 'При получении планов пользователь не найден')
             }
 
-            const seconds = Date.now() - new Date(plans.updatedAt).getTime()
-            const isCurrent = seconds < 24 * 60 * 60 * 1000
+            const msPassed = Date.now() - new Date(plans.updatedAt).getTime();
+            const msLeft = 24 * 60 * 60 * 1000 - msPassed;
+
+            const isCurrent = msLeft > 0;
+            const remains = isCurrent ? Math.floor(msLeft / 1000) : null;
 
             const response: EveningPlans = {
                 isCurrent,
-                remains: isCurrent ? seconds : null,
+                remains: isCurrent ? Math.floor(msLeft / 1000) : null,
                 plan: {
                     value: plan.data.value,
                     description: plans.planDescription,

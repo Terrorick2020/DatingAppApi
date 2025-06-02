@@ -94,6 +94,26 @@ CREATE TABLE "Photo" (
 );
 
 -- CreateTable
+CREATE TABLE "ComplaintGlobVars" (
+    "id" SERIAL NOT NULL,
+    "value" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+
+    CONSTRAINT "ComplaintGlobVars_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ComplaintDescVars" (
+    "id" SERIAL NOT NULL,
+    "globId" INTEGER NOT NULL,
+    "globVal" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+
+    CONSTRAINT "ComplaintDescVars_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ComplaintReason" (
     "id" INTEGER NOT NULL,
     "value" TEXT NOT NULL,
@@ -131,6 +151,9 @@ CREATE UNIQUE INDEX "User_telegramId_key" ON "User"("telegramId");
 CREATE UNIQUE INDEX "User_referralCode_key" ON "User"("referralCode");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserPlan_userId_key" ON "UserPlan"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Interest_value_key" ON "Interest"("value");
 
 -- CreateIndex
@@ -146,7 +169,13 @@ CREATE UNIQUE INDEX "Cityes_value_key" ON "Cityes"("value");
 CREATE UNIQUE INDEX "Cityes_label_key" ON "Cityes"("label");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Regions_cityId_key" ON "Regions"("cityId");
+CREATE UNIQUE INDEX "Regions_cityId_value_key" ON "Regions"("cityId", "value");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ComplaintGlobVars_value_key" ON "ComplaintGlobVars"("value");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ComplaintDescVars_value_key" ON "ComplaintDescVars"("value");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ComplaintReason_value_key" ON "ComplaintReason"("value");
@@ -174,6 +203,9 @@ ALTER TABLE "Regions" ADD CONSTRAINT "Regions_cityId_fkey" FOREIGN KEY ("cityId"
 
 -- AddForeignKey
 ALTER TABLE "Photo" ADD CONSTRAINT "Photo_telegramId_fkey" FOREIGN KEY ("telegramId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ComplaintDescVars" ADD CONSTRAINT "ComplaintDescVars_globId_fkey" FOREIGN KEY ("globId") REFERENCES "ComplaintGlobVars"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_fromUserId_fkey" FOREIGN KEY ("fromUserId") REFERENCES "User"("telegramId") ON DELETE CASCADE ON UPDATE CASCADE;

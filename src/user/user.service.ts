@@ -212,6 +212,7 @@ export class UserService {
 	}
 
 	async update(telegramId: string, dto: UpdateUserDto) {
+		console.log( dto )
 		try {
 			const user = await this.prisma.user.update({
 				where: { telegramId },

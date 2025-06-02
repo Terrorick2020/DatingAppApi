@@ -3,11 +3,13 @@ import type {
     PlansVarsItemRes,
     CityesVarsItemRes,
     RegionVarsItemRes,
+    ComplaintsDescItem,
 } from './helpers.type'
 
 import { Controller, Get, Post, Body, Param } from '@nestjs/common'
 import { HelpersService } from './helpers.service'
 import { GetRegionsDto } from './dto/get-regions.dto'
+import { GetDescComplaintsDto } from './dto/get-desc-complaints.dto'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 
 @Controller('helpers')
@@ -62,5 +64,31 @@ export class HelpersController {
         @Param('id') id: string
     ): Promise<ApiResponse<RegionVarsItemRes | 'None'>> {
         return this.helpersService.getRegionById(+id)
+    }
+
+    @Get('glob-complaints')
+    async getGlobComplaints(): Promise<ApiResponse<PlansVarsItemRes[]>> {
+        return await this.helpersService.getGlobComplaints()
+    }
+
+    @Get('glob-complaints/:value')
+    async getGlobComplaintsByMark(
+        @Param('value') value: string
+    ): Promise<ApiResponse<PlansVarsItemRes | 'None'>> {
+        return await this.helpersService.getGlobComplaintsByMark(value)
+    }
+
+    @Post('desc-complaints')
+    async getDescComplaints(
+        @Body() getDescComplaintsDto: GetDescComplaintsDto
+    ): Promise<ApiResponse<PlansVarsItemRes[]>> {
+        return await this.helpersService.getDescComplaints(getDescComplaintsDto)
+    }
+
+    @Get('desc-complaints/:value')
+    async getDescComplaintsByMark(
+        @Param('value') value: string
+    ): Promise<ApiResponse<ComplaintsDescItem | 'None'>> {
+        return await this.helpersService.getDescComplaintsByMark(value)
     }
 }

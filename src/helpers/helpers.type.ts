@@ -15,3 +15,8 @@ export interface CityesVarsItemRes extends BaseVarsItem {
 export interface RegionVarsItemRes extends PlansVarsItemRes {
     cityId: string
 }
+
+export interface ComplaintsDescItem extends PlansVarsItemRes {
+    globId: number
+    globVal: string
+}

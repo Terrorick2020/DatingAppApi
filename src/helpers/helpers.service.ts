@@ -3,11 +3,13 @@ import type {
     PlansVarsItemRes,
     CityesVarsItemRes,
     RegionVarsItemRes,
+    ComplaintsDescItem,
 } from './helpers.type'
 
 import { Injectable } from '@nestjs/common'
 import { successResponse, errorResponse } from '@/common/helpers/api.response.helper'
 import { GetRegionsDto } from './dto/get-regions.dto'
+import { GetDescComplaintsDto } from './dto/get-desc-complaints.dto'
 import { PrismaService } from '~/prisma/prisma.service'
 import { AppLogger } from '@/common/logger/logger.service'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
@@ -226,6 +228,148 @@ export class HelpersService {
 
             return errorResponse(
 				`Ошибка при получении района по id: ${id}`,
+				error
+			)
+        }
+    }
+
+    async getGlobComplaints(): Promise<ApiResponse<PlansVarsItemRes[]>> {
+        try {
+            const complaints = await this.prisma.complaintGlobVars.findMany()
+
+            this.logger.log('Список обобщающих жалоб получен', this.CONTEXT)
+
+            return successResponse(complaints, 'Список обобщающих жалоб получен')
+        } catch (error: any) {
+            this.logger.error(
+                `Ошибка при получении вариантов обобщающих жалоб`,
+                error?.stack,
+                this.CONTEXT,
+                { error }
+            )
+
+            return errorResponse(
+				`Ошибка при получении вариантов обобщающих жалоб`,
+				error
+			)
+        }
+    }
+
+    async getGlobComplaintsByMark(value: string): Promise<ApiResponse<PlansVarsItemRes | 'None'>> {
+        try {
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value))
+            let result: PlansVarsItemRes | null = null
+
+            if(isNumeric) {
+                result = await this.prisma.complaintGlobVars.findUnique({
+                    where: { id: +value }
+                })
+            } else {
+                result = await this.prisma.complaintGlobVars.findUnique({
+                    where: { value }
+                })
+            }
+
+            if(!result) {
+                this.logger.warn(`Обобщающая жалоба по метке: ${value} не найдена`, this.CONTEXT)
+
+                return successResponse('None', 'Обобщающая жалоба не найдена')
+            }
+
+            this.logger.log(`Обобщающая жалоба по метке: ${value} получена`, this.CONTEXT)
+
+            return successResponse(result, 'Обобщающая жалоба получена')
+        } catch (error: any) {
+            this.logger.error(
+                `Ошибка при получении обобщающей жалобы по метке: ${value}`,
+                error?.stack,
+                this.CONTEXT,
+                { error }
+            )
+
+            return errorResponse(
+				`Ошибка при получении обобщающей жалобы`,
+				error
+			)
+        }
+    }
+
+    async getDescComplaints(getDescComplaintsDto: GetDescComplaintsDto): Promise<ApiResponse<PlansVarsItemRes[]>> {
+        try {
+            let result: PlansVarsItemRes[] = []
+
+            const select = {
+                id: true,
+                value: true,
+                label: true,
+            }
+
+            if (getDescComplaintsDto.globVal === undefined) {
+                result = await this.prisma.complaintDescVars.findMany({
+                    where: { globId: getDescComplaintsDto.globId },
+                    orderBy: { id: 'asc' },
+                    select,
+                })
+            } else {
+                result = await this.prisma.complaintDescVars.findMany({
+                    where: { globVal: getDescComplaintsDto.globVal },
+                    orderBy: { id: 'asc' },
+                    select,
+                })
+            }
+
+            this.logger.log('Список целевых жалоб получен', this.CONTEXT)
+
+            return successResponse(result, 'Список целевых жалоб получен')
+        } catch (error: any) {
+            this.logger.error(
+                `Ошибка при получении вариантов целевых жалоб`,
+                error?.stack,
+                this.CONTEXT,
+                { error }
+            )
+
+            return errorResponse(
+				`Ошибка при получении вариантов целевых жалоб`,
+				error
+			)
+        }
+    }
+
+    async getDescComplaintsByMark(value: string): Promise<ApiResponse<ComplaintsDescItem | 'None'>> {
+        try {
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value));
+            let result: ComplaintsDescItem | null = null
+
+            if(isNumeric) {
+                result = await this.prisma.complaintDescVars.findUnique({
+                    where: { id: +value }
+                })
+            } else {
+                result = await this.prisma.complaintDescVars.findUnique({
+                    where: { value }
+                })
+            }
+
+            if(!result) {
+                this.logger.warn(`Целевая жалоба по метке: ${value} не найдена`, this.CONTEXT)
+
+                return successResponse('None', 'Целевая жалоба не найдена')
+            }
+
+            this.logger.log(`Целевая жалоба по метке: ${value} получена`, this.CONTEXT)
+
+            return successResponse(result, 'Целевая жалоба получена')
+        } catch (error: any) {
+            this.logger.error(
+                `Ошибка при получении целевой жалобы по метке: ${value}`,
+                error?.stack,
+                this.CONTEXT,
+                { error }
+            )
+
+            return errorResponse(
+				`Ошибка при получении целевой жалобы`,
 				error
 			)
         }
