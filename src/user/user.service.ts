@@ -153,6 +153,13 @@ export class UserService {
 				include: { photos: true },
 			})
 
+			const usersWithPhotoUrls = await Promise.all(
+				users.map(async u => ({
+					...u,
+					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
+				}))
+			)
+
 			// Метаданные пагинации
 			const pagination = {
 				page,
@@ -163,9 +170,13 @@ export class UserService {
 				hasPrevious: page > 1,
 			}
 
-			return successResponse(users, 'Список пользователей получен', {
-				pagination,
-			})
+			return successResponse(
+				usersWithPhotoUrls,
+				'Список пользователей получен',
+				{
+					pagination,
+				}
+			)
 		} catch (error) {
 			return errorResponse('Ошибка при получении пользователей', error)
 		}
