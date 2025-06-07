@@ -431,6 +431,7 @@ export class AuthService {
 				name: user.name,
 				town: user.town,
 				sex: user.sex,
+				selSex: user.selSex,
 				age: user.age,
 				bio: user.bio,
 				lang: user.lang,

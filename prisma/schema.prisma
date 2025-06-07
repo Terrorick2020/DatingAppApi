@@ -15,6 +15,7 @@ model User {
   name               String
   town               String
   sex                Sex
+  selSex             Sex
   age                Int
   bio                String
   enableGeo          Boolean     @default(false)
@@ -34,6 +35,23 @@ model User {
   interest           Interest?   @relation(fields: [interestId], references: [id])
   invitedBy          User?       @relation("UserInvites", fields: [invitedById], references: [telegramId])
   invitedUsers       User[]      @relation("UserInvites")
+  userPlans          UserPlan[]
+}
+
+model UserPlan {
+  id                 Int       @id @default(autoincrement())
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  userId             String    @unique
+  planId             Int
+  planDescription    String
+  regionId           Int
+  regionnDescription String
+
+  user    User    @relation(fields: [userId], references: [telegramId])
+  plan    Plans   @relation(fields: [planId], references: [id])
+  region  Regions @relation(fields: [regionId], references: [id])
 }
 
 model Interest {
@@ -44,6 +62,31 @@ model Interest {
   users   User[]
 }
 
+model Plans {
+  id    Int    @id @default(autoincrement())
+  value String @unique
+  label String
+  users UserPlan[]
+}
+
+model Cityes {
+  id    String @unique
+  value String @unique
+  label String @unique
+  regions Regions[]
+}
+
+model Regions {
+  id     Int    @id @default(autoincrement())
+  cityId String
+  value  String
+  label  String
+  city   Cityes  @relation(fields: [cityId], references: [id])
+  users UserPlan[]
+
+  @@unique([cityId, value])
+}
+
 model Photo {
   id         Int      @id @default(autoincrement())
   createdAt  DateTime @default(now()) @map("created_at")
@@ -51,6 +94,24 @@ model Photo {
   tempTgId   String?
   telegramId String?
   user       User?    @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
+}
+
+model ComplaintGlobVars {
+  id       Int                 @id @default(autoincrement())
+  value    String              @unique
+  label    String
+  
+  descs    ComplaintDescVars[] @relation("GlobToDesc")
+}
+
+model ComplaintDescVars {
+  id        Int               @id @default(autoincrement())
+  globId    Int
+  globVal   String
+  value     String            @unique
+  label     String
+
+  glob      ComplaintGlobVars @relation("GlobToDesc", fields: [globId], references: [id])
 }
 
 model ComplaintReason {

@@ -65,6 +65,7 @@ describe('AuthController', () => {
 				name: 'John',
 				town: 'Town',
 				sex: Sex.Male,
+				selSex: Sex.All,
 				age: 30,
 				bio: 'Bio',
 				lang: 'en',

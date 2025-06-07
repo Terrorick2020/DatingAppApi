@@ -21,6 +21,9 @@ export class CreateUserDto {
   @IsEnum(Sex)
   sex!: Sex
 
+  @IsEnum(Sex)
+  selSex!: Sex
+
   @IsNumber()
   age!: number
 
