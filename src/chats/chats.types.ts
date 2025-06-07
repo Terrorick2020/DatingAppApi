@@ -54,15 +54,17 @@ export interface ChatMsg {
 
 // Типы ответов API
 export interface ChatPreview {
-    chatId: string
-    toUser: {
-        id: string
-        avatar: string
-        name: string
-    }
-    lastMsg: string
-    created_at: number
-    unread_count: number
+	chatId: string
+	toUser: {
+		id: string
+		name: string
+        age: number
+		avatarKey?: string
+		avatarUrl?: string
+	}
+	lastMsg: string
+	created_at: number
+	unread_count: number
 }
 
 export type ResFindAllChats = ChatPreview
