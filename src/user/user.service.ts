@@ -295,7 +295,7 @@ export class UserService {
 				`Профиль ${telegramId} обновлён и кеш обновлён`,
 				'UserService'
 			)
-
+			console.log(user)
 			return successResponse(null, 'Профиль обновлён')
 		} catch (error) {
 			return errorResponse('Ошибка при обновлении пользователя', error)
@@ -349,6 +349,7 @@ export class UserService {
 					`Получен кешированный публичный профиль для ${telegramId}`,
 					'UserService'
 				)
+				console.log(cachedProfile.data)
 				return successResponse(
 					JSON.parse(cachedProfile.data),
 					'Публичный профиль получен из кэша'
