@@ -71,7 +71,7 @@ export class GeoService {
 				}))
 				.sort((a, b) => a.distance - b.distance)
 
-			return successResponse(sorted, 'Пользователи отсортированы по расстоянию')  
+			return successResponse(sorted, 'Пользователи отсортированы по расстоянию')
 		} catch (error) {
 			return errorResponse(
 				'Ошибка при сортировке пользователей по расстоянию',
