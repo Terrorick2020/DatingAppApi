@@ -566,7 +566,7 @@ export class AuthService {
 					this.CONTEXT
 				)
 
-				return successResponse(null, 'Фотография успешно удалена')
+				return successResponse('Фотография успешно удалена')
 			})
 		} catch (error: any) {
 			this.logger.error(
