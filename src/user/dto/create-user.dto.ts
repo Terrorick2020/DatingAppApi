@@ -14,7 +14,7 @@ export class CreateUserDto {
 
   @IsString()
   name!: string
-
+ 
   @IsString()
   town!: string
 

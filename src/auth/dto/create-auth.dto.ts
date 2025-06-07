@@ -141,7 +141,7 @@ export class CreateAuthDto {
 
 	@ApiPropertyOptional({
 		description: 'Реферальный код пригласившего пользователя',
-		example: 'abcd1234',
+		example: 'abcd1234', 
 	})
 	@IsOptional()
 	@IsString()

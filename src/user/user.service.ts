@@ -212,24 +212,66 @@ export class UserService {
 	}
 
 	async update(telegramId: string, dto: UpdateUserDto) {
-		console.log( dto )
 		try {
-			const user = await this.prisma.user.update({
-				where: { telegramId },
-				data: dto,
+			const { photoIds, ...userData } = dto
+
+			return await this.prisma.$transaction(async tx => {
+				if (photoIds && photoIds.length > 0) {
+					const foundPhotos = await tx.photo.findMany({
+						where: { id: { in: photoIds } },
+					})
+
+					if (foundPhotos.length !== photoIds.length) {
+						const foundIds = foundPhotos.map(p => p.id)
+						const missing = photoIds.filter(id => !foundIds.includes(id))
+						this.logger.warn(
+							`Не найдены фотографии: ${missing.join(', ')}`,
+							'UserService'
+						)
+						return errorResponse('Некоторые фотографии не найдены')
+					}
+
+					// Отвязываем все старые фото от пользователя
+					await tx.photo.updateMany({
+						where: { telegramId },
+						data: { telegramId: null },
+					})
+
+					// Привязываем новые фото
+					await tx.photo.updateMany({
+						where: { id: { in: photoIds } },
+						data: { telegramId, tempTgId: null },
+					})
+
+					// Обновляем пользователя и его фото-связи
+					await tx.user.update({
+						where: { telegramId },
+						data: {
+							...userData,
+							photos: {
+								set: photoIds.map(id => ({ id })), // set — заменяет все старые связи
+							},
+						},
+					})
+				} else {
+					// Обновляем только поля пользователя без фото
+					await tx.user.update({
+						where: { telegramId },
+						data: userData,
+					})
+				}
+
+				// Инвалидируем кеш
+				await this.redisService.deleteKey(`user:${telegramId}:public_profile`)
+				await this.redisService.deleteKey(`user:${telegramId}:status`)
+
+				this.logger.debug(
+					`Профиль пользователя ${telegramId} обновлён`,
+					'UserService'
+				)
+
+				return successResponse(null, 'Профиль обновлён')
 			})
-
-			// Инвалидируем кеш публичного профиля
-			await this.redisService.deleteKey(`user:${telegramId}:public_profile`)
-			// Инвалидируем кеш статуса пользователя
-			await this.redisService.deleteKey(`user:${telegramId}:status`)
-
-			this.logger.debug(
-				`Профиль пользователя ${telegramId} обновлен, кеш инвалидирован`,
-				'UserService'
-			)
-
-			return successResponse(user, 'Профиль обновлён')
 		} catch (error) {
 			return errorResponse('Ошибка при обновлении пользователя', error)
 		}

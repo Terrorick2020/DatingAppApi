@@ -232,7 +232,7 @@ export class AuthService {
 							{ latitude, longitude, error: geoError }
 						)
 						// Продолжаем с указанным городом
-					}
+					} 
 				}
 
 				// Обработка реферального кода
@@ -362,7 +362,7 @@ export class AuthService {
 				include: {
 					photos: {
 						select: {
-							id: true, // ⭐ Добавили ID
+							id: true, 
 							key: true,
 						},
 						orderBy: { createdAt: 'asc' },
@@ -444,7 +444,7 @@ export class AuthService {
 				referralCode: user.referralCode || undefined,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
-				photos: validPhotos, // ⭐ Теперь массив объектов с ID и URL
+				photos: validPhotos, 
 				interest: user.interest,
 				invitedBy: user.invitedBy || undefined,
 				invitedUsers: user.invitedUsers,
