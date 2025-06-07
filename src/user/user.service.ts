@@ -18,6 +18,7 @@ import {
 	UserArchiveData,
 	PhotoData,
 } from './interfaces/user-data.interface'
+import { Photo, User } from '@prisma/client'
 
 interface PhotoResponse {
 	id: number
@@ -215,7 +216,7 @@ export class UserService {
 		try {
 			const { photoIds, ...userData } = dto
 
-			return await this.prisma.$transaction(async tx => {
+			const user = await this.prisma.$transaction(async tx => {
 				if (photoIds && photoIds.length > 0) {
 					const foundPhotos = await tx.photo.findMany({
 						where: { id: { in: photoIds } },
@@ -228,50 +229,74 @@ export class UserService {
 							`Не найдены фотографии: ${missing.join(', ')}`,
 							'UserService'
 						)
-						return errorResponse('Некоторые фотографии не найдены')
+						return null
 					}
 
-					// Отвязываем все старые фото от пользователя
 					await tx.photo.updateMany({
 						where: { telegramId },
 						data: { telegramId: null },
 					})
 
-					// Привязываем новые фото
 					await tx.photo.updateMany({
 						where: { id: { in: photoIds } },
 						data: { telegramId, tempTgId: null },
 					})
-
-					// Обновляем пользователя и его фото-связи
-					await tx.user.update({
-						where: { telegramId },
-						data: {
-							...userData,
-							photos: {
-								set: photoIds.map(id => ({ id })), // set — заменяет все старые связи
-							},
-						},
-					})
-				} else {
-					// Обновляем только поля пользователя без фото
-					await tx.user.update({
-						where: { telegramId },
-						data: userData,
-					})
 				}
 
-				// Инвалидируем кеш
-				await this.redisService.deleteKey(`user:${telegramId}:public_profile`)
-				await this.redisService.deleteKey(`user:${telegramId}:status`)
-
-				this.logger.debug(
-					`Профиль пользователя ${telegramId} обновлён`,
-					'UserService'
-				)
-
-				return successResponse(null, 'Профиль обновлён')
+				// Обновляем пользователя и возвращаем его с фото
+				return await tx.user.update({
+					where: { telegramId },
+					data: {
+						...userData,
+						photos:
+							photoIds && photoIds.length > 0
+								? {
+										set: photoIds.map(id => ({ id })),
+									}
+								: undefined,
+					},
+					include: { photos: true },
+				})
 			})
+
+			if (!user) {
+				return errorResponse(
+					'Некоторые фотографии не найдены или обновление не удалось'
+				)
+			}
+
+			// Обновление кеша после транзакции
+			const photoUrls = await Promise.all(
+				user.photos.map(async (p: { key: string }) => ({
+					key: p.key,
+					url: await this.storageService.getPresignedUrl(p.key),
+				}))
+			)
+
+			const publicProfile: PublicUserDto = {
+				telegramId: user.telegramId,
+				name: user.name,
+				town: user.town,
+				age: user.age,
+				sex: user.sex,
+				photos: photoUrls,
+			}
+
+			const cacheKey = `user:${telegramId}:public_profile`
+			await this.redisService.setKey(
+				cacheKey,
+				JSON.stringify(publicProfile),
+				900
+			)
+
+			await this.redisService.deleteKey(`user:${telegramId}:status`)
+
+			this.logger.debug(
+				`Профиль ${telegramId} обновлён и кеш обновлён`,
+				'UserService'
+			)
+
+			return successResponse(null, 'Профиль обновлён')
 		} catch (error) {
 			return errorResponse('Ошибка при обновлении пользователя', error)
 		}
