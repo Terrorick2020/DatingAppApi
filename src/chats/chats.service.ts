@@ -254,7 +254,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			const userChatsKey = `user:${telegramId}:chats`
 			const previewCacheKey = `user:${telegramId}:chats_preview`
 
-			// Пробуем получить кешированные превью
 			const cachedPreviewsResponse =
 				await this.redisService.getKey(previewCacheKey)
 			if (cachedPreviewsResponse.success && cachedPreviewsResponse.data) {
@@ -269,7 +268,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					)
 					return successResponse(cachedPreviews, 'Список чатов получен из кеша')
 				} catch (e) {
-					// В случае ошибки парсинга продолжаем и загружаем превью заново
 					this.logger.warn(
 						`Ошибка при парсинге кеша превью для пользователя ${telegramId}`,
 						this.CONTEXT,
@@ -278,9 +276,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				}
 			}
 
-			// Получаем список ID чатов пользователя
 			const userChatsResponse = await this.redisService.getKey(userChatsKey)
-
 			if (!userChatsResponse.success || !userChatsResponse.data) {
 				this.logger.debug(
 					`У пользователя ${telegramId} нет чатов`,
@@ -290,7 +286,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			const chatIds = JSON.parse(userChatsResponse.data)
-
 			if (!Array.isArray(chatIds) || chatIds.length === 0) {
 				this.logger.debug(
 					`У пользователя ${telegramId} пустой список чатов`,
@@ -299,13 +294,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				return successResponse([], 'У пользователя нет чатов')
 			}
 
-			// Проверяем существование пользователя перед загрузкой чатов
 			const user = await this.prismaService.user.findUnique({
 				where: {
 					telegramId,
-					status: {
-						not: 'Blocked',
-					},
+					status: { not: 'Blocked' },
 				},
 			})
 
@@ -322,13 +314,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
-			// Получаем превью для каждого чата (пакетный запрос для оптимизации)
-			const metadataPromises = chatIds.map(chatId =>
-				this.getChatMetadata(chatId)
+			const metadataResults = await Promise.all(
+				chatIds.map(chatId => this.getChatMetadata(chatId))
 			)
-			const metadataResults = await Promise.all(metadataPromises)
 
-			// Фильтруем только успешные результаты
 			const validChats = metadataResults
 				.filter(result => result.success && result.data)
 				.map(result => result.data as Chat)
@@ -338,22 +327,16 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
-			// Получаем все ID собеседников
 			const interlocutorIds = validChats
 				.map(chat => chat.participants.find(id => id !== telegramId))
 				.filter(Boolean) as string[]
 
-			// Получаем данные всех собеседников одним запросом
 			const users = await this.prismaService.user.findMany({
 				where: {
-					telegramId: {
-						in: interlocutorIds,
-					},
-					status: {
-						not: 'Blocked',
-					},
+					telegramId: { in: interlocutorIds },
+					status: { not: 'Blocked' },
 				},
-				select: FindAllChatsUserFields,
+				select: FindAllChatsUserFields, // Должно включать age!
 			})
 
 			this.logger.debug(
@@ -361,51 +344,38 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
-			// Создаем словарь пользователей для быстрого доступа
 			const usersMap = new Map(users.map(user => [user.telegramId, user]))
 
-			// Получаем все статусы прочтения одним запросом
-			const readStatusPromises = validChats.map(chat =>
-				this.getReadStatus(chat.id)
-			)
-			const readStatusResults = await Promise.all(readStatusPromises)
+			// Генерация URL-ов аватаров
+			const photoUrlMap = new Map<string, { key: string; url: string }>()
+			for (const u of users) {
+				const key = u.photos[0]?.key || ''
+				const url = key ? await this.storageService.getPresignedUrl(key) : ''
+				photoUrlMap.set(u.telegramId, { key, url })
+			}
 
-			// Создаем словарь статусов прочтения
+			const readStatusResults = await Promise.all(
+				validChats.map(chat => this.getReadStatus(chat.id))
+			)
+
 			const readStatusMap = new Map(
 				readStatusResults
 					.filter(result => result.success && result.data)
 					.map((result, index) => [validChats[index].id, result.data])
 			)
 
-			// Получаем последние сообщения (можно оптимизировать пакетным запросом)
 			const chatPreviews: ChatPreview[] = []
 
 			for (const chat of validChats) {
-				// Находим другого участника
 				const interlocutorId = chat.participants.find(id => id !== telegramId)
-				if (!interlocutorId) {
-					this.logger.debug(
-						`Не найден собеседник в чате ${chat.id}`,
-						this.CONTEXT
-					)
-					continue
-				}
+				if (!interlocutorId) continue
 
-				// Получаем данные собеседника из кеша
 				const user = usersMap.get(interlocutorId)
-				if (!user) {
-					this.logger.debug(
-						`Не найдены данные пользователя ${interlocutorId} для чата ${chat.id}`,
-						this.CONTEXT
-					)
-					continue
-				}
+				if (!user) continue
 
-				// Получаем статус прочтения из кеша
 				const readStatus = readStatusMap.get(chat.id)
 				const lastReadMessageId = readStatus?.[telegramId] || null
 
-				// Получаем последнее сообщение
 				let lastMessage: ChatMsg | null = null
 				let unreadCount = 0
 
@@ -419,16 +389,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					if (lastMessageResponse.success && lastMessageResponse.data) {
 						try {
 							lastMessage = JSON.parse(lastMessageResponse.data)
-						} catch (e) {
-							this.logger.debug(
-								`Ошибка при парсинге последнего сообщения в чате ${chat.id}`,
-								this.CONTEXT,
-								{ error: e }
-							)
-						}
+						} catch {}
 					}
 
-					// Считаем непрочитанные сообщения
 					if (lastReadMessageId && lastReadMessageId !== chat.last_message_id) {
 						const orderKey = `chat:${chat.id}:order`
 						const unreadMessagesResponse =
@@ -443,13 +406,19 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					}
 				}
 
-				// Формируем превью чата
+				const photoInfo = photoUrlMap.get(user.telegramId) || {
+					key: '',
+					url: '',
+				}
+
 				chatPreviews.push({
 					chatId: chat.id,
 					toUser: {
 						id: user.telegramId,
-						avatar: user.photos[0]?.key || '',
 						name: user.name,
+						age: user.age, 
+						avatarKey: photoInfo.key,
+						avatarUrl: photoInfo.url,
 					},
 					lastMsg: lastMessage?.text || '',
 					created_at: chat.created_at,
@@ -457,15 +426,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				})
 			}
 
-			// Сортируем по дате последнего сообщения (по убыванию)
 			chatPreviews.sort((a, b) => b.created_at - a.created_at)
 
-			this.logger.debug(
-				`Сформировано ${chatPreviews.length} превью чатов для пользователя ${telegramId}`,
-				this.CONTEXT
-			)
-
-			// Кешируем результат на 15 минут
 			await this.redisService.setKey(
 				previewCacheKey,
 				JSON.stringify(chatPreviews),

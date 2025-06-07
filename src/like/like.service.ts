@@ -220,7 +220,6 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
-									photos: { take: 1, select: { key: true } },
 								},
 							},
 						},

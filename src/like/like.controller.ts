@@ -70,8 +70,8 @@ export class LikeController {
 		},
 	})
 	@Post()
-	@UseGuards(UserStatusGuard)
-	@Status('Pro', 'Noob')
+	// @UseGuards(UserStatusGuard)
+	// @Status('Pro', 'Noob')
 	async createLike(@Body() createLikeDto: CreateLikeDto) {
 		return this.likeService.createLike(createLikeDto)
 	}
