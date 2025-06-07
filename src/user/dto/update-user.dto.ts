@@ -16,78 +16,137 @@ import { Transform } from 'class-transformer'
 import { Sex } from '@prisma/client'
 import { IsGeoDataValid } from '~/src/geo/validators/geo-validation.validator'
 
-type photo = {
-	key: string
-	url: string
-}
 export class UpdateUserDto {
+	@ApiProperty({
+		description: 'Telegram ID пользователя',
+		example: '123456789',
+	})
 	@IsString()
-	telegramId?: string
+	@IsNotEmpty()
+	telegramId: string
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Имя пользователя',
+		example: 'Иван',
+	})
 	@IsString()
+	@IsNotEmpty()
 	name?: string
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Город пользователя',
+		example: 'Москва',
+	})
 	@IsString()
+	@IsNotEmpty()
 	town?: string
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Пол пользователя',
+		enum: Sex,
+		example: 'Male',
+	})
 	@IsEnum(Sex)
 	sex?: Sex
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Искомы пол',
+		enum: Sex,
+		example: 'Female',
+	})
 	@IsEnum(Sex)
 	selSex?: Sex
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Возраст пользователя',
+		example: 25,
+		minimum: 18,
+		maximum: 100,
+	})
 	@IsNumber()
 	@Min(18)
 	@Max(100)
 	@Transform(({ value }) => parseInt(value, 10))
 	age?: number
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Биография пользователя',
+		example: 'Люблю путешествовать и фотографировать',
+	})
 	@IsString()
+	@IsNotEmpty()
 	bio?: string
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Включить геолокацию',
+		example: false,
+	})
 	@IsBoolean()
 	@Transform(({ value }) => value === 'true' || value === true)
+	@IsGeoDataValid()
 	enableGeo?: boolean
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({
+		description: 'Широта (обязательно если enableGeo = true)',
+		example: 55.7558,
+		minimum: -90,
+		maximum: 90,
+	})
+	@IsOptional()
 	@IsNumber()
 	@Min(-90)
 	@Max(90)
+	@Transform(({ value }) => (value ? parseFloat(value) : undefined))
 	latitude?: number
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({
+		description: 'Долгота (обязательно если enableGeo = true)',
+		example: 37.6176,
+		minimum: -180,
+		maximum: 180,
+	})
+	@IsOptional()
 	@IsNumber()
 	@Min(-180)
 	@Max(180)
+	@Transform(({ value }) => (value ? parseFloat(value) : undefined))
 	longitude?: number
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'Язык пользователя',
+		default: 'ru',
+		example: 'ru',
+	})
 	@IsString()
+	@IsNotEmpty()
 	lang?: string
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'ID загруженных фотографий',
+		type: [Number],
+		example: [1, 2, 3],
+	})
 	@IsArray()
 	@ArrayMinSize(1)
 	@Transform(({ value }) => (Array.isArray(value) ? value : [value]))
 	photoIds?: number[]
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		description: 'ID интереса пользователя',
+		example: 1,
+	})
 	@IsNumber()
+	@Transform(({ value }) => parseInt(value, 10))
 	interestId?: number | null
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({
+		description: 'Реферальный код пригласившего пользователя',
+		example: 'abcd1234', 
+	})
+	@IsOptional()
 	@IsString()
 	@IsValidReferralCode({
 		message: 'Указан недействительный реферальный код',
 	})
 	invitedByReferralCode?: string
-
-	photos?: photo[]
 }
