@@ -18,7 +18,7 @@ import {
 	UserArchiveData,
 	PhotoData,
 } from './interfaces/user-data.interface'
-import { Photo, User } from '@prisma/client'
+import { Photo } from '@prisma/client'
 
 interface PhotoResponse {
 	id: number
@@ -216,12 +216,11 @@ export class UserService {
 		try {
 			const { photoIds, ...userData } = dto
 
-			const user = await this.prisma.$transaction(async tx => {
+			const updatedUser = await this.prisma.$transaction(async tx => {
 				if (photoIds && photoIds.length > 0) {
 					const foundPhotos = await tx.photo.findMany({
 						where: { id: { in: photoIds } },
 					})
-
 					if (foundPhotos.length !== photoIds.length) {
 						const foundIds = foundPhotos.map(p => p.id)
 						const missing = photoIds.filter(id => !foundIds.includes(id))
@@ -229,7 +228,7 @@ export class UserService {
 							`Не найдены фотографии: ${missing.join(', ')}`,
 							'UserService'
 						)
-						return null
+						throw new Error('Некоторые фотографии не найдены')
 					}
 
 					await tx.photo.updateMany({
@@ -243,42 +242,40 @@ export class UserService {
 					})
 				}
 
-				// Обновляем пользователя и возвращаем его с фото
-				return await tx.user.update({
+				return tx.user.update({
 					where: { telegramId },
 					data: {
 						...userData,
-						photos:
-							photoIds && photoIds.length > 0
-								? {
-										set: photoIds.map(id => ({ id })),
-									}
-								: undefined,
+						photos: photoIds
+							? { set: photoIds.map(id => ({ id })) }
+							: undefined,
 					},
 					include: { photos: true },
 				})
 			})
 
-			if (!user) {
-				return errorResponse(
-					'Некоторые фотографии не найдены или обновление не удалось'
-				)
+			if (!updatedUser) {
+				return errorResponse('Пользователь не найден после обновления')
 			}
 
-			// Обновление кеша после транзакции
 			const photoUrls = await Promise.all(
-				user.photos.map(async (p: { key: string }) => ({
+				updatedUser.photos.map(async (p: Photo) => ({
 					key: p.key,
 					url: await this.storageService.getPresignedUrl(p.key),
 				}))
 			)
 
-			const publicProfile: PublicUserDto = {
-				telegramId: user.telegramId,
-				name: user.name,
-				town: user.town,
-				age: user.age,
-				sex: user.sex,
+			const publicProfile: UpdateUserDto = {
+				telegramId: updatedUser.telegramId,
+				name: updatedUser.name,
+				town: updatedUser.town,
+				age: updatedUser.age,
+				sex: updatedUser.sex,
+				selSex: updatedUser.selSex,
+				bio: updatedUser.bio,
+				enableGeo: updatedUser.enableGeo,
+				lang: updatedUser.lang,
+				interestId: updatedUser.interestId,
 				photos: photoUrls,
 			}
 
@@ -288,16 +285,19 @@ export class UserService {
 				JSON.stringify(publicProfile),
 				900
 			)
-
 			await this.redisService.deleteKey(`user:${telegramId}:status`)
 
 			this.logger.debug(
-				`Профиль ${telegramId} обновлён и кеш обновлён`,
+				`Профиль ${telegramId} обновлён и кеш актуализирован`,
 				'UserService'
 			)
 
-			return successResponse(null, 'Профиль обновлён')
+			return successResponse(publicProfile, 'Профиль обновлён')
 		} catch (error) {
+			this.logger.error(
+				`Ошибка при обновлении пользователя ${telegramId}: ${error}`,
+				'UserService'
+			)
 			return errorResponse('Ошибка при обновлении пользователя', error)
 		}
 	}
@@ -340,7 +340,6 @@ export class UserService {
 
 	async getPublicProfile(telegramId: string) {
 		try {
-			// Проверяем кэш
 			const cacheKey = `user:${telegramId}:public_profile`
 			const cachedProfile = await this.redisService.getKey(cacheKey)
 
@@ -356,7 +355,7 @@ export class UserService {
 			}
 
 			const user = await this.prisma.user.findUnique({
-				where: { telegramId: telegramId },
+				where: { telegramId },
 				include: { photos: true },
 			})
 
@@ -369,16 +368,20 @@ export class UserService {
 				}))
 			)
 
-			const publicProfile: PublicUserDto = {
+			const publicProfile: UpdateUserDto = {
 				telegramId: user.telegramId,
 				name: user.name,
 				town: user.town,
 				age: user.age,
 				sex: user.sex,
+				selSex: user.selSex,
+				bio: user.bio,
+				enableGeo: user.enableGeo,
+				lang: user.lang,
+				interestId: user.interestId,
 				photos: photoUrls,
 			}
 
-			// Кешируем профиль на 15 минут
 			const cacheTTL = 900 // 15 минут
 			await this.redisService.setKey(
 				cacheKey,
@@ -386,7 +389,6 @@ export class UserService {
 				cacheTTL
 			)
 
-			// Инвалидировать кеш при обновлении пользователя
 			this.logger.debug(
 				`Публичный профиль для ${telegramId} кеширован на ${cacheTTL} секунд`,
 				'UserService'

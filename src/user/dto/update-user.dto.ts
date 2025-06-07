@@ -16,6 +16,11 @@ import { Transform } from 'class-transformer'
 import { Sex } from '@prisma/client'
 import { IsGeoDataValid } from '~/src/geo/validators/geo-validation.validator'
 
+
+type photo = {
+	key: string,
+	url: string
+}
 export class UpdateUserDto {
 	@ApiProperty({
 		description: 'Telegram ID пользователя',
@@ -137,7 +142,7 @@ export class UpdateUserDto {
 	})
 	@IsNumber()
 	@Transform(({ value }) => parseInt(value, 10))
-	interestId?: number
+	interestId?: number | null
 
 	@ApiPropertyOptional({
 		description: 'Реферальный код пригласившего пользователя',
@@ -149,4 +154,7 @@ export class UpdateUserDto {
 		message: 'Указан недействительный реферальный код',
 	})
 	invitedByReferralCode?: string
+
+
+	photos?: photo[]
 }
