@@ -11,6 +11,7 @@ import {
 } from '../common/helpers/api.response.helper'
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
+import { StorageService } from '../storage/storage.service'
 
 @Injectable()
 export class LikeService {
@@ -22,7 +23,8 @@ export class LikeService {
 		private readonly chatsService: ChatsService,
 		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
-		private readonly redisPubSubService: RedisPubSubService
+		private readonly redisPubSubService: RedisPubSubService,
+		private readonly storageService: StorageService,
 	) {}
 
 	async createLike(dto: CreateLikeDto) {
@@ -193,8 +195,19 @@ export class LikeService {
 				return errorResponse('Пользователь не найден')
 			}
 
-			let likes
+			let likes = []
 			let message
+
+			const enrichWithPhotoUrl = async (user: any) => {
+				const photo = user.photos?.[0]
+				const url = photo
+					? await this.storageService.getPresignedUrl(photo.key)
+					: null
+				return {
+					...user,
+					photoUrl: url,
+				}
+			}
 
 			switch (type) {
 				case 'sent':
@@ -207,13 +220,19 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
-									photos: { take: 1 },
+									photos: { take: 1, select: { key: true } },
 								},
 							},
 						},
 					})
+
+					for (const like of likes) {
+						like.toUser = await enrichWithPhotoUrl(like.toUser)
+					}
+
 					message = 'Отправленные симпатии получены'
 					break
+
 				case 'received':
 					likes = await this.prisma.like.findMany({
 						where: { toUserId: telegramId },
@@ -224,13 +243,19 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
-									photos: { take: 1 },
+									photos: { take: 1, select: { key: true } },
 								},
 							},
 						},
 					})
+
+					for (const like of likes) {
+						like.fromUser = await enrichWithPhotoUrl(like.fromUser)
+					}
+
 					message = 'Полученные симпатии получены'
 					break
+
 				case 'matches':
 					likes = await this.prisma.like.findMany({
 						where: {
@@ -246,7 +271,7 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
-									photos: { take: 1 },
+									photos: { take: 1, select: { key: true } },
 								},
 							},
 							toUser: {
@@ -255,34 +280,33 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
-									photos: { take: 1 },
+									photos: { take: 1, select: { key: true } },
 								},
 							},
 						},
 					})
 
-					// Обогащаем данные информацией о чатах
-					if (likes.length > 0) {
-						for (const like of likes) {
-							// Определяем второго участника
-							const otherUserId =
-								like.fromUserId === telegramId ? like.toUserId : like.fromUserId
+					for (const like of likes) {
+						like.fromUser = await enrichWithPhotoUrl(like.fromUser)
+						like.toUser = await enrichWithPhotoUrl(like.toUser)
 
-							// Проверяем существование чата в Redis
-							const chatId = await this.findChatBetweenUsers(
-								telegramId,
-								otherUserId
-							)
+						const otherUserId =
+							like.fromUserId === telegramId ? like.toUserId : like.fromUserId
 
-							if (chatId) {
-								// @ts-ignore - добавляем chatId к объекту
-								like.chatId = chatId
-							}
+						const chatId = await this.findChatBetweenUsers(
+							telegramId,
+							otherUserId
+						)
+
+						if (chatId) {
+							// @ts-ignore
+							like.chatId = chatId
 						}
 					}
 
 					message = 'Взаимные симпатии получены'
 					break
+
 				default:
 					this.logger.warn(`Неизвестный тип симпатий: ${type}`, this.CONTEXT, {
 						dto,

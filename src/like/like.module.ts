@@ -10,6 +10,7 @@ import { UserModule } from '../user/user.module'
 import { ChatsModule } from '../chats/chats.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { LoggerModule } from '../common/logger/logger.module'
+import { StorageService } from '../storage/storage.service'
 
 @Module({
 	imports: [
@@ -22,7 +23,7 @@ import { LoggerModule } from '../common/logger/logger.module'
 		LoggerModule,
 	],
 	controllers: [LikeController, LikeMicroController],
-	providers: [LikeService, AppLogger],
+	providers: [LikeService, AppLogger, StorageService],
 	exports: [LikeService],
 })
 export class LikeModule {}
