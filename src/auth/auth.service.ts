@@ -329,29 +329,29 @@ export class AuthService {
 		try {
 			this.logger.debug(`Авторизация пользователя: ${telegramId}`, this.CONTEXT)
 
-			// Проверяем кэш профиля пользователя
-			const cacheKey = `user:${telegramId}:profile`
-			const cachedProfile = await this.redisService.getKey(cacheKey)
+			// // Проверяем кэш профиля пользователя
+			// const cacheKey = `user:${telegramId}:profile`
+			// const cachedProfile = await this.redisService.getKey(cacheKey)
 
-			if (cachedProfile.success && cachedProfile.data) {
-				try {
-					const profile = JSON.parse(cachedProfile.data)
-					this.logger.debug(
-						`Профиль пользователя ${telegramId} получен из кэша`,
-						this.CONTEXT
-					)
-					return successResponse(
-						profile,
-						'Профиль пользователя получен из кэша'
-					)
-				} catch (e) {
-					this.logger.warn(
-						`Ошибка парсинга кэша профиля для ${telegramId}`,
-						this.CONTEXT,
-						{ error: e }
-					)
-				}
-			}
+			// if (cachedProfile.success && cachedProfile.data) {
+			// 	try {
+			// 		const profile = JSON.parse(cachedProfile.data)
+			// 		this.logger.debug(
+			// 			`Профиль пользователя ${telegramId} получен из кэша`,
+			// 			this.CONTEXT
+			// 		)
+			// 		return successResponse(
+			// 			profile,
+			// 			'Профиль пользователя получен из кэша'
+			// 		)
+			// 	} catch (e) {
+			// 		this.logger.warn(
+			// 			`Ошибка парсинга кэша профиля для ${telegramId}`,
+			// 			this.CONTEXT,
+			// 			{ error: e }
+			// 		)
+			// 	}
+			// }
 
 			// Получаем полные данные пользователя из БД
 			const user = await this.prisma.user.findUnique({
@@ -451,12 +451,12 @@ export class AuthService {
 			}
 
 			// Кэшируем профиль на 10 минут
-			const cacheTTL = 600
-			await this.redisService.setKey(
-				cacheKey,
-				JSON.stringify(userProfile),
-				cacheTTL
-			)
+			// const cacheTTL = 600
+			// await this.redisService.setKey(
+			// 	cacheKey,
+			// 	JSON.stringify(userProfile),
+			// 	cacheTTL
+			// )
 
 			// Обновляем кэш статуса пользователя
 			await this.redisService.setKey(
