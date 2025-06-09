@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { PrismaService } from '~/prisma/prisma.service'
 import axios from 'axios'
 import {
 	successResponse,
@@ -9,6 +10,8 @@ import { SetGeoDto } from './dto/set-geo.dto'
 @Injectable()
 export class GeoService {
 	private readonly yandexApiKey = process.env.YANDEX_API_KEY
+
+	constructor(private readonly prisma: PrismaService) {}
 
 	async getCityByCoordinates(dto: SetGeoDto) {
 		try {
@@ -30,6 +33,19 @@ export class GeoService {
 				geoObject?.metaDataProperty?.GeocoderMetaData?.Address?.Components?.find(
 					(c: any) => c.kind === 'locality'
 				)?.name || 'Unknown'
+			
+			if( city !== 'Unknown' ) {
+				const cityValue = await this.prisma.cityes.findMany({
+					where: { label: city }
+				})
+
+				if( !!cityValue.length ) {
+					const res = cityValue[0]
+
+					return successResponse({ city: res.value }, 'Город получен по координатам')
+				} 
+			}
+
 			return successResponse({ city }, 'Город получен по координатам')
 		} catch (error) {
 			return errorResponse(

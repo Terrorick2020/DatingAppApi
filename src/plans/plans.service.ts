@@ -34,8 +34,8 @@ export class PlansService {
             }
 
             const [plan, region] = await Promise.all([
-                this.helpersService.getPlanById(plans.planId),
-                this.helpersService.getRegionById(plans.regionId),
+                this.helpersService.getPlanByMark('' + plans.planId),
+                this.helpersService.getRegionByMark('' + plans.regionId),
             ])
 
             if(!(
@@ -110,8 +110,8 @@ export class PlansService {
             })
 
             const [plan, region] = await Promise.all([
-                this.helpersService.getPlanById(plans.planId),
-                this.helpersService.getRegionById(plans.regionId),
+                this.helpersService.getPlanByMark('' + plans.planId),
+                this.helpersService.getRegionByMark('' + plans.regionId),
             ])
 
             if(!(

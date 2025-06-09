@@ -45,31 +45,40 @@ export class HelpersService {
         }
     }
 
-    async getInterestByID(id: number): Promise<ApiResponse<InterestsVarsItemRes | 'None'>> {
+    async getInterestByMark(value: string): Promise<ApiResponse<InterestsVarsItemRes | 'None'>> {
         try {
-            const interest = await this.prisma.interest.findUnique({
-                where: { id }
-            })
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value))
+            let interest: InterestsVarsItemRes | null = null
 
-            if(!interest) {
-                this.logger.warn(`Интерес по id: ${id} не найден`, this.CONTEXT)
-
-                return successResponse('None', `Интерес по id: ${id} не найден`)
+            if(isNumeric) {
+                interest = await this.prisma.interest.findUnique({
+                    where: { id: +value }
+                })
+            } else {
+                interest = await this.prisma.interest.findUnique({
+                    where: { value }
+                })
             }
 
-            this.logger.log(`Интерес по id: ${id} получен`, this.CONTEXT)
+            if(!interest) {
+                this.logger.warn(`Интерес по mark: ${value} не найден`, this.CONTEXT)
 
-            return successResponse(interest, `Интерес по id: ${id} получен`)
+                return successResponse('None', `Интерес не найден`)
+            }
+
+            this.logger.log(`Интерес по mark: ${value} получен`, this.CONTEXT)
+
+            return successResponse(interest, `Интерес получен`)
         } catch (error: any) {
             this.logger.error(
-                `Ошибка при получении интереса по id: ${id}`,
+                `Ошибка при получении интереса по mark: ${value}`,
                 error?.stack,
                 this.CONTEXT,
                 { error }
             )
 
             return errorResponse(
-				`Ошибка при получении интереса по id: ${id}`,
+				`Ошибка при получении интереса`,
 				error
 			)
         }
@@ -97,31 +106,40 @@ export class HelpersService {
         }
     }
 
-    async getPlanById(id: number): Promise<ApiResponse<PlansVarsItemRes  | 'None'>> {
+    async getPlanByMark(value: string): Promise<ApiResponse<PlansVarsItemRes  | 'None'>> {
         try {
-            const plan = await this.prisma.plans.findUnique({
-                where: {id}
-            })
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value))
+            let plan: PlansVarsItemRes | null = null
 
-            if(!plan) {
-                this.logger.warn(`План по id: ${id} не найден`, this.CONTEXT)
-
-                return successResponse('None', `План по id: ${id} не найден`)
+            if(isNumeric) {
+                plan = await this.prisma.plans.findUnique({
+                    where: { id: +value }
+                })
+            } else {
+                plan = await this.prisma.plans.findUnique({
+                    where: { value }
+                })
             }
 
-            this.logger.log(`План по id: ${id} получен`, this.CONTEXT)
+            if(!plan) {
+                this.logger.warn(`План по mark: ${value} не найден`, this.CONTEXT)
 
-            return successResponse(plan, `План по id: ${id} получен`)
+                return successResponse('None', `План не найден`)
+            }
+
+            this.logger.log(`План по mark: ${value} получен`, this.CONTEXT)
+
+            return successResponse(plan, `План получен`)
         } catch (error: any) {
             this.logger.error(
-                `Ошибка при получении плана по id: ${id}`,
+                `Ошибка при получении плана по mark: ${value}`,
                 error?.stack,
                 this.CONTEXT,
                 { error }
             )
 
             return errorResponse(
-				`Ошибка при получении плана по id: ${id}`,
+				`Ошибка при получении плана`,
 				error
 			)
         }
@@ -149,31 +167,40 @@ export class HelpersService {
         }
     }
 
-    async getCityById(id: string): Promise<ApiResponse<CityesVarsItemRes | 'None'>> {
+    async getCityByMark(value: string): Promise<ApiResponse<CityesVarsItemRes | 'None'>> {
         try {
-            const city = await this.prisma.cityes.findUnique({
-                where: {id}
-            })
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value))
+            let city: CityesVarsItemRes | null = null
 
-            if(!city) {
-                this.logger.warn(`Город по id: ${id} не найден`, this.CONTEXT)
-
-                return successResponse('None', `Город по id: ${id} не найден`)
+            if(isNumeric) {
+                city = await this.prisma.cityes.findUnique({
+                    where: { id: value }
+                })
+            } else {
+                city = await this.prisma.cityes.findUnique({
+                    where: { value }
+                })
             }
 
-            this.logger.log(`Город по id: ${id} получен`, this.CONTEXT)
+            if(!city) {
+                this.logger.warn(`Город по mark: ${value} не найден`, this.CONTEXT)
 
-            return successResponse(city, `Город по id: ${id} получен`)
+                return successResponse('None', `Город не найден`)
+            }
+
+            this.logger.log(`Город по mark: ${value} получен`, this.CONTEXT)
+
+            return successResponse(city, `Город получен`)
         } catch (error: any) {
             this.logger.error(
-                `Ошибка при получении города по id: ${id}`,
+                `Ошибка при получении города по mark: ${value}`,
                 error?.stack,
                 this.CONTEXT,
                 { error }
             )
 
             return errorResponse(
-				`Ошибка при получении города по id: ${id}`,
+				`Ошибка при получении города`,
 				error
 			)
         }
@@ -203,31 +230,41 @@ export class HelpersService {
         }
     }
 
-    async getRegionById(id: number): Promise<ApiResponse<RegionVarsItemRes | 'None'>> {
+    async getRegionByMark(value: string): Promise<ApiResponse<RegionVarsItemRes | 'None'>> {
         try {
-            const region = await this.prisma.regions.findUnique({
-                where: { id }
-            })
+            const isNumeric = !isNaN(Number(value)) && Number.isInteger(Number(value))
+            let result: RegionVarsItemRes | null = null
 
-            if(!region) {
-                this.logger.warn(`Район по id: ${id} не найден`, this.CONTEXT)
-
-                return successResponse('None', `Район по id: ${id} не найден`)
+            if(isNumeric) {
+                result = await this.prisma.regions.findUnique({
+                    where: { id: +value }
+                })
+            } else {
+                result = (await this.prisma.regions.findMany({
+                    where: { value }
+                }))[0]
             }
 
-            this.logger.log(`Район по id: ${id} получен`, this.CONTEXT)
 
-            return successResponse(region, `Район по id: ${id} получен`)
+            if(!result) {
+                this.logger.warn(`Район по mark: ${value} не найден`, this.CONTEXT)
+
+                return successResponse('None', `Район не найден`)
+            }
+
+            this.logger.log(`Район по mark: ${value} получен`, this.CONTEXT)
+
+            return successResponse(result, `Район получен`)
         } catch (error: any) {
             this.logger.error(
-                `Ошибка при получении района по id: ${id}`,
+                `Ошибка при получении района по mark: ${value}`,
                 error?.stack,
                 this.CONTEXT,
                 { error }
             )
 
             return errorResponse(
-				`Ошибка при получении района по id: ${id}`,
+				`Ошибка при получении района`,
 				error
 			)
         }
