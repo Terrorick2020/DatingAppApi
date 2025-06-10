@@ -336,7 +336,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					telegramId: { in: interlocutorIds },
 					status: { not: 'Blocked' },
 				},
-				select: FindAllChatsUserFields, // Должно включать age!
+				select: FindAllChatsUserFields, 
 			})
 
 			this.logger.debug(

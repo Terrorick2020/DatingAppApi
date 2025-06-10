@@ -24,7 +24,7 @@ export class LikeService {
 		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
 		private readonly redisPubSubService: RedisPubSubService,
-		private readonly storageService: StorageService,
+		private readonly storageService: StorageService
 	) {}
 
 	async createLike(dto: CreateLikeDto) {
@@ -220,6 +220,7 @@ export class LikeService {
 									name: true,
 									age: true,
 									town: true,
+									photos: { take: 1, select: { key: true } },
 								},
 							},
 						},
@@ -256,12 +257,13 @@ export class LikeService {
 					break
 
 				case 'matches':
+					const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
 					likes = await this.prisma.like.findMany({
 						where: {
-							OR: [
-								{ fromUserId: telegramId, isMatch: true },
-								{ toUserId: telegramId, isMatch: true },
-							],
+							isMatch: true,
+							createdAt: { gte: twentyFourHoursAgo },
+							OR: [{ fromUserId: telegramId }, { toUserId: telegramId }],
 						},
 						include: {
 							fromUser: {
@@ -296,14 +298,13 @@ export class LikeService {
 							telegramId,
 							otherUserId
 						)
-
 						if (chatId) {
 							// @ts-ignore
 							like.chatId = chatId
 						}
 					}
 
-					message = 'Взаимные симпатии получены'
+					message = 'Взаимные симпатии за последние 24 часа получены'
 					break
 
 				default:
