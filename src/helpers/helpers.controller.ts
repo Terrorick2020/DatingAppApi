@@ -21,11 +21,11 @@ export class HelpersController {
         return await this.helpersService.getInterests()
     }
 
-    @Get('interests/:id')
-    async getInterestByID(
-        @Param('id') id: string
+    @Get('interests/:value')
+    async getInterestByMark(
+        @Param('value') value: string
     ): Promise<ApiResponse<InterestsVarsItemRes  | 'None'>> {
-        return await this.helpersService.getInterestByID(+id)
+        return await this.helpersService.getInterestByMark(value)
     }
 
     @Get('plans')
@@ -33,11 +33,11 @@ export class HelpersController {
         return await this.helpersService.getPlans()
     }
 
-    @Get('plans/:id')
-    async getPlanById(
-        @Param('id') id: string
+    @Get('plans/:value')
+    async getPlanByMark(
+        @Param('value') value: string
     ): Promise<ApiResponse<PlansVarsItemRes  | 'None'>>  {
-        return await this.helpersService.getPlanById(+id)
+        return await this.helpersService.getPlanByMark(value)
     }
 
     @Get('cityes')
@@ -45,11 +45,11 @@ export class HelpersController {
         return await this.helpersService.getCityes()
     }
 
-    @Get('cityes/:id')
+    @Get('cityes/:value')
     async getCityById(
-        @Param('id') id: string
+        @Param('value') value: string
     ): Promise<ApiResponse<CityesVarsItemRes | 'None'>> {
-        return await this.helpersService.getCityById(id)
+        return await this.helpersService.getCityByMark(value)
     }
 
     @Post('regions')
@@ -59,11 +59,11 @@ export class HelpersController {
         return this.helpersService.getRegions(getRegionDto)
     }
 
-    @Get('regions/:id')
+    @Get('regions/:value')
     async getRegionById(
-        @Param('id') id: string
+        @Param('value') value: string
     ): Promise<ApiResponse<RegionVarsItemRes | 'None'>> {
-        return this.helpersService.getRegionById(+id)
+        return this.helpersService.getRegionByMark(value)
     }
 
     @Get('glob-complaints')

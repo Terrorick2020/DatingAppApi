@@ -337,6 +337,7 @@ export class UserService {
 					`Получен кешированный публичный профиль для ${telegramId}`,
 					'UserService'
 				)
+				console.log(cachedProfile.data)
 				return successResponse(
 					JSON.parse(cachedProfile.data),
 					'Публичный профиль получен из кэша'
