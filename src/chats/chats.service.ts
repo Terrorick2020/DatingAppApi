@@ -337,7 +337,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					telegramId: { in: interlocutorIds },
 					status: { not: 'Blocked' },
 				},
-				select: FindAllChatsUserFields, 
+				select: FindAllChatsUserFields,
 			})
 
 			this.logger.debug(
@@ -417,7 +417,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					toUser: {
 						id: user.telegramId,
 						name: user.name,
-						age: user.age, 
+						age: user.age,
 						avatarKey: photoInfo.key,
 						avatarUrl: photoInfo.url,
 					},
@@ -750,7 +750,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				{ lastReadMessageId }
 			)
 
-			// Проверяем существование чата
+			// Проверка чата
 			const chatMetadata = await this.getChatMetadata(chatId)
 
 			if (!chatMetadata.success || !chatMetadata.data) {
@@ -763,7 +763,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			const chat = chatMetadata.data
 
-			// Проверяем, является ли пользователь участником чата
 			if (!chat.participants.includes(userId)) {
 				this.logger.warn(
 					`Пользователь ${userId} не является участником чата ${chatId}`,
@@ -772,16 +771,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				return errorResponse('Вы не являетесь участником этого чата')
 			}
 
-			// Обновляем статус прочтения
 			const readStatusKey = `chat:${chatId}:read_status`
 			const readStatusResponse = await this.getReadStatus(chatId)
 
 			if (!readStatusResponse.success || !readStatusResponse.data) {
-				this.logger.debug(
-					`Создаем новый статус прочтения для чата ${chatId}`,
-					this.CONTEXT
-				)
-				// Если статус прочтения не найден, создаем новый
 				const newReadStatus = {
 					[userId]: lastReadMessageId,
 				}
@@ -792,7 +785,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					this.CHAT_TTL
 				)
 			} else {
-				// Обновляем существующий статус прочтения
 				const readStatus = readStatusResponse.data
 				readStatus[userId] = lastReadMessageId
 
@@ -803,25 +795,26 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				)
 			}
 
-			// Продлеваем TTL для всех ключей, связанных с чатом
 			await this.extendChatTTL(chatId)
-
-			// Инвалидируем кеш превью для пользователя
 			await this.invalidateChatsPreviewCache(userId)
 
-			// Находим отправителя сообщения (для отправки уведомления)
-			// Получаем сообщение по ID
 			const messagesKey = `chat:${chatId}:messages`
-			const messageResponse = await this.redisService.getHashField(
+			const orderKey = `chat:${chatId}:order`
+
+			// Получение сообщения, чтобы узнать его score (timestamp)
+			const lastMessageRaw = await this.redisService.getHashField(
 				messagesKey,
 				lastReadMessageId
 			)
 
-			let senderId = null
-			if (messageResponse.success && messageResponse.data) {
+			let senderId: string | null = null
+			let lastMsgScore: number | null = null
+
+			if (lastMessageRaw.success && lastMessageRaw.data) {
 				try {
-					const message = JSON.parse(messageResponse.data)
-					senderId = message.fromUser
+					const lastMsg: ChatMsg = JSON.parse(lastMessageRaw.data)
+					senderId = lastMsg.fromUser
+					lastMsgScore = lastMsg.created_at ?? null
 				} catch (e) {
 					this.logger.warn(
 						`Ошибка при парсинге сообщения ${lastReadMessageId}`,
@@ -831,7 +824,41 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				}
 			}
 
-			// Если нашли отправителя, уведомляем его через Redis Pub/Sub
+			// Обновляем is_read у всех сообщений до текущего включительно
+			if (lastMsgScore !== null) {
+				const messageIdsToUpdate =
+					await this.redisService.getSortedSetRangeByScore(
+						orderKey,
+						0,
+						lastMsgScore
+					)
+
+				if (Array.isArray(messageIdsToUpdate)) {
+					for (const msgId of messageIdsToUpdate) {
+						const msgRaw = await this.redisService.getHashField(
+							messagesKey,
+							msgId
+						)
+
+						if (msgRaw.success && msgRaw.data) {
+							const msg: ChatMsg = JSON.parse(msgRaw.data)
+
+							if (!msg.is_read && msg.fromUser !== userId) {
+								msg.is_read = true
+								msg.updated_at = Date.now()
+
+								await this.redisService.setHashField(
+									messagesKey,
+									msgId,
+									JSON.stringify(msg)
+								)
+							}
+						}
+					}
+				}
+			}
+
+			// Уведомление отправителя
 			if (senderId && senderId !== userId) {
 				await this.redisPubSubService.publishMessageRead({
 					chatId,

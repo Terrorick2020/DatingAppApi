@@ -7,7 +7,10 @@ import {
 } from '@/common/helpers/api.response.helper'
 import { GetKeyType } from './redis.types'
 import { AppLogger } from '@/common/logger/logger.service'
-import { ConnectionStatus, ResTcpConnection } from '@/common/abstract/micro/micro.type'
+import {
+	ConnectionStatus,
+	ResTcpConnection,
+} from '@/common/abstract/micro/micro.type'
 import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 import { CreateRoomDto } from './dto/create-room.dto'
 import { RedisErrorHandler } from './redis.error-handler'
@@ -298,6 +301,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 			)
 			return errorResponse(errorMessage, error)
 		}
+	}
+
+	async getSortedSetScore(key: string, member: string) {
+		return this.redis.zscore(key, member)
+	}
+
+	async getSortedSetRangeByScore(
+		key: string,
+		min: number,
+		max: number
+	): Promise<string[]> {
+		return this.redis.zrangebyscore(key, min, max)
 	}
 
 	/**
@@ -613,13 +628,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	async createRoom(createRoomDto: CreateRoomDto): Promise<ApiResponse<boolean>> {
+	async createRoom(
+		createRoomDto: CreateRoomDto
+	): Promise<ApiResponse<boolean>> {
 		try {
 			const { roomName, ttl, persons } = createRoomDto
 
 			const exists = await this.redis.exists(roomName)
-		
-			exists && await this.redis.del(roomName)
+
+			exists && (await this.redis.del(roomName))
 
 			await this.redis.sadd(roomName, persons)
 			await this.redis.expire(roomName, ttl)
@@ -630,9 +647,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	async roomValidation(connectionDto: ConnectionDto): Promise<ApiResponse<ResTcpConnection>> {
+	async roomValidation(
+		connectionDto: ConnectionDto
+	): Promise<ApiResponse<ResTcpConnection>> {
 		try {
-			const { roomName, telegramId, } = connectionDto
+			const { roomName, telegramId } = connectionDto
 
 			const successMsg = `Успешная валидация комнаты: ${roomName} пользователем: ${telegramId}`
 			const errMsg = `Либо комната: ${telegramId} не создана, либо пользователь: ${roomName} не имеет доступа к комнате`
@@ -648,7 +667,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
 			return successResponse(tcpRes, successMsg)
 		} catch (error) {
-			return errorResponse(`Ошибка валидации комнаты: ${connectionDto.roomName}`, error)
+			return errorResponse(
+				`Ошибка валидации комнаты: ${connectionDto.roomName}`,
+				error
+			)
 		}
 	}
 }
