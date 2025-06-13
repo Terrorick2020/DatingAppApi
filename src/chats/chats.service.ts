@@ -844,6 +844,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 							if (!msg.is_read && msg.fromUser !== userId) {
 								msg.is_read = true
+								console.log('----------------------------')
+								console.log('ВОлодя членосос')
+								console.log(msg)
+								console.log('----------------------------')
 								msg.updated_at = Date.now()
 
 								await this.redisService.setHashField(
