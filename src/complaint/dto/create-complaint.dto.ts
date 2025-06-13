@@ -20,7 +20,7 @@ export class CreateComplaintDto {
 	@ApiProperty({
 		description: 'Тип жалобы',
 		enum: ComplaintType,
-		example: ComplaintType.HARASSMENT,
+		example: ComplaintType.AGE_DRUGOE_AGE,
 	})
 	@IsEnum(ComplaintType)
 	type!: ComplaintType

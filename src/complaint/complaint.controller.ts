@@ -25,7 +25,7 @@ import { AppLogger } from '../common/logger/logger.service'
 
 @ApiTags('complaints')
 @Controller('complaints')
-@UseGuards(UserStatusGuard)
+// @UseGuards(UserStatusGuard)
 export class ComplaintController {
 	constructor(
 		private readonly complaintService: ComplaintService,
@@ -35,7 +35,7 @@ export class ComplaintController {
 	@ApiOperation({ summary: 'Создать новую жалобу' })
 	@ApiResponse({ status: 201, description: 'Жалоба успешно создана' })
 	@Post()
-	@Status('Pro', 'Noob')
+	// @Status('Pro', 'Noob')
 	async createComplaint(@Body() createComplaintDto: CreateComplaintDto) {
 		this.logger.debug(
 			`Запрос на создание жалобы от ${createComplaintDto.fromUserId} на ${createComplaintDto.reportedUserId}`,

@@ -124,6 +124,7 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 					this.webSocketService.sendToUser(participantId, 'typingStatus', {
 						chatId,
 						userId,
+						recipientId: participantId,
 						isTyping,
 					})
 				}

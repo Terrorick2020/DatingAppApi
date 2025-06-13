@@ -22,6 +22,7 @@ import { ConnectionStatus } from '../common/abstract/micro/micro.type'
 import type { ChatPreview, ResCreateChat } from './chats.types'
 import { type Chat, type ChatMsg } from './chats.types'
 import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
+import { log } from 'console'
 
 @Injectable()
 export class ChatsService implements OnModuleInit, OnModuleDestroy {
@@ -150,8 +151,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 	 */
 	async getChatMessages(
 		chatId: string,
-		limit = 50,
-		offset = 0
+		limit: number = 50,
+		offset: number = 0
 	): Promise<ApiResponse<ChatMsg[]>> {
 		try {
 			const messagesKey = `chat:${chatId}:messages`
@@ -228,7 +229,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT,
 				{ messageCount: messages.length, limit, offset }
 			)
-			return successResponse<ChatMsg[]>(messages, 'Сообщения чата получены')
+			return successResponse<ChatMsg[]>(messages.reverse(), 'Сообщения чата получены')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при получении сообщений чата ${chatId}`,

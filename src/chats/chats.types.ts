@@ -51,7 +51,7 @@ export interface ChatMsg {
     media_type?: string
     media_url?: string
 }
-
+ 
 // Типы ответов API
 export interface ChatPreview {
 	chatId: string

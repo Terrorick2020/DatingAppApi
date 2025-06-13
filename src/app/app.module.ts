@@ -38,7 +38,7 @@ import microservicesConfig from '../config/microservices.config'
 		UserModule,
 		BillingModule,
 		GeoModule,
-		AdminModule,
+		// AdminModule,
 		GeoModule,
 		RedisModule,
 		LikeModule,

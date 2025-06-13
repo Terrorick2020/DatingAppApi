@@ -172,6 +172,13 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				},
 			})
 
+			const [globType, targetType] = type.split(', ');
+
+			const [globComplRes, targetComplRes] = await Promise.all([
+				this.prisma.complaintGlobVars.findUnique({ where: { value: globType } }),
+				this.prisma.complaintDescVars.findUnique({ where: { value: targetType } })
+			]);
+
 			// Сохраняем дополнительные данные в Redis
 			const complaintKey = `complaint:${complaint.id}`
 			const timestamp = Date.now()
@@ -187,6 +194,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					createdAt: timestamp,
 					fromUserId,
 					reportedUserId,
+					globComplRes: globComplRes || '',
+					targetComplRes: targetComplRes || '',
 				}),
 				this.COMPLAINT_TTL
 			)
@@ -444,7 +453,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			const complaints = await this.prisma.complaint.findMany({
 				where: prismaWhere,
 				include: {
-					reason: { select: { value: true, label: true } },
+					reason: {
+						select: { value: true, label: true },
+					},
 					fromUser: {
 						select: {
 							telegramId: true,
@@ -482,6 +493,13 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 						}
 					}
 
+					const [globType, targetType] = complaint.reason.value.split(', ');
+
+					const [globComplRes, targetComplRes] = await Promise.all([
+						this.prisma.complaintGlobVars.findUnique({ where: { value: globType } }),
+						this.prisma.complaintDescVars.findUnique({ where: { value: targetType } })
+					]);
+
 					return {
 						id: complaint.id.toString(),
 						fromUser: {
@@ -501,6 +519,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 						createdAt: complaint.createdAt.getTime(),
 						updatedAt: complaintData.updatedAt,
 						resolutionNotes: complaintData.resolutionNotes,
+						globComplRes: globComplRes || '',
+						targetComplRes: targetComplRes || '',
 					}
 				})
 			)
@@ -511,6 +531,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				JSON.stringify(enrichedComplaints),
 				this.CACHE_TTL
 			)
+
 
 			this.logger.debug(
 				`Получено ${enrichedComplaints.length} жалоб типа ${type} для пользователя ${telegramId}`,

@@ -150,13 +150,18 @@ export class UserService {
 				skip,
 				take: limit,
 				orderBy,
-				include: { photos: true },
+				include: { photos: true, userPlans: true },
 			})
+
+			
 
 			const usersWithPhotoUrls = await Promise.all(
 				users.map(async u => ({
 					...u,
 					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
+					city: await this.prisma.cityes.findUnique({where: {value: u.town}}),
+					plan: await this.prisma.plans.findUnique({where: {id: u.userPlans[0].planId}}),
+					region: await this.prisma.regions.findUnique({where: {id: u.userPlans[0].regionId}}),
 				}))
 			)
 
@@ -202,12 +207,18 @@ export class UserService {
 			}
 
 			// Используем метод кеширования для получения URL фотографий
-			const photoUrls = await this.getPhotoUrlsWithIds(user.photos)
+			const [photoUrls, lineStatus, cityRes] = await Promise.all([
+				this.getPhotoUrlsWithIds(user.photos),
+				this.redisService.getKey(`user:${user.telegramId}:status`),
+				this.prisma.cityes.findUnique({where: {value: user.town}}),
+			]) 
 
 			return successResponse(
 				{
 					...user,
 					photos: photoUrls,
+					isOnline: lineStatus.success ? lineStatus.data : lineStatus.success,
+					city: cityRes,
 				},
 				'Пользователь найден'
 			)

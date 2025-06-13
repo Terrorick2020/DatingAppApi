@@ -209,6 +209,8 @@ export class LikeService {
 				}
 			}
 
+			const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
 			switch (type) {
 				case 'sent':
 					likes = await this.prisma.like.findMany({
@@ -235,7 +237,11 @@ export class LikeService {
 
 				case 'received':
 					likes = await this.prisma.like.findMany({
-						where: { toUserId: telegramId },
+						where: {
+							isMatch: false,
+							toUserId: telegramId,
+							createdAt: { gte: twentyFourHoursAgo },
+						},
 						include: {
 							fromUser: {
 								select: {
@@ -257,8 +263,6 @@ export class LikeService {
 					break
 
 				case 'matches':
-					const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
 					likes = await this.prisma.like.findMany({
 						where: {
 							isMatch: true,
