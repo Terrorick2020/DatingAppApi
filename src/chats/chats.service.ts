@@ -839,7 +839,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 							msgId
 						)
 						console.log('----------------------------')
-								console.log('ВОлодя членосос')
+								console.log('msgRaw - ', msgRaw)
 								console.log('нихуя не произошло')
 								console.log('----------------------------')
 						if (msgRaw.success && msgRaw.data) {
