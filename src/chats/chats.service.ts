@@ -838,13 +838,12 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 							messagesKey,
 							msgId
 						)
-						console.log('----------------------------')
-								console.log('msgRaw - ', msgRaw)
-								console.log('нихуя не произошло')
-								console.log('----------------------------')
+						
 						if (msgRaw.success && msgRaw.data) {
 							const msg: ChatMsg = JSON.parse(msgRaw.data)
-
+							console.log('msg.is_read', msg.is_read)
+							console.log('msg.fromUser', msg.fromUser)
+							console.log('userId', userId)
 							if (!msg.is_read && msg.fromUser !== userId) {
 								msg.is_read = true
 								console.log('----------------------------')
