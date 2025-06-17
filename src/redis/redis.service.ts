@@ -44,6 +44,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		})
 	}
 
+	getClient(): Redis {
+		return this.redis
+	}
+
 	async onModuleInit() {
 		// Подключение обработчиков ошибок
 		this.errorHandler.attachErrorHandlers(this.redis)

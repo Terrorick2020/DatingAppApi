@@ -5,23 +5,29 @@ import { CreateAdminDto } from './dto/create-admin.dto'
 import { UpdateAdminDto } from './dto/update-admin.dto'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 
+
+// Guard - админ
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Patch(':telegramId/block')
-  block(@Param('telegramId') id: string) {
+  async block(@Param('telegramId') id: string) {
 	return this.adminService.blockUser(id)
   }
 
   @Patch(':telegramId/unblock')
-  unblock(@Param('telegramId') id: string) {
+  async unblock(@Param('telegramId') id: string) {
     return this.adminService.unblockUser(id)
   }
 
   @Patch(':telegramId/activatePremium')
-  activatePremium(@Param('telegramId') id: string) {
+  async activatePremium(@Param('telegramId') id: string) {
     return this.adminService.activatePremium(id)
   }
 
+  @Get('complaint/users')
+  async allUsersWithComplaint() {
+    return await this.adminService.allUsersWithComplaint()
+  }
 }

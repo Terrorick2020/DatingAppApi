@@ -168,6 +168,7 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 			notifyUsers.forEach(notifyUserId => {
 				this.webSocketService.sendToUser(notifyUserId, 'userStatus', {
 					userId,
+					notifyUserId,
 					status,
 					timestamp: data.timestamp || Date.now(),
 				})

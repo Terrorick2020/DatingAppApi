@@ -70,7 +70,7 @@ export class UpdateUserDto {
 	@IsNumber()
 	@Min(18)
 	@Max(100)
-	@Transform(({ value }) => parseInt(value, 10))
+	@Transform(({ value }) => value !== undefined ? parseInt(value, 10) : undefined)
 	@IsOptional()
 	age?: number
 
@@ -145,7 +145,7 @@ export class UpdateUserDto {
 		example: 1,
 	})
 	@IsNumber()
-	@Transform(({ value }) => parseInt(value, 10))
+	@Transform(({ value }) => value !== undefined ? parseInt(value, 10) : undefined)
 	@IsOptional()
 	interestId?: number | null
 

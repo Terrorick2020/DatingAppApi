@@ -39,8 +39,6 @@ export class WebsocketGateway
 		if (userId) {
 			client.join(userId) // Присоединяем клиента к его личной комнате
 			this.logger.log(`Клиент ${userId} подключен, socketId: ${client.id}`)
-			console.log('------------')
-			console.log(`Клиент ${userId} подключен, socketId: ${client.id}`)
 			// Обновляем статус пользователя на "онлайн"
 			this.redisPubSub.publishUserStatus({
 				userId,

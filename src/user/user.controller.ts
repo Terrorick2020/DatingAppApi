@@ -12,9 +12,12 @@ import { AdminOnly } from '../common/decorators/admin-only.decorator'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { UserService } from './user.service'
 import { FindAllUsersDto } from './dto/find-all-users.dto'
+import { FindQuestsQueryDto } from './dto/find-quests.dto'
 import { ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { UserStatusGuard } from '../common/guards/user-status.guard'
 import { DeleteUserDto } from './dto/delete-user.dto'
+import type { ApiResponse as ApiRes } from '@/common/interfaces/api-response.interface'
+import type { QuestItem } from './interfaces/quests.interface'
 
 @Controller('user')
 export class UserController {
@@ -23,6 +26,11 @@ export class UserController {
 	@Get()
 	findAll(@Query() queryParams: FindAllUsersDto) {
 		return this.userService.findAll(queryParams)
+	}
+
+	@Get('quests')
+	async findQuests(@Query() queryParams: FindQuestsQueryDto): Promise<ApiRes<QuestItem[]>> {
+		return await this.userService.findQuests(queryParams)
 	}
 
 	@Patch(':telegramId')

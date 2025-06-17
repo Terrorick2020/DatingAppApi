@@ -3,7 +3,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices'
 import { ComplaintService } from './complaint.service'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
-import { SendComplaintTcpPatterns } from './complaint.types'
+import { ComplaintStatus, SendComplaintTcpPatterns } from './complaint.types'
 
 @Controller()
 export class ComplaintMicroController {
@@ -25,6 +25,7 @@ export class ComplaintMicroController {
 		return this.complaintService.getComplaints({
 			telegramId: data.userId,
 			type: data.type,
+			status: ComplaintStatus.UNDER_REVIEW
 		})
 	}
 

@@ -842,15 +842,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						
 						if (msgRaw.success && msgRaw.data) {
 							const msg: ChatMsg = JSON.parse(msgRaw.data)
-							console.log('msg.is_read', msg.is_read)
-							console.log('msg.fromUser', msg.fromUser)
-							console.log('userId', userId)
 							if (!msg.is_read && msg.fromUser !== userId) {
 								msg.is_read = true
-								console.log('----------------------------')
-								console.log('ВОлодя членосос')
-								console.log(msg)
-								console.log('----------------------------')
 								msg.updated_at = Date.now()
 
 								await this.redisService.setHashField(
@@ -868,7 +861,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			if (senderId && senderId !== userId) {
 				await this.redisPubSubService.publishMessageRead({
 					chatId,
-					userId,
+					userId: senderId,
 					messageIds: [lastReadMessageId],
 					timestamp: Date.now(),
 				})
