@@ -42,22 +42,22 @@ export class AuthService {
 			)
 
 			// Проверяем кэш в Redis
-			const cacheKey = `user:${telegramId}:status`
-			const cachedStatus = await this.redisService.getKey(cacheKey)
+			// const cacheKey = `user:${telegramId}:status`
+			// const cachedStatus = await this.redisService.getKey(cacheKey)
 
-			if (cachedStatus.success && cachedStatus.data) {
-				this.logger.debug(
-					`Пользователь ${telegramId} найден в кэше со статусом: ${cachedStatus.data}`,
-					this.CONTEXT
-				)
+			// if (cachedStatus.success && cachedStatus.data) {
+			// 	this.logger.debug(
+			// 		`Пользователь ${telegramId} найден в кэше со статусом: ${cachedStatus.data}`,
+			// 		this.CONTEXT
+			// 	)
 
-				return successResponse(
-					cachedStatus.data,
-					cachedStatus.data === 'None'
-						? 'Пользователь не зарегистрирован'
-						: 'Пользователь найден'
-				)
-			}
+			// 	return successResponse(
+			// 		cachedStatus.data,
+			// 		cachedStatus.data === 'None'
+			// 			? 'Пользователь не зарегистрирован'
+			// 			: 'Пользователь найден'
+			// 	)
+			// }
 
 			// Если нет в кэше, ищем в БД
 			const status = await this.userService.checkTgID(telegramId)
