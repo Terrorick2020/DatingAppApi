@@ -7,6 +7,9 @@ CREATE TYPE "Role" AS ENUM ('Admin', 'User', 'Psych');
 -- CreateEnum
 CREATE TYPE "Status" AS ENUM ('Pro', 'Noob', 'Blocked');
 
+-- CreateEnum
+CREATE TYPE "ComplaintStatus" AS ENUM ('PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "telegramId" TEXT NOT NULL,
@@ -129,6 +132,7 @@ CREATE TABLE "Complaint" (
     "reasonId" INTEGER NOT NULL,
     "fromUserId" TEXT NOT NULL,
     "toUserId" TEXT NOT NULL,
+    "status" "ComplaintStatus" NOT NULL DEFAULT 'UNDER_REVIEW',
 
     CONSTRAINT "Complaint_pkey" PRIMARY KEY ("id")
 );

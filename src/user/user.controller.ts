@@ -35,7 +35,7 @@ export class UserController {
 
 	@Patch(':telegramId')
 	update(@Param('telegramId') telegramId: string, @Body() dto: UpdateUserDto) {
-		return this.userService.update(telegramId, dto)
+		return this.userService.update(telegramId, dto) 	
 	}
 
 	@AdminOnly()
@@ -82,5 +82,10 @@ export class UserController {
 	@Get('public/:telegramId')
 	getPublicProfile(@Param('telegramId') telegramId: string) {
 		return this.userService.getPublicProfile(telegramId)
+	}
+
+	@Get('search')
+	searchUsers(@Query('query') query: string) {
+		return this.userService.searchUsers(query);
 	}
 }
