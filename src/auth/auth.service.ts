@@ -65,8 +65,8 @@ export class AuthService {
 			// Проверяем, что статус - это строка перед сохранением в Redis
 			if (typeof status === 'string') {
 				// Кэшируем результат на 5 минут
-				const cacheTTL = 300 // 5 минут
-				await this.redisService.setKey(cacheKey, status, cacheTTL)
+				// const cacheTTL = 300 // 5 минут
+				// await this.redisService.setKey(cacheKey, status, cacheTTL)
 
 				if (status === 'None') {
 					this.logger.debug(

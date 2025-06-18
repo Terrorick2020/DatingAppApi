@@ -813,47 +813,46 @@ export class UserService {
 	}
 
 	async searchUsers(query: string) {
-		try {
-			if (!query || query.trim() === '') {
-				return successResponse([], 'Пустой запрос');
-			}
+    try {
+      if (!query || query.trim() === '') {
+        return successResponse([], 'Пустой запрос');
+      }
 
-			const users = await this.prisma.user.findMany({
-				where: {
-					OR: [
-						{
-							name: {
-								contains: query,
-								mode: 'insensitive',
-							},
-						},
-						{
-							telegramId: {
-								startsWith: query,
-							},
-						},
-					],
-				},
-				include: {
-					photos: true,
-					userPlans: true,
-				},
-			});
+      const users = await this.prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              name: {
+                contains: query,
+                mode: 'insensitive',
+              },
+            },
+            {
+              telegramId: {
+                startsWith: query,
+              },
+            },
+          ],
+        },
+        include: {
+          photos: true,
+          userPlans: true,
+        },
+      });
 
-			const usersWithData = await Promise.all(
-				users.map(async (u) => ({
-					...u,
-					photos: await this.getPhotoUrlsWithIds(u.photos),
-					city: await this.prisma.cityes.findUnique({ where: { value: u.town } }),
-					plan: await this.prisma.plans.findUnique({ where: { id: u.userPlans[0].planId } }),
-					region: await this.prisma.regions.findUnique({ where: { id: u.userPlans[0].regionId } }),
-				}))
-			);
+      const usersWithData = await Promise.all(
+        users.map(async (u) => ({
+          ...u,
+          photos: await this.getPhotoUrlsWithIds(u.photos),
+          city: await this.prisma.cityes.findUnique({ where: { value: u.town } }),
+          plan: await this.prisma.plans.findUnique({ where: { id: u.userPlans[0].planId } }),
+          region: await this.prisma.regions.findUnique({ where: { id: u.userPlans[0].regionId } }),
+        }))
+      );
 
-			return successResponse(usersWithData, 'Результаты поиска');
-		} catch (error) {
-			return errorResponse('Ошибка при поиске пользователей', error);
-		}
-	}
-
+      return successResponse(usersWithData, 'Результаты поиска');
+    } catch (error) {
+      return errorResponse('Ошибка при поиске пользователей', error);
+    }
+  }
 }

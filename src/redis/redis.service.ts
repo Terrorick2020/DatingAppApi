@@ -651,6 +651,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
+	async zcount(key: string, min: string | number, max: string | number) {
+    	const count = await this.redis.zcount(key, min, max);
+    	return { success: true, data: count };
+  	}
+
 	async roomValidation(
 		connectionDto: ConnectionDto
 	): Promise<ApiResponse<ResTcpConnection>> {

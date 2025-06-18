@@ -112,4 +112,5 @@ export class FindAllUsersDto {
 	@Type(() => Number)
 	@IsInt()
 	interestId?: number
+
 }

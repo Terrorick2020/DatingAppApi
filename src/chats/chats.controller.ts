@@ -133,4 +133,11 @@ export class ChatsController {
 		this.logger.debug(`Запрос на удаление чата ${chatId}`, 'ChatsController')
 		return this.chatsService.delete(chatId)
 	}
+
+	@ApiOperation({ summary: 'Получить количество непрочитанных чатов' })
+	@ApiResponse({ status: 200, description: 'Количество получено' })
+	@Get('unread-chats-count')
+	async getUnreadChatsCount(@Query('telegramId') telegramId: string) {
+  		return this.chatsService.countChatsWithUnread(telegramId);
+}
 }

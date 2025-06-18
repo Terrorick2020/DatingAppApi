@@ -46,7 +46,7 @@ export class GeoService {
 				} 
 			}
 
-			return successResponse({ city }, 'Город получен по координатам')
+			return successResponse('None', 'Город получен по координатам')
 		} catch (error) {
 			return errorResponse(
 				'Ошибка при определении города по координатам',
