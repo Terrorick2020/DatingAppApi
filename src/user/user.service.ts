@@ -6,7 +6,7 @@ import {
 	errorResponse,
 } from '../common/helpers/api.response.helper'
 import { PublicUserDto } from './dto/public-user.dto'
-import { Status } from '@prisma/client';
+import { Status, Sex } from '@prisma/client';
 import { StorageService } from '../storage/storage.service'
 import { FindAllUsersDto } from './dto/find-all-users.dto'
 import { FindQuestsQueryDto } from './dto/find-quests.dto'
@@ -224,7 +224,7 @@ export class UserService {
 					notIn: [user.telegramId, ...likedIds],
 				},
 				status: { not: Status.Blocked },
-				sex: user.selSex,
+				...(user.selSex !== Sex.All ? {sex: user.selSex}: {}),
 				interestId: user.interestId,
 				town: user.town,
 				age: {

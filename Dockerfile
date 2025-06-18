@@ -18,6 +18,7 @@ WORKDIR /api
 COPY package.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 
+COPY --from=builder /api/node_modules ./node_modules
 COPY --from=builder /api/dist ./dist
 COPY --from=builder /api/prisma ./prisma
 COPY --from=builder /api/wait-for-db.sh ./wait-for-db.sh
