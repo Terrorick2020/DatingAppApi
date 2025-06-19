@@ -108,6 +108,22 @@ export class AuthService {
 				{ photoKey: dto.key }
 			)
 
+			// Считаем количество уже загруженных фото
+			const photoCount = await this.prisma.photo.count({
+				where: {
+					OR: [{ telegramId: dto.telegramId }, { tempTgId: dto.telegramId }],
+				},
+			})
+
+			if (photoCount >= 3) {
+				this.logger.warn(
+					`Пользователь ${dto.telegramId} попытался загрузить более 3 фото`,
+					this.CONTEXT
+				)
+				return errorResponse('Можно загрузить не более 3 фотографий')
+			}
+
+			// Сохраняем фото, если лимит не превышен
 			const photo = await this.prisma.photo.create({
 				data: {
 					key: dto.key,
@@ -232,7 +248,7 @@ export class AuthService {
 							{ latitude, longitude, error: geoError }
 						)
 						// Продолжаем с указанным городом
-					} 
+					}
 				}
 
 				// Обработка реферального кода
@@ -362,7 +378,7 @@ export class AuthService {
 				include: {
 					photos: {
 						select: {
-							id: true, 
+							id: true,
 							key: true,
 						},
 						orderBy: { createdAt: 'asc' },
@@ -444,7 +460,7 @@ export class AuthService {
 				referralCode: user.referralCode || undefined,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
-				photos: validPhotos, 
+				photos: validPhotos,
 				interest: user.interest,
 				invitedBy: user.invitedBy || undefined,
 				invitedUsers: user.invitedUsers,
