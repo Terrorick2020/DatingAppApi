@@ -57,7 +57,7 @@ async function bootstrap() {
 	await app.startAllMicroservices()
 	appLogger.log(`TCP микросервис запущен на ${tcpHost}:${tcpPort}`, 'Bootstrap')
 
-	const configService = app.get(ConfigService) // Импортируйте из @nestjs/config
+	const configService = app.get(ConfigService) 
 	const websocketAdapter = new WebsocketAdapter(app, configService)
 	app.useWebSocketAdapter(websocketAdapter)
 

@@ -831,7 +831,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						0,
 						lastMsgScore
 					)
-
+					
 				if (Array.isArray(messageIdsToUpdate)) {
 					for (const msgId of messageIdsToUpdate) {
 						const msgRaw = await this.redisService.getHashField(
