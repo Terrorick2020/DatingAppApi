@@ -1,5 +1,6 @@
 import { IsString, IsEnum } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
+import { ComplaintStatus } from '../complaint.types'
 
 export class GetComplaintsDto {
 	@ApiProperty({
@@ -18,4 +19,12 @@ export class GetComplaintsDto {
 		message: 'Тип должен быть одним из: sent, received, admin',
 	})
 	type!: 'sent' | 'received' | 'admin'
+
+	@ApiProperty({
+		description: 'Новый статус жалобы',
+		enum: ComplaintStatus,
+		example: ComplaintStatus.UNDER_REVIEW,
+	})
+	@IsEnum(ComplaintStatus)
+	status!: ComplaintStatus
 }

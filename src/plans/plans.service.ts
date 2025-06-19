@@ -62,7 +62,7 @@ export class PlansService {
 
             const response: EveningPlans = {
                 isCurrent,
-                remains: isCurrent ? Math.floor(msLeft / 1000) : null,
+                remains,
                 plan: {
                     value: plan.data.value,
                     description: plans.planDescription,
@@ -130,12 +130,15 @@ export class PlansService {
                 return successResponse('None', 'При получении планов планы не найдены')
             }
 
-            const seconds = Date.now() - new Date(plans.updatedAt).getTime()
-            const isCurrent = seconds < 24 * 60 * 60 * 1000
+            const msPassed = Date.now() - new Date(plans.updatedAt).getTime()
+            const msLeft = 24 * 60 * 60 * 1000 - msPassed
+
+            const isCurrent = msLeft > 0
+            const remains = isCurrent ? Math.floor(msLeft / 1000) : null
 
             const response: EveningPlans = {
                 isCurrent,
-                remains: isCurrent ? seconds : null,
+                remains,
                 plan: {
                     value: plan.data.value,
                     description: plans.planDescription,

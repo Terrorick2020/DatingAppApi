@@ -28,7 +28,6 @@ export class GeoEnabledGuard implements CanActivate {
 			request.body?.telegramId ||
 			request.params?.telegramId ||
 			request.query?.telegramId
-		console.log(telegramId)
 		if (!telegramId || Array.isArray(telegramId)) {
 			throw new ForbiddenException('telegramId обязателен')
 		}

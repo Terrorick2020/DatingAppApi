@@ -12,27 +12,36 @@ import { AdminOnly } from '../common/decorators/admin-only.decorator'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { UserService } from './user.service'
 import { FindAllUsersDto } from './dto/find-all-users.dto'
+import { FindQuestsQueryDto } from './dto/find-quests.dto'
 import { ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { UserStatusGuard } from '../common/guards/user-status.guard'
 import { DeleteUserDto } from './dto/delete-user.dto'
+import type { ApiResponse as ApiRes } from '@/common/interfaces/api-response.interface'
+import type { QuestItem } from './interfaces/quests.interface'
+import { SearchUserDto } from './dto/search-user.dto'
 
 @Controller('user')
 export class UserController {
 	constructor(private readonly userService: UserService) {}
 
 	@Get()
-	findAll(@Query() queryParams: FindAllUsersDto) {
+	async findAll(@Query() queryParams: FindAllUsersDto) {
 		return this.userService.findAll(queryParams)
 	}
 
+	@Get('quests')
+	async findQuests(@Query() queryParams: FindQuestsQueryDto): Promise<ApiRes<QuestItem[]>> {
+		return await this.userService.findQuests(queryParams)
+	}
+
 	@Patch(':telegramId')
-	update(@Param('telegramId') telegramId: string, @Body() dto: UpdateUserDto) {
+	async update(@Param('telegramId') telegramId: string, @Body() dto: UpdateUserDto) {
 		return this.userService.update(telegramId, dto)
 	}
 
 	@AdminOnly()
 	@Delete(':telegramId')
-	remove(@Param('telegramId') telegramId: string) {
+	async remove(@Param('telegramId') telegramId: string) {
 		return this.userService.remove(telegramId)
 	}
 
@@ -67,12 +76,17 @@ export class UserController {
 	}
 
 	@Get(':telegramId')
-	findByTelegramId(@Param('telegramId') telegramId: string) {
+	async findByTelegramId(@Param('telegramId') telegramId: string) {
 		return this.userService.findByTelegramId(telegramId)
 	}
 
 	@Get('public/:telegramId')
-	getPublicProfile(@Param('telegramId') telegramId: string) {
+	async getPublicProfile(@Param('telegramId') telegramId: string) {
 		return this.userService.getPublicProfile(telegramId)
+	}
+
+	@Get('search')
+	async searchUsers(@Query('query') query: SearchUserDto) {
+		return this.userService.searchUsers(query.searchText);
 	}
 }

@@ -13,7 +13,6 @@ export class PlansController {
     async getPlans(
         @Param('telegramId') telegramId: string
     ): Promise<ApiResponse<EveningPlans | 'None'>> {
-        console.log( telegramId )
         return await this.plansService.getPlans(telegramId)
     }
 

@@ -22,7 +22,7 @@ export class UpdateComplaintDto {
 		enum: ComplaintStatus,
 		example: ComplaintStatus.UNDER_REVIEW,
 	})
-	@IsEnum(ComplaintStatus)
+	@IsEnum(ComplaintStatus) 
 	status!: ComplaintStatus
 
 	@ApiPropertyOptional({

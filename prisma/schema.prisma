@@ -127,6 +127,7 @@ model Complaint {
   reasonId   Int
   fromUserId String
   toUserId   String
+  status     ComplaintStatus @default(UNDER_REVIEW)
   fromUser   User            @relation("SentComplaints", fields: [fromUserId], references: [telegramId], onDelete: Cascade)
   reason     ComplaintReason @relation(fields: [reasonId], references: [id])
   toUser     User            @relation("ReceivedComplaints", fields: [toUserId], references: [telegramId], onDelete: Cascade)
@@ -161,4 +162,11 @@ enum Status {
   Pro
   Noob
   Blocked
+}
+
+enum ComplaintStatus {
+	PENDING 
+	UNDER_REVIEW 
+	RESOLVED
+	REJECTED
 }

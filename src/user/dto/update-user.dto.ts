@@ -31,6 +31,7 @@ export class UpdateUserDto {
 	})
 	@IsString()
 	@IsNotEmpty()
+	@IsOptional()
 	name?: string
 
 	@ApiProperty({
@@ -39,6 +40,7 @@ export class UpdateUserDto {
 	})
 	@IsString()
 	@IsNotEmpty()
+	@IsOptional()
 	town?: string
 
 	@ApiProperty({
@@ -47,6 +49,7 @@ export class UpdateUserDto {
 		example: 'Male',
 	})
 	@IsEnum(Sex)
+	@IsOptional()
 	sex?: Sex
 
 	@ApiProperty({
@@ -55,6 +58,7 @@ export class UpdateUserDto {
 		example: 'Female',
 	})
 	@IsEnum(Sex)
+	@IsOptional()
 	selSex?: Sex
 
 	@ApiProperty({
@@ -66,7 +70,8 @@ export class UpdateUserDto {
 	@IsNumber()
 	@Min(18)
 	@Max(100)
-	@Transform(({ value }) => parseInt(value, 10))
+	@Transform(({ value }) => value !== undefined ? parseInt(value, 10) : undefined)
+	@IsOptional()
 	age?: number
 
 	@ApiProperty({
@@ -75,6 +80,7 @@ export class UpdateUserDto {
 	})
 	@IsString()
 	@IsNotEmpty()
+	@IsOptional()
 	bio?: string
 
 	@ApiProperty({
@@ -84,6 +90,7 @@ export class UpdateUserDto {
 	@IsBoolean()
 	@Transform(({ value }) => value === 'true' || value === true)
 	@IsGeoDataValid()
+	@IsOptional()
 	enableGeo?: boolean
 
 	@ApiPropertyOptional({
@@ -119,6 +126,7 @@ export class UpdateUserDto {
 	})
 	@IsString()
 	@IsNotEmpty()
+	@IsOptional()
 	lang?: string
 
 	@ApiProperty({
@@ -129,6 +137,7 @@ export class UpdateUserDto {
 	@IsArray()
 	@ArrayMinSize(1)
 	@Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+	@IsOptional()
 	photoIds?: number[]
 
 	@ApiProperty({
@@ -136,7 +145,8 @@ export class UpdateUserDto {
 		example: 1,
 	})
 	@IsNumber()
-	@Transform(({ value }) => parseInt(value, 10))
+	@Transform(({ value }) => value !== undefined ? parseInt(value, 10) : undefined)
+	@IsOptional()
 	interestId?: number | null
 
 	@ApiPropertyOptional({

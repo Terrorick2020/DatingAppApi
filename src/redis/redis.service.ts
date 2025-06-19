@@ -44,6 +44,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		})
 	}
 
+	getClient(): Redis {
+		return this.redis
+	}
+
 	async onModuleInit() {
 		// Подключение обработчиков ошибок
 		this.errorHandler.attachErrorHandlers(this.redis)
@@ -646,6 +650,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 			return errorResponse('Произошла ошибка создания комнаты', error)
 		}
 	}
+
+	async zcount(key: string, min: string | number, max: string | number) {
+    	const count = await this.redis.zcount(key, min, max);
+    	return { success: true, data: count };
+  	}
 
 	async roomValidation(
 		connectionDto: ConnectionDto

@@ -6,8 +6,11 @@ import {
 	errorResponse,
 } from '../common/helpers/api.response.helper'
 import { PublicUserDto } from './dto/public-user.dto'
+import { Status, Sex } from '@prisma/client';
 import { StorageService } from '../storage/storage.service'
 import { FindAllUsersDto } from './dto/find-all-users.dto'
+import { FindQuestsQueryDto } from './dto/find-quests.dto'
+import { getAgeRange } from './user.utils'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { ApiResponse } from '../common/interfaces/api-response.interface'
@@ -18,6 +21,8 @@ import {
 	UserArchiveData,
 	PhotoData,
 } from './interfaces/user-data.interface'
+
+import type { QuestItem } from './interfaces/quests.interface'
 
 interface PhotoResponse {
 	id: number
@@ -64,7 +69,7 @@ export class UserService {
 			try {
 				const presignedUrl = await this.storageService.getPresignedUrl(
 					photo.key,
-					7200
+					7200 
 				)
 
 				// Кешируем на 1 час 50 минут (меньше чем живет URL)
@@ -150,13 +155,18 @@ export class UserService {
 				skip,
 				take: limit,
 				orderBy,
-				include: { photos: true },
+				include: { photos: true, userPlans: true },
 			})
+
+			
 
 			const usersWithPhotoUrls = await Promise.all(
 				users.map(async u => ({
 					...u,
 					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
+					city: await this.prisma.cityes.findUnique({where: {value: u.town}}),
+					plan: await this.prisma.plans.findUnique({where: {id: u.userPlans[0].planId}}),
+					region: await this.prisma.regions.findUnique({where: {id: u.userPlans[0].regionId}}),
 				}))
 			)
 
@@ -182,6 +192,95 @@ export class UserService {
 		}
 	}
 
+	async findQuests({
+		telegramId,
+		limit = 15,
+		offset = 0,
+	}: FindQuestsQueryDto): Promise<ApiResponse<QuestItem[]>> {
+		try {
+			const user = await this.prisma.user.findUnique({where: {telegramId}});
+
+			if( !user ) {
+				return successResponse([], 'Пользователь не найден')
+			}
+
+			const ageRange = getAgeRange(user.age);
+
+			if (!ageRange) {
+				return successResponse([], 'Возраст вне диапазонов');
+			}
+
+			const likes = await this.prisma.like.findMany({
+				where: { fromUserId: telegramId },
+				select: { toUserId: true },
+			})
+
+			const likedIds = likes.map(like => like.toUserId)
+
+			const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+			const where = {
+				telegramId: {
+					notIn: [user.telegramId, ...likedIds],
+				},
+				status: { not: Status.Blocked },
+				...(user.selSex !== Sex.All ? {sex: user.selSex}: {}),
+				interestId: user.interestId,
+				town: user.town,
+				age: {
+					gte: ageRange.minAge,
+					lte: ageRange.maxAge,
+				},
+				userPlans: {
+					some: {
+						updatedAt: {
+							gte: twentyFourHoursAgo,
+						},
+					},
+				},
+			};
+
+			const [ users ] = await this.prisma.$transaction([
+				this.prisma.user.findMany({
+					where,
+					skip: offset,
+					take: limit,
+					orderBy: { createdAt: 'desc' },
+					include: { photos: true, userPlans: true },
+				}),
+			]);
+
+			const result: QuestItem[] =  await Promise.all(
+				users.map(async u => {
+					const city = await this.prisma.cityes.findUnique({where: {value: u.town}})
+
+					const [plan, region] = await Promise.all([
+						this.prisma.plans.findUnique({where: {id: u.userPlans[0].planId}}),
+						this.prisma.regions.findUnique({where: {id: u.userPlans[0].regionId}}),
+					])
+
+					return {
+						id: u.telegramId,
+						name: u.name,
+						age: u.age,
+						city: city!.label,
+						description: u.userPlans[0].planDescription,
+						plans: {
+							date: 'Планы на сегодня',
+							content: `${plan!.label}, ${region!.label}`,
+						},
+						photos: (await this.getPhotoUrlsWithIds(u.photos)).map(item => item.url)
+					}
+				})
+			)
+
+			return successResponse(result, 'Анкеты успешно получены')
+
+		} catch (error: any) {
+			return errorResponse('Ошибка при получении анкет', error)
+		}
+	}
+
 	async findByTelegramId(telegramId: string): Promise<ApiResponse<any>> {
 		try {
 			const user = await this.prisma.user.findUnique({
@@ -202,12 +301,18 @@ export class UserService {
 			}
 
 			// Используем метод кеширования для получения URL фотографий
-			const photoUrls = await this.getPhotoUrlsWithIds(user.photos)
+			const [photoUrls, lineStatus, cityRes] = await Promise.all([
+				this.getPhotoUrlsWithIds(user.photos),
+				this.redisService.getKey(`user:${user.telegramId}:status`),
+				this.prisma.cityes.findUnique({where: {value: user.town}}),
+			]) 
 
 			return successResponse(
 				{
 					...user,
 					photos: photoUrls,
+					isOnline: lineStatus.success ? lineStatus.data : lineStatus.success,
+					city: cityRes,
 				},
 				'Пользователь найден'
 			)
@@ -337,7 +442,6 @@ export class UserService {
 					`Получен кешированный публичный профиль для ${telegramId}`,
 					'UserService'
 				)
-				console.log(cachedProfile.data)
 				return successResponse(
 					JSON.parse(cachedProfile.data),
 					'Публичный профиль получен из кэша'
@@ -707,4 +811,48 @@ export class UserService {
 			)
 		}
 	}
+
+	async searchUsers(query: string) {
+    try {
+      if (!query || query.trim() === '') {
+        return successResponse([], 'Пустой запрос');
+      }
+
+      const users = await this.prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              name: {
+                contains: query,
+                mode: 'insensitive',
+              },
+            },
+            {
+              telegramId: {
+                startsWith: query,
+              },
+            },
+          ],
+        },
+        include: {
+          photos: true,
+          userPlans: true,
+        },
+      });
+
+      const usersWithData = await Promise.all(
+        users.map(async (u) => ({
+          ...u,
+          photos: await this.getPhotoUrlsWithIds(u.photos),
+          city: await this.prisma.cityes.findUnique({ where: { value: u.town } }),
+          plan: await this.prisma.plans.findUnique({ where: { id: u.userPlans[0].planId } }),
+          region: await this.prisma.regions.findUnique({ where: { id: u.userPlans[0].regionId } }),
+        }))
+      );
+
+      return successResponse(usersWithData, 'Результаты поиска');
+    } catch (error) {
+      return errorResponse('Ошибка при поиске пользователей', error);
+    }
+  }
 }
