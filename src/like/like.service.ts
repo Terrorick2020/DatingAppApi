@@ -25,8 +25,7 @@ export class LikeService {
 		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
 		private readonly redisPubSubService: RedisPubSubService,
-		private readonly storageService: StorageService,
-	  	private readonly botService: BotService		
+		private readonly storageService: StorageService
 	) {}
 
 	async createLike(dto: CreateLikeDto) {
@@ -157,7 +156,10 @@ export class LikeService {
 					timestamp: Date.now(),
 				})
 
-				await this.botService.notifyUser(toUserResponse.data.telegramId, `У вас новый матч с ${fromUserResponse.data.name}! Теперь вы можете общаться!`)
+				await this.redisPubSubService.publishBotNotify({
+					telegramId: toUserResponse.data.telegramId,
+					text: `У вас новый матч с ${fromUserResponse.data.name}! Теперь вы можете общаться!`,
+				})
 
 				return successResponse(
 					{
@@ -168,7 +170,11 @@ export class LikeService {
 					'Симпатия взаимна! Теперь вы можете общаться!'
 				)
 			}
-			await this.botService.notifyUser(toUserResponse.data.telegramId, `Пользователь ${fromUserResponse.data.name} хочет с вами познакомиться!`)
+
+			await this.redisPubSubService.publishBotNotify({
+				telegramId: toUserResponse.data.telegramId,
+				text: `Пользователь ${fromUserResponse.data.name} хочет с вами познакомиться!`,
+			})
 			return successResponse(like, 'Симпатия отправлена')
 		} catch (error: any) {
 			this.logger.error(

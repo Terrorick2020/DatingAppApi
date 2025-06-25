@@ -229,7 +229,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT,
 				{ messageCount: messages.length, limit, offset }
 			)
-			return successResponse<ChatMsg[]>(messages.reverse(), 'Сообщения чата получены')
+			return successResponse<ChatMsg[]>(
+				messages.reverse(),
+				'Сообщения чата получены'
+			)
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при получении сообщений чата ${chatId}`,
@@ -398,11 +401,12 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						const messagesKey = `chat:${chat.id}:messages`
 
 						// Получаем все сообщения после lastReadMessageId
-						const unreadMessageIdsResponse = await this.redisService.getMessagesAfter(
-							orderKey,
-							messageKey,
-							lastReadMessageId
-						)
+						const unreadMessageIdsResponse =
+							await this.redisService.getMessagesAfter(
+								orderKey,
+								messageKey,
+								lastReadMessageId
+							)
 
 						if (
 							unreadMessageIdsResponse.success &&
@@ -410,10 +414,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						) {
 							const unreadIds = unreadMessageIdsResponse.data
 							const messageIds = unreadIds.map(msg => msg.id)
-							const unreadMessagesResponse = await this.redisService.getHashMultiple(
-								messagesKey,
-								messageIds
-							)
+							const unreadMessagesResponse =
+								await this.redisService.getHashMultiple(messagesKey, messageIds)
 
 							if (
 								unreadMessagesResponse.success &&
@@ -435,8 +437,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 								unreadCount = unreadMsgs.length
 							}
 						}
-					}}
-
+					}
+				}
 
 				const photoInfo = photoUrlMap.get(user.telegramId) || {
 					key: '',
@@ -863,14 +865,14 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						0,
 						lastMsgScore
 					)
-					
+
 				if (Array.isArray(messageIdsToUpdate)) {
 					for (const msgId of messageIdsToUpdate) {
 						const msgRaw = await this.redisService.getHashField(
 							messagesKey,
 							msgId
 						)
-						
+
 						if (msgRaw.success && msgRaw.data) {
 							const msg: ChatMsg = JSON.parse(msgRaw.data)
 							if (!msg.is_read && msg.fromUser !== userId) {
@@ -1622,91 +1624,109 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	async countUnreadMessages(chatId: string, userId: string, lastReadMessageId: string): Promise<ApiResponse<number>> {
+	async countUnreadMessages(
+		chatId: string,
+		userId: string,
+		lastReadMessageId: string
+	): Promise<ApiResponse<number>> {
 		try {
-			const messagesKey = `chat:${chatId}:messages`;
-			const orderKey = `chat:${chatId}:order`;
+			const messagesKey = `chat:${chatId}:messages`
+			const orderKey = `chat:${chatId}:order`
 
 			// Получаем timestamp по lastReadMessageId
-			const raw = await this.redisService.getHashField(messagesKey, lastReadMessageId);
+			const raw = await this.redisService.getHashField(
+				messagesKey,
+				lastReadMessageId
+			)
 			if (!raw.success || !raw.data) {
-			return successResponse(0, 'Нет данных о последнем прочитанном сообщение');
+				return successResponse(
+					0,
+					'Нет данных о последнем прочитанном сообщение'
+				)
 			}
-			const lastMsg: ChatMsg = JSON.parse(raw.data);
-			const lastScore = lastMsg.created_at ?? 0;
+			const lastMsg: ChatMsg = JSON.parse(raw.data)
+			const lastScore = lastMsg.created_at ?? 0
 
 			// Получаем все messageId до этой отметки
-			const ids = await this.redisService.getSortedSetRangeByScore(orderKey, 0, lastScore);
+			const ids = await this.redisService.getSortedSetRangeByScore(
+				orderKey,
+				0,
+				lastScore
+			)
 			if (!Array.isArray(ids)) {
-			return successResponse(0, 'Нет новых сообщений');
+				return successResponse(0, 'Нет новых сообщений')
 			}
 
-			let count = 0;
+			let count = 0
 			for (const msgId of ids) {
-			const mRaw = await this.redisService.getHashField(messagesKey, msgId);
-			if (mRaw.success && mRaw.data) {
-				const msg: ChatMsg = JSON.parse(mRaw.data);
-				if (!msg.is_read && msg.fromUser !== userId) {
-				count++;
+				const mRaw = await this.redisService.getHashField(messagesKey, msgId)
+				if (mRaw.success && mRaw.data) {
+					const msg: ChatMsg = JSON.parse(mRaw.data)
+					if (!msg.is_read && msg.fromUser !== userId) {
+						count++
+					}
 				}
 			}
-			}
 
-			return successResponse(count, 'Количество непрочитанных сообщений');
-
+			return successResponse(count, 'Количество непрочитанных сообщений')
 		} catch (err: any) {
-			return errorResponse('Ошибка при подсчете непрочитанных', err);
+			return errorResponse('Ошибка при подсчете непрочитанных', err)
 		}
 	}
 
 	async countChatsWithUnread(telegramId: string): Promise<ApiResponse<number>> {
 		try {
-			const userChatsKey = `user:${telegramId}:chats`;
-			const userChatsRes = await this.redisService.getKey(userChatsKey);
+			const userChatsKey = `user:${telegramId}:chats`
+			const userChatsRes = await this.redisService.getKey(userChatsKey)
 
 			if (!userChatsRes.success || !userChatsRes.data) {
-			return successResponse(0, 'У пользователя нет чатов');
+				return successResponse(0, 'У пользователя нет чатов')
 			}
 
-			const chatIds: string[] = JSON.parse(userChatsRes.data);
-			let unreadChatCount = 0;
+			const chatIds: string[] = JSON.parse(userChatsRes.data)
+			let unreadChatCount = 0
 
 			for (const chatId of chatIds) {
-			const readStatusRes = await this.getReadStatus(chatId);
-			const readStatus = readStatusRes.success && readStatusRes.data;
-			const lastReadId: string | null = readStatus ? readStatus[telegramId] : null;
+				const readStatusRes = await this.getReadStatus(chatId)
+				const readStatus = readStatusRes.success && readStatusRes.data
+				const lastReadId: string | null = readStatus
+					? readStatus[telegramId]
+					: null
 
-			const orderKey = `chat:${chatId}:order`;
-			let cntRes;
+				const orderKey = `chat:${chatId}:order`
+				let cntRes
 
-			if (lastReadId) {
-				// Получаем timestamp последнего прочитанного сообщения
-				const msgRaw = await this.redisService.getHashField(
-				`chat:${chatId}:messages`,
-				lastReadId
-				);
+				if (lastReadId) {
+					// Получаем timestamp последнего прочитанного сообщения
+					const msgRaw = await this.redisService.getHashField(
+						`chat:${chatId}:messages`,
+						lastReadId
+					)
 
-				if (msgRaw.success && msgRaw.data) {
-				const msg: ChatMsg = JSON.parse(msgRaw.data);
-				const ts = msg.created_at ?? 0;
-				// Считаем сообщения со score > ts
-				cntRes = await this.redisService.zcount(orderKey, ts + 1, '+inf');
+					if (msgRaw.success && msgRaw.data) {
+						const msg: ChatMsg = JSON.parse(msgRaw.data)
+						const ts = msg.created_at ?? 0
+						// Считаем сообщения со score > ts
+						cntRes = await this.redisService.zcount(orderKey, ts + 1, '+inf')
+					} else {
+						cntRes = { success: false, data: 0 }
+					}
 				} else {
-				cntRes = { success: false, data: 0 };
+					// Если сообщений не читали — считаем все сообщения
+					cntRes = await this.redisService.zcount(orderKey, '-inf', '+inf')
 				}
-			} else {
-				// Если сообщений не читали — считаем все сообщения
-				cntRes = await this.redisService.zcount(orderKey, '-inf', '+inf');
+
+				if (cntRes.success && cntRes.data > 0) {
+					unreadChatCount += 1
+				}
 			}
 
-			if (cntRes.success && cntRes.data > 0) {
-				unreadChatCount += 1;
-			}
-			}
-
-			return successResponse(unreadChatCount, 'Количество чатов с непрочитанными сообщениями');
+			return successResponse(
+				unreadChatCount,
+				'Количество чатов с непрочитанными сообщениями'
+			)
 		} catch (error: any) {
-			return errorResponse('Ошибка при подсчёте чатов с непрочитанными', error);
+			return errorResponse('Ошибка при подсчёте чатов с непрочитанными', error)
 		}
 	}
 }

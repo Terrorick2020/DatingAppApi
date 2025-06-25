@@ -8,10 +8,9 @@ import { AppLogger } from '../common/logger/logger.service'
 import { ChatsMicroController } from './chats.micro.controller'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { LoggerModule } from '../common/logger/logger.module'
-import { BotModule } from '../../../bot/src/bot/bot.module'
 
 @Module({
-	imports: [PrismaModule, RedisModule, RedisPubSubModule, LoggerModule, BotModule],
+	imports: [PrismaModule, RedisModule, RedisPubSubModule, LoggerModule],
 	controllers: [ChatsController, ChatsMicroController],
 	providers: [ChatsService, StorageService, AppLogger],
 	exports: [ChatsService],

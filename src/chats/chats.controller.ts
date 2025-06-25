@@ -138,6 +138,6 @@ export class ChatsController {
 	@ApiResponse({ status: 200, description: 'Количество получено' })
 	@Get('unread-chats-count')
 	async getUnreadChatsCount(@Query('telegramId') telegramId: string) {
-  		return this.chatsService.countChatsWithUnread(telegramId);
-}
+		return this.chatsService.countChatsWithUnread(telegramId)
+	}
 }

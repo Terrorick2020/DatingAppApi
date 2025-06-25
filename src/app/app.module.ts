@@ -23,7 +23,6 @@ import { LoggerModule } from '../common/logger/logger.module'
 import { CoreModule } from '../core/core.module'
 
 import microservicesConfig from '../config/microservices.config'
-import { BotModule } from '../../../bot/src/bot/bot.module'
 
 @Module({
 	imports: [
@@ -31,7 +30,6 @@ import { BotModule } from '../../../bot/src/bot/bot.module'
 			isGlobal: true,
 			load: [microservicesConfig],
 		}),
-		BotModule,
 		CoreModule,
 		LoggerModule,
 		ChatsModule,

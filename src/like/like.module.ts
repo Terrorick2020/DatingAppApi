@@ -11,7 +11,6 @@ import { ChatsModule } from '../chats/chats.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { LoggerModule } from '../common/logger/logger.module'
 import { StorageService } from '../storage/storage.service'
-import { BotModule } from '../../../bot/src/bot/bot.module'
 
 @Module({
 	imports: [
@@ -22,7 +21,6 @@ import { BotModule } from '../../../bot/src/bot/bot.module'
 		ChatsModule,
 		ConfigModule,
 		LoggerModule,
-		BotModule
 	],
 	controllers: [LikeController, LikeMicroController],
 	providers: [LikeService, AppLogger, StorageService],

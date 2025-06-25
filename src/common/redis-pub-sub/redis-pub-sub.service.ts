@@ -114,7 +114,7 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     await this.publish('match:new', data)
   }
 
-  /**
+  /** 
    * Публикация уведомления об изменении статуса жалобы
    */
   async publishComplaintUpdate(data: {
@@ -137,5 +137,15 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     timestamp: number
   }): Promise<void> {
     await this.publish('user:status', data)
+  }
+
+  /** 
+   * Публикация уведомления об изменении статуса жалобы
+   */
+  async publishBotNotify(data: {
+    telegramId: string,
+    text: string
+  }): Promise<void> {
+    await this.publish('bot:notify', data)
   }
 }
