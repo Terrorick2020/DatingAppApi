@@ -15,6 +15,7 @@ import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 import { CreateRoomDto } from './dto/create-room.dto'
 import { RedisErrorHandler } from './redis.error-handler'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
+import { ChatMsg } from '../chats/chats.types'
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -357,6 +358,74 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
+	async getMessagesAfter(
+		orderKey: string,
+		messagesKey: string,
+		messageId: string,
+		limit: number = 50
+	): Promise<ApiResponse<ChatMsg[]>> {
+		try {
+			this.logger.debug(
+				`Получение сообщений после ID: ${messageId} в ключе: ${orderKey}`,
+				this.CONTEXT,
+				{ limit }
+			)
+
+			// Получаем позицию сообщения
+			const rank = await this.redis.zrevrank(orderKey, messageId)
+
+			if (rank === null) {
+				this.logger.debug(
+					`Сообщение ${messageId} не найдено в ключе: ${orderKey}`,
+					this.CONTEXT
+				)
+				return errorResponse('Сообщение не найдено')
+			}
+
+			// Получаем ID следующих сообщений после указанного (т.е. rank - 1 до конца)
+			const nextMessageIds = await this.redis.zrevrange(orderKey, 0, rank - 1)
+
+			if (!nextMessageIds || nextMessageIds.length === 0) {
+				return successResponse([], 'Нет новых сообщений')
+			}
+
+			// Ограничиваем по лимиту
+			const slicedIds = nextMessageIds.slice(0, limit)
+
+			const messagesResponse = await this.getHashMultiple(
+				messagesKey,
+				slicedIds
+			)
+
+			if (!messagesResponse.success || !messagesResponse.data) {
+				return errorResponse('Ошибка при получении сообщений из хранилища')
+			}
+
+			const messages: ChatMsg[] = messagesResponse.data
+				.map(msgStr => {
+					try {
+						if (!msgStr) return null
+						const msg: ChatMsg = JSON.parse(msgStr)
+						if (!msg || !msg.id || !msg.chatId) return null
+						return msg
+					} catch {
+						return null
+					}
+				})
+				.filter(Boolean) as ChatMsg[]
+
+			return successResponse(messages.reverse(), 'Новые сообщения получены')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении сообщений после ${messageId} в ${orderKey}`,
+				error?.stack,
+				this.CONTEXT,
+				{ messageId, orderKey, error }
+			)
+			return errorResponse('Ошибка при получении новых сообщений', error)
+		}
+	}
+
 	/**
 	 * Проверка существования ключа
 	 */
@@ -652,9 +721,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	async zcount(key: string, min: string | number, max: string | number) {
-    	const count = await this.redis.zcount(key, min, max);
-    	return { success: true, data: count };
-  	}
+		const count = await this.redis.zcount(key, min, max)
+		return { success: true, data: count }
+	}
 
 	async roomValidation(
 		connectionDto: ConnectionDto

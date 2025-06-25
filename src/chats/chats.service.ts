@@ -395,17 +395,48 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 					if (lastReadMessageId && lastReadMessageId !== chat.last_message_id) {
 						const orderKey = `chat:${chat.id}:order`
-						const unreadMessagesResponse =
-							await this.redisService.countMessagesAfter(
-								orderKey,
-								lastReadMessageId
+						const messagesKey = `chat:${chat.id}:messages`
+
+						// Получаем все сообщения после lastReadMessageId
+						const unreadMessageIdsResponse = await this.redisService.getMessagesAfter(
+							orderKey,
+							messageKey,
+							lastReadMessageId
+						)
+
+						if (
+							unreadMessageIdsResponse.success &&
+							Array.isArray(unreadMessageIdsResponse.data)
+						) {
+							const unreadIds = unreadMessageIdsResponse.data
+							const messageIds = unreadIds.map(msg => msg.id)
+							const unreadMessagesResponse = await this.redisService.getHashMultiple(
+								messagesKey,
+								messageIds
 							)
 
-						if (unreadMessagesResponse.success && unreadMessagesResponse.data) {
-							unreadCount = unreadMessagesResponse.data
+							if (
+								unreadMessagesResponse.success &&
+								Array.isArray(unreadMessagesResponse.data)
+							) {
+								const unreadMsgs = unreadMessagesResponse.data
+									.map(msgStr => {
+										try {
+											return msgStr ? JSON.parse(msgStr) : null
+										} catch {
+											return null
+										}
+									})
+									.filter(
+										(msg: ChatMsg | null): msg is ChatMsg =>
+											msg !== null && msg.fromUser !== telegramId
+									)
+
+								unreadCount = unreadMsgs.length
+							}
 						}
-					}
-				}
+					}}
+
 
 				const photoInfo = photoUrlMap.get(user.telegramId) || {
 					key: '',

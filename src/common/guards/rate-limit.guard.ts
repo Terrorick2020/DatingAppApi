@@ -10,7 +10,7 @@ import { AppLogger } from '@/common/logger/logger.service'
 
 @Injectable()
 export class RegistrationRateLimitGuard implements CanActivate {
-	private readonly MAX_ATTEMPTS = 5 // Максимальное количество попыток
+	private readonly MAX_ATTEMPTS = 50 // Максимальное количество попыток
 	private readonly TIME_WINDOW = 3600 // Окно времени в секундах (1 час)
 
 	constructor(
