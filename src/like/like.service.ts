@@ -12,6 +12,7 @@ import {
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
 import { StorageService } from '../storage/storage.service'
+import { BotService } from '../../../bot/src/bot/bot.service'
 
 @Injectable()
 export class LikeService {
@@ -24,7 +25,8 @@ export class LikeService {
 		private readonly logger: AppLogger,
 		private readonly redisService: RedisService,
 		private readonly redisPubSubService: RedisPubSubService,
-		private readonly storageService: StorageService
+		private readonly storageService: StorageService,
+	  	private readonly botService: BotService		
 	) {}
 
 	async createLike(dto: CreateLikeDto) {
@@ -155,16 +157,18 @@ export class LikeService {
 					timestamp: Date.now(),
 				})
 
+				await this.botService.notifyUser(toUserResponse.data.telegramId, `У вас новый матч с ${fromUserResponse.data.name}! Теперь вы можете общаться!`)
+
 				return successResponse(
 					{
 						like,
 						isMatch: true,
 						chatId: chatCreationResult.data?.chatId,
 					},
-					'Симпатия взаимна! Теперь вы можете общаться'
+					'Симпатия взаимна! Теперь вы можете общаться!'
 				)
 			}
-
+			await this.botService.notifyUser(toUserResponse.data.telegramId, `Пользователь ${fromUserResponse.data.name} хочет с вами познакомиться!`)
 			return successResponse(like, 'Симпатия отправлена')
 		} catch (error: any) {
 			this.logger.error(
