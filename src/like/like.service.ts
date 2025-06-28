@@ -12,7 +12,6 @@ import {
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
 import { StorageService } from '../storage/storage.service'
-import { BotService } from '../../../bot/src/bot/bot.service'
 
 @Injectable()
 export class LikeService {
