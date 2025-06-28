@@ -314,10 +314,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
 	async getSortedSetRangeByScore(
 		key: string,
-		min: number,
-		max: number
-	): Promise<string[]> {
-		return this.redis.zrangebyscore(key, min, max)
+		min: number | string,
+		max: number | string
+	): Promise<ApiResponse<string[]>> {
+		try {
+			const data = await this.redis.zrangebyscore(key, min, max)
+			return successResponse(data)
+		} catch (error: any) {
+			return errorResponse(
+				'Ошибка при получении диапазона из sorted set',
+				error
+			)
+		}
 	}
 
 	/**

@@ -1674,17 +1674,17 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	async countChatsWithUnread(telegramId: string): Promise<ApiResponse<number>> {
+	async getChatsWithUnread(telegramId: string): Promise<ApiResponse<string[]>> {
 		try {
 			const userChatsKey = `user:${telegramId}:chats`
 			const userChatsRes = await this.redisService.getKey(userChatsKey)
 
 			if (!userChatsRes.success || !userChatsRes.data) {
-				return successResponse(0, 'У пользователя нет чатов')
+				return successResponse([], 'У пользователя нет чатов')
 			}
 
 			const chatIds: string[] = JSON.parse(userChatsRes.data)
-			let unreadChatCount = 0
+			const unreadChats: string[] = []
 
 			for (const chatId of chatIds) {
 				const readStatusRes = await this.getReadStatus(chatId)
@@ -1694,10 +1694,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					: null
 
 				const orderKey = `chat:${chatId}:order`
-				let cntRes
+				let messagesAfterRead: string[] = []
 
 				if (lastReadId) {
-					// Получаем timestamp последнего прочитанного сообщения
+					// Получаем timestamp последнего прочитанного
 					const msgRaw = await this.redisService.getHashField(
 						`chat:${chatId}:messages`,
 						lastReadId
@@ -1706,27 +1706,52 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					if (msgRaw.success && msgRaw.data) {
 						const msg: ChatMsg = JSON.parse(msgRaw.data)
 						const ts = msg.created_at ?? 0
-						// Считаем сообщения со score > ts
-						cntRes = await this.redisService.zcount(orderKey, ts + 1, '+inf')
-					} else {
-						cntRes = { success: false, data: 0 }
+
+						// Все сообщения после прочитанного
+						const zrangeRes = await this.redisService.getSortedSetRangeByScore(
+							orderKey,
+							ts + 1,
+							'+inf'
+						)
+						if (zrangeRes.success && Array.isArray(zrangeRes.data)) {
+							messagesAfterRead = zrangeRes.data
+						}
 					}
 				} else {
-					// Если сообщений не читали — считаем все сообщения
-					cntRes = await this.redisService.zcount(orderKey, '-inf', '+inf')
+					// Все сообщения — ничего не читали
+					const zrangeRes = await this.redisService.getSortedSetRangeByScore(
+						orderKey,
+						'-inf',
+						'+inf'
+					)
+					if (zrangeRes.success && Array.isArray(zrangeRes.data)) {
+						messagesAfterRead = zrangeRes.data
+					}
 				}
 
-				if (cntRes.success && cntRes.data > 0) {
-					unreadChatCount += 1
+				// Проверяем: есть ли хоть одно входящее сообщение
+				for (const msgId of messagesAfterRead) {
+					const msgRaw = await this.redisService.getHashField(
+						`chat:${chatId}:messages`,
+						msgId
+					)
+
+					if (msgRaw.success && msgRaw.data) {
+						const msg: ChatMsg = JSON.parse(msgRaw.data)
+						if (msg.fromUser !== telegramId) {
+							unreadChats.push(chatId)
+							break // достаточно одного входящего
+						}
+					}
 				}
 			}
 
 			return successResponse(
-				unreadChatCount,
-				'Количество чатов с непрочитанными сообщениями'
+				unreadChats,
+				'Чаты с входящими непрочитанными сообщениями'
 			)
 		} catch (error: any) {
-			return errorResponse('Ошибка при подсчёте чатов с непрочитанными', error)
+			return errorResponse('Ошибка при поиске непрочитанных чатов', error)
 		}
 	}
 }
