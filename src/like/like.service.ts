@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '~/prisma/prisma.service'
-import { AppLogger } from '../common/logger/logger.service'
-import { RedisService } from '../redis/redis.service'
-import { UserService } from '../user/user.service'
 import { ChatsService } from '../chats/chats.service'
-import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
 import {
 	errorResponse,
 	successResponse,
 } from '../common/helpers/api.response.helper'
+import { AppLogger } from '../common/logger/logger.service'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { RedisService } from '../redis/redis.service'
+import { StorageService } from '../storage/storage.service'
+import { UserService } from '../user/user.service'
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
-import { StorageService } from '../storage/storage.service'
+import { MarkLikesReadDto } from './dto/mark-likes-read.dto'
 
 @Injectable()
 export class LikeService {
@@ -261,6 +262,9 @@ export class LikeService {
 									photos: { take: 1, select: { key: true } },
 								},
 							},
+						},
+						orderBy: {
+							createdAt: 'desc',
 						},
 					})
 
@@ -569,6 +573,196 @@ export class LikeService {
 				{ user1Id, user2Id, error }
 			)
 			return errorResponse('Ошибка при удалении чата:', error)
+		}
+	}
+
+	/**
+	 * Отметить все непрочитанные лайки как прочитанные
+	 */
+	async markLikesAsRead(dto: MarkLikesReadDto) {
+		try {
+			const { telegramId } = dto
+
+			this.logger.debug(
+				`Отметка всех непрочитанных лайков как прочитанных для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование пользователя
+			const userResponse = await this.userService.findByTelegramId(telegramId)
+			if (!userResponse.success || !userResponse.data) {
+				this.logger.warn(
+					`Пользователь ${telegramId} не найден при отметке лайков как прочитанных`,
+					this.CONTEXT
+				)
+				return errorResponse('Пользователь не найден')
+			}
+
+			// Отмечаем ВСЕ непрочитанные лайки пользователя как прочитанные одним запросом
+			const updateResult = await this.prisma.like.updateMany({
+				where: {
+					toUserId: telegramId,
+					isRead: false,
+					isMatch: false, // Исключаем матчи, так как они уже обработаны
+				},
+				data: {
+					isRead: true,
+				},
+			})
+
+			this.logger.debug(
+				`Отмечено ${updateResult.count} лайков как прочитанных для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Отправляем уведомление через Redis Pub/Sub об обновлении счетчика
+			await this.redisPubSubService.publish('likes:read', {
+				userId: telegramId,
+				count: updateResult.count,
+				timestamp: Date.now(),
+			})
+
+			return successResponse(
+				{ updatedCount: updateResult.count },
+				`Отмечено ${updateResult.count} лайков как прочитанных`
+			)
+		} catch (error: any) {
+			this.logger.error(
+				'Ошибка при отметке лайков как прочитанных',
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при отметке лайков как прочитанных:', error)
+		}
+	}
+
+	/**
+	 * Получить количество непрочитанных лайков
+	 */
+	async getUnreadLikesCount(telegramId: string) {
+		try {
+			this.logger.debug(
+				`Получение количества непрочитанных лайков для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование пользователя
+			const userResponse = await this.userService.findByTelegramId(telegramId)
+			if (!userResponse.success || !userResponse.data) {
+				this.logger.warn(
+					`Пользователь ${telegramId} не найден при получении количества непрочитанных лайков`,
+					this.CONTEXT
+				)
+				return errorResponse('Пользователь не найден')
+			}
+
+			const count = await this.prisma.like.count({
+				where: {
+					toUserId: telegramId,
+					isRead: false,
+					isMatch: false, // Исключаем матчи, так как они уже обработаны
+				},
+			})
+
+			this.logger.debug(
+				`Найдено ${count} непрочитанных лайков для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				{ count },
+				`Количество непрочитанных лайков: ${count}`
+			)
+		} catch (error: any) {
+			this.logger.error(
+				'Ошибка при получении количества непрочитанных лайков',
+				error?.stack,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
+			return errorResponse(
+				'Ошибка при получении количества непрочитанных лайков:',
+				error
+			)
+		}
+	}
+
+	/**
+	 * Получить непрочитанные лайки с деталями
+	 */
+	async getUnreadLikes(telegramId: string) {
+		try {
+			this.logger.debug(
+				`Получение непрочитанных лайков для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование пользователя
+			const userResponse = await this.userService.findByTelegramId(telegramId)
+			if (!userResponse.success || !userResponse.data) {
+				this.logger.warn(
+					`Пользователь ${telegramId} не найден при получении непрочитанных лайков`,
+					this.CONTEXT
+				)
+				return errorResponse('Пользователь не найден')
+			}
+
+			const likes = await this.prisma.like.findMany({
+				where: {
+					toUserId: telegramId,
+					isRead: false,
+					isMatch: false, // Исключаем матчи
+				},
+				include: {
+					fromUser: {
+						select: {
+							telegramId: true,
+							name: true,
+							age: true,
+							town: true,
+							photos: { take: 1, select: { key: true } },
+						},
+					},
+				},
+				orderBy: {
+					createdAt: 'desc',
+				},
+			})
+
+			// Обогащаем данные URL фотографий
+			for (const like of likes) {
+				like.fromUser = await this.enrichUserWithPhotoUrl(like.fromUser)
+			}
+
+			this.logger.debug(
+				`Получено ${likes.length} непрочитанных лайков для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			return successResponse(likes, 'Непрочитанные лайки получены')
+		} catch (error: any) {
+			this.logger.error(
+				'Ошибка при получении непрочитанных лайков',
+				error?.stack,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
+			return errorResponse('Ошибка при получении непрочитанных лайков:', error)
+		}
+	}
+
+	/**
+	 * Вспомогательный метод для обогащения пользователя URL фотографии
+	 */
+	private async enrichUserWithPhotoUrl(user: any) {
+		const photo = user.photos?.[0]
+		const url = photo
+			? await this.storageService.getPresignedUrl(photo.key)
+			: null
+		return {
+			...user,
+			photoUrl: url,
 		}
 	}
 }

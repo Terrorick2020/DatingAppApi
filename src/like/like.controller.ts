@@ -1,26 +1,27 @@
 import {
-	Controller,
-	Post,
 	Body,
-	Get,
-	Query,
+	Controller,
 	Delete,
+	Get,
 	Param,
+	Post,
+	Query,
 	UseGuards,
 } from '@nestjs/common'
-import { LikeService } from './like.service'
-import { CreateLikeDto } from './dto/create-like.dto'
-import { GetLikesDto } from './dto/get-likes.dto'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
-import { Status } from '../common/decorators/status.decorator'
 import {
-	ApiTags,
+	ApiBody,
 	ApiOperation,
 	ApiParam,
 	ApiQuery,
-	ApiBody,
 	ApiResponse,
+	ApiTags,
 } from '@nestjs/swagger'
+import { Status } from '../common/decorators/status.decorator'
+import { UserStatusGuard } from '../common/guards/user-status.guard'
+import { CreateLikeDto } from './dto/create-like.dto'
+import { GetLikesDto } from './dto/get-likes.dto'
+import { LikeService } from './like.service'
+import { MarkLikesReadDto } from './dto/mark-likes-read.dto'
 
 @ApiTags('likes')
 @Controller('likes')
@@ -202,5 +203,106 @@ export class LikeController {
 		@Param('toUserId') toUserId: string
 	) {
 		return this.likeService.deleteLike(fromUserId, toUserId)
+	}
+
+	@ApiOperation({ summary: 'Отметить все непрочитанные лайки как прочитанные' })
+	@ApiBody({ type: MarkLikesReadDto })
+	@ApiResponse({
+		status: 200,
+		description: 'Лайки успешно отмечены как прочитанные',
+		schema: {
+			properties: {
+				success: { type: 'boolean', example: true },
+				message: { type: 'string', example: 'Отмечено 5 лайков как прочитанных' },
+				data: {
+					type: 'object',
+					properties: {
+						updatedCount: { type: 'number', example: 5 },
+					},
+				},
+			},
+		},
+	})
+	@Post('mark-read')
+	@UseGuards(UserStatusGuard)
+	@Status('Pro', 'Noob')
+	async markLikesAsRead(@Body() markLikesReadDto: MarkLikesReadDto) {
+		return this.likeService.markLikesAsRead(markLikesReadDto)
+	}
+
+	@ApiOperation({ summary: 'Получить количество непрочитанных лайков' })
+	@ApiParam({
+		name: 'telegramId',
+		required: true,
+		description: 'Telegram ID пользователя',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Количество непрочитанных лайков получено',
+		schema: {
+			properties: {
+				success: { type: 'boolean', example: true },
+				message: { type: 'string', example: 'Количество непрочитанных лайков: 3' },
+				data: {
+					type: 'object',
+					properties: {
+						count: { type: 'number', example: 3 },
+					},
+				},
+			},
+		},
+	})
+	@Get('unread-count/:telegramId')
+	@UseGuards(UserStatusGuard)
+	@Status('Pro', 'Noob')
+	async getUnreadLikesCount(@Param('telegramId') telegramId: string) {
+		return this.likeService.getUnreadLikesCount(telegramId)
+	}
+
+	@ApiOperation({ summary: 'Получить список непрочитанных лайков' })
+	@ApiParam({
+		name: 'telegramId',
+		required: true,
+		description: 'Telegram ID пользователя',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Список непрочитанных лайков получен',
+		schema: {
+			properties: {
+				success: { type: 'boolean', example: true },
+				message: { type: 'string', example: 'Непрочитанные лайки получены' },
+				data: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: {
+							id: { type: 'number', example: 1 },
+							fromUserId: { type: 'string', example: '123456789' },
+							toUserId: { type: 'string', example: '987654321' },
+							isMatch: { type: 'boolean', example: false },
+							isRead: { type: 'boolean', example: false },
+							createdAt: { type: 'string', format: 'date-time' },
+							fromUser: {
+								type: 'object',
+								properties: {
+									telegramId: { type: 'string' },
+									name: { type: 'string' },
+									age: { type: 'number' },
+									town: { type: 'string' },
+									photoUrl: { type: 'string' },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	@Get('unread/:telegramId')
+	@UseGuards(UserStatusGuard)
+	@Status('Pro', 'Noob')
+	async getUnreadLikes(@Param('telegramId') telegramId: string) {
+		return this.likeService.getUnreadLikes(telegramId)
 	}
 }

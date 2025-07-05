@@ -39,19 +39,19 @@ model User {
 }
 
 model UserPlan {
-  id                 Int       @id @default(autoincrement())
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  userId             String    @unique
+  userId             String @unique
   planId             Int
   planDescription    String
   regionId           Int
   regionnDescription String
 
-  user    User    @relation(fields: [userId], references: [telegramId])
-  plan    Plans   @relation(fields: [planId], references: [id])
-  region  Regions @relation(fields: [regionId], references: [id])
+  user   User    @relation(fields: [userId], references: [telegramId])
+  plan   Plans   @relation(fields: [planId], references: [id])
+  region Regions @relation(fields: [regionId], references: [id])
 }
 
 model Interest {
@@ -63,26 +63,26 @@ model Interest {
 }
 
 model Plans {
-  id    Int    @id @default(autoincrement())
-  value String @unique
+  id    Int        @id @default(autoincrement())
+  value String     @unique
   label String
   users UserPlan[]
 }
 
 model Cityes {
-  id    String @unique
-  value String @unique
-  label String @unique
+  id      String    @unique
+  value   String    @unique
+  label   String    @unique
   regions Regions[]
 }
 
 model Regions {
-  id     Int    @id @default(autoincrement())
+  id     Int        @id @default(autoincrement())
   cityId String
   value  String
   label  String
-  city   Cityes  @relation(fields: [cityId], references: [id])
-  users UserPlan[]
+  city   Cityes     @relation(fields: [cityId], references: [id])
+  users  UserPlan[]
 
   @@unique([cityId, value])
 }
@@ -97,21 +97,21 @@ model Photo {
 }
 
 model ComplaintGlobVars {
-  id       Int                 @id @default(autoincrement())
-  value    String              @unique
-  label    String
-  
-  descs    ComplaintDescVars[] @relation("GlobToDesc")
+  id    Int    @id @default(autoincrement())
+  value String @unique
+  label String
+
+  descs ComplaintDescVars[] @relation("GlobToDesc")
 }
 
 model ComplaintDescVars {
-  id        Int               @id @default(autoincrement())
-  globId    Int
-  globVal   String
-  value     String            @unique
-  label     String
+  id      Int    @id @default(autoincrement())
+  globId  Int
+  globVal String
+  value   String @unique
+  label   String
 
-  glob      ComplaintGlobVars @relation("GlobToDesc", fields: [globId], references: [id])
+  glob ComplaintGlobVars @relation("GlobToDesc", fields: [globId], references: [id])
 }
 
 model ComplaintReason {
@@ -139,6 +139,7 @@ model Like {
   fromUserId String
   toUserId   String
   isMatch    Boolean  @default(false)
+  isRead     Boolean  @default(false)
   fromUser   User     @relation("LikesSent", fields: [fromUserId], references: [telegramId], onDelete: Cascade)
   toUser     User     @relation("LikesReceived", fields: [toUserId], references: [telegramId], onDelete: Cascade)
 
@@ -165,8 +166,8 @@ enum Status {
 }
 
 enum ComplaintStatus {
-	PENDING 
-	UNDER_REVIEW 
-	RESOLVED
-	REJECTED
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
 }
