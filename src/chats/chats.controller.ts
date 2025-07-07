@@ -1,4 +1,3 @@
-import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 import {
 	Body,
 	Controller,
@@ -15,8 +14,8 @@ import { ChatsService } from './chats.service'
 import { CreateDto } from './dto/create.dto'
 import { FindDto } from './dto/find.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
-import { SendMessageDto } from './dto/send-messages.dto'
 import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
+import { SendMessageDto } from './dto/send-messages.dto'
 import { TypingStatusDto } from './dto/typing-status.dto'
 
 @ApiTags('chats')
@@ -139,5 +138,18 @@ export class ChatsController {
 	@Get('unread-chats-count')
 	async getUnreadChatsCount(@Query('telegramId') telegramId: string) {
 		return this.chatsService.getChatsWithUnread(telegramId)
+	}
+
+	@ApiOperation({
+		summary: 'Получить всех пользователей с непрочитанными сообщениями',
+	})
+	@ApiResponse({ status: 200, description: 'Список пользователей получен' })
+	@Get('users-with-unread')
+	async getUsersWithUnreadMessages() {
+		this.logger.debug(
+			'Запрос на получение всех пользователей с непрочитанными сообщениями',
+			'ChatsController'
+		)
+		return this.chatsService.getUsersWithUnreadMessages()
 	}
 }

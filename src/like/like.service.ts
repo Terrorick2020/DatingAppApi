@@ -700,6 +700,7 @@ export class LikeService {
 
 			// Проверяем существование пользователя
 			const userResponse = await this.userService.findByTelegramId(telegramId)
+
 			if (!userResponse.success || !userResponse.data) {
 				this.logger.warn(
 					`Пользователь ${telegramId} не найден при получении непрочитанных лайков`,

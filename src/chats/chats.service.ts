@@ -1,28 +1,25 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
-import { PrismaService } from '~/prisma/prisma.service'
-import { AppLogger } from '../common/logger/logger.service'
-import { RedisService } from '../redis/redis.service'
-import { StorageService } from '../storage/storage.service'
-import { CreateDto } from './dto/create.dto'
-import { FindDto } from './dto/find.dto'
-import { ReadMessagesDto } from './dto/read-messages.dto'
-import { SendMessageDto } from './dto/send-messages.dto'
-import { TypingStatusDto } from './dto/typing-status.dto'
-import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
 import {
 	errorResponse,
 	successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import * as cron from 'node-cron'
 import { v4 } from 'uuid'
+import { PrismaService } from '~/prisma/prisma.service'
 import { FindAllChatsUserFields } from '~/prisma/selects/chats.selects'
-import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
-import { ConnectionStatus } from '../common/abstract/micro/micro.type'
+import { AppLogger } from '../common/logger/logger.service'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { RedisService } from '../redis/redis.service'
+import { StorageService } from '../storage/storage.service'
 import type { ChatPreview, ResCreateChat } from './chats.types'
 import { type Chat, type ChatMsg } from './chats.types'
+import { CreateDto } from './dto/create.dto'
+import { FindDto } from './dto/find.dto'
+import { ReadMessagesDto } from './dto/read-messages.dto'
 import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
-import { log } from 'console'
+import { SendMessageDto } from './dto/send-messages.dto'
+import { TypingStatusDto } from './dto/typing-status.dto'
 
 @Injectable()
 export class ChatsService implements OnModuleInit, OnModuleDestroy {
@@ -1752,6 +1749,146 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			)
 		} catch (error: any) {
 			return errorResponse('Ошибка при поиске непрочитанных чатов', error)
+		}
+	}
+
+	/**
+	 * Получение всех пользователей с непрочитанными сообщениями
+	 */
+	async getUsersWithUnreadMessages(): Promise<
+		ApiResponse<{ telegramId: string; unreadCount: number }[]>
+	> {
+		try {
+			// Получаем всех пользователей из базы данных
+			const users = await this.prismaService.user.findMany({
+				where: { status: { not: 'Blocked' } },
+				select: { telegramId: true },
+			})
+
+			const usersWithUnread: { telegramId: string; unreadCount: number }[] = []
+
+			for (const user of users) {
+				try {
+					// Получаем чаты с непрочитанными сообщениями для пользователя
+					const unreadChatsRes = await this.getChatsWithUnread(user.telegramId)
+
+					if (
+						unreadChatsRes.success &&
+						unreadChatsRes.data &&
+						unreadChatsRes.data.length > 0
+					) {
+						// Подсчитываем общее количество непрочитанных сообщений
+						let totalUnreadCount = 0
+
+						for (const chatId of unreadChatsRes.data) {
+							const readStatusRes = await this.getReadStatus(chatId)
+							const readStatus = readStatusRes.success && readStatusRes.data
+							const lastReadId: string | null = readStatus
+								? readStatus[user.telegramId]
+								: null
+
+							if (lastReadId) {
+								const msgRaw = await this.redisService.getHashField(
+									`chat:${chatId}:messages`,
+									lastReadId
+								)
+
+								if (msgRaw.success && msgRaw.data) {
+									const msg: ChatMsg = JSON.parse(msgRaw.data)
+									const ts = msg.created_at ?? 0
+
+									const messagesAfterRead =
+										await this.redisService.getSortedSetRangeByScore(
+											`chat:${chatId}:order`,
+											ts + 1,
+											'+inf'
+										)
+
+									if (
+										messagesAfterRead.success &&
+										Array.isArray(messagesAfterRead.data)
+									) {
+										for (const msgId of messagesAfterRead.data) {
+											const msgData = await this.redisService.getHashField(
+												`chat:${chatId}:messages`,
+												msgId
+											)
+
+											if (msgData.success && msgData.data) {
+												const message: ChatMsg = JSON.parse(msgData.data)
+												if (
+													!message.is_read &&
+													message.fromUser !== user.telegramId
+												) {
+													totalUnreadCount++
+												}
+											}
+										}
+									}
+								}
+							} else {
+								// Если ничего не читали, считаем все входящие сообщения
+								const allMessages =
+									await this.redisService.getSortedSetRangeByScore(
+										`chat:${chatId}:order`,
+										'-inf',
+										'+inf'
+									)
+
+								if (allMessages.success && Array.isArray(allMessages.data)) {
+									for (const msgId of allMessages.data) {
+										const msgData = await this.redisService.getHashField(
+											`chat:${chatId}:messages`,
+											msgId
+										)
+
+										if (msgData.success && msgData.data) {
+											const message: ChatMsg = JSON.parse(msgData.data)
+											if (message.fromUser !== user.telegramId) {
+												totalUnreadCount++
+											}
+										}
+									}
+								}
+							}
+						}
+
+						if (totalUnreadCount > 0) {
+							usersWithUnread.push({
+								telegramId: user.telegramId,
+								unreadCount: totalUnreadCount,
+							})
+						}
+					}
+				} catch (error: any) {
+					this.logger.warn(
+						`Ошибка при проверке непрочитанных сообщений для пользователя ${user.telegramId}`,
+						this.CONTEXT,
+						{ telegramId: user.telegramId, error }
+					)
+				}
+			}
+
+			this.logger.debug(
+				`Найдено ${usersWithUnread.length} пользователей с непрочитанными сообщениями`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				usersWithUnread,
+				'Пользователи с непрочитанными сообщениями получены'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				'Ошибка при получении пользователей с непрочитанными сообщениями',
+				error?.stack,
+				this.CONTEXT,
+				{ error }
+			)
+			return errorResponse(
+				'Ошибка при получении пользователей с непрочитанными сообщениями',
+				error
+			)
 		}
 	}
 }

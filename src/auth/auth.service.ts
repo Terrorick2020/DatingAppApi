@@ -323,6 +323,7 @@ export class AuthService {
 							coordinates: enableGeo
 								? { latitude: finalLatitude, longitude: finalLongitude }
 								: null,
+							referralCode,
 						},
 					},
 					'Пользователь создан и фото привязаны'
