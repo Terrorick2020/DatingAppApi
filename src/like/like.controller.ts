@@ -18,15 +18,19 @@ import {
 } from '@nestjs/swagger'
 import { Status } from '../common/decorators/status.decorator'
 import { UserStatusGuard } from '../common/guards/user-status.guard'
+import { ExpiredMatchesService } from './expired-matches.service'
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
-import { LikeService } from './like.service'
 import { MarkLikesReadDto } from './dto/mark-likes-read.dto'
+import { LikeService } from './like.service'
 
 @ApiTags('likes')
 @Controller('likes')
 export class LikeController {
-	constructor(private readonly likeService: LikeService) {}
+	constructor(
+		private readonly likeService: LikeService,
+		private readonly expiredMatchesService: ExpiredMatchesService
+	) {}
 
 	@ApiOperation({ summary: 'Создать новую симпатию' })
 	@ApiBody({ type: CreateLikeDto })
@@ -213,7 +217,10 @@ export class LikeController {
 		schema: {
 			properties: {
 				success: { type: 'boolean', example: true },
-				message: { type: 'string', example: 'Отмечено 5 лайков как прочитанных' },
+				message: {
+					type: 'string',
+					example: 'Отмечено 5 лайков как прочитанных',
+				},
 				data: {
 					type: 'object',
 					properties: {
@@ -242,7 +249,10 @@ export class LikeController {
 		schema: {
 			properties: {
 				success: { type: 'boolean', example: true },
-				message: { type: 'string', example: 'Количество непрочитанных лайков: 3' },
+				message: {
+					type: 'string',
+					example: 'Количество непрочитанных лайков: 3',
+				},
 				data: {
 					type: 'object',
 					properties: {
@@ -304,5 +314,13 @@ export class LikeController {
 	@Status('Pro', 'Noob')
 	async getUnreadLikes(@Param('telegramId') telegramId: string) {
 		return this.likeService.getUnreadLikes(telegramId)
+	}
+
+	@ApiOperation({ summary: 'Очистить истекшие матчи (ручная очистка)' })
+	@ApiResponse({ status: 200, description: 'Истекшие матчи очищены' })
+	@Post('cleanup-expired-matches')
+	async cleanupExpiredMatches() {
+		await this.expiredMatchesService.cleanupExpiredMatchesManual()
+		return { success: true, message: 'Истекшие матчи очищены' }
 	}
 }

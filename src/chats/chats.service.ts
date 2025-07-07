@@ -968,6 +968,37 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			)
 			await Promise.all(invalidatePromises)
 
+			// Удаляем лайки между участниками чата (если это был матч)
+			if (chat.participants.length === 2) {
+				const [user1, user2] = chat.participants
+				try {
+					await this.prismaService.like.deleteMany({
+						where: {
+							OR: [
+								{
+									fromUserId: user1,
+									toUserId: user2,
+								},
+								{
+									fromUserId: user2,
+									toUserId: user1,
+								},
+							],
+						},
+					})
+					this.logger.debug(
+						`Удалены лайки между ${user1} и ${user2} при удалении чата ${chatId}`,
+						this.CONTEXT
+					)
+				} catch (error: any) {
+					this.logger.warn(
+						`Ошибка при удалении лайков для чата ${chatId}`,
+						this.CONTEXT,
+						{ error }
+					)
+				}
+			}
+
 			// Отправляем уведомления об удалении чата через Redis Pub/Sub
 			for (const userId of chat.participants) {
 				await this.redisPubSubService.publish('chat:delete', {
