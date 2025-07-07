@@ -21,44 +21,45 @@
 //     "created_at": "number",
 //     "updated_at": "number",
 //     "is_read": "boolean",
-//     "media_type": { "?": "string" },  
-//     "media_url": { "?": "string" }    
+//     "media_type": { "?": "string" },
+//     "media_url": { "?": "string" }
 // })
 
 // Интерфейсы типов данных
 export interface Chat {
-    id: string
-    participants: string[]
-    created_at: number
-    last_message_id: string | null
-    typing?: string[]  // Список ID пользователей, которые сейчас печатают
+	id: string
+	participants: string[]
+	created_at: number
+	last_message_id: string | null
+	last_message_at: number // Timestamp последнего сообщения для сортировки
+	typing?: string[] // Список ID пользователей, которые сейчас печатают
 }
 
 export interface UserChat {
-    chatId: string
-    userChat: string
-    last_read_message_id: string | null
+	chatId: string
+	userChat: string
+	last_read_message_id: string | null
 }
 
 export interface ChatMsg {
-    id: string
-    chatId: string
-    fromUser: string
-    text: string
-    created_at: number
-    updated_at: number
-    is_read: boolean
-    media_type?: string
-    media_url?: string
+	id: string
+	chatId: string
+	fromUser: string
+	text: string
+	created_at: number
+	updated_at: number
+	is_read: boolean
+	media_type?: string
+	media_url?: string
 }
- 
+
 // Типы ответов API
 export interface ChatPreview {
 	chatId: string
 	toUser: {
 		id: string
 		name: string
-        age: number
+		age: number
 		avatarKey?: string
 		avatarUrl?: string
 	}
@@ -70,32 +71,31 @@ export interface ChatPreview {
 export type ResFindAllChats = ChatPreview
 
 export interface ResCreateChat {
-    chatId: string
-    toUser: string
+	chatId: string
+	toUser: string
 }
 
 export type ResUpdatedChat = Chat
 
-
 export interface ChatsToUser {
-    id: string
-    avatar: string
-    writeStat: EWriteType
+	id: string
+	avatar: string
+	writeStat: EWriteType
 }
 
 export enum EWriteType {
-    None = 'None',
-    Write = 'Write',
+	None = 'None',
+	Write = 'Write',
 }
 
 export enum SendChatsTcpPatterns {
-    UpdatedChat = 'UpdatedChat',
-    AddChat = 'AddChat',
-    DeleteChat = 'DeleteChat'
+	UpdatedChat = 'UpdatedChat',
+	AddChat = 'AddChat',
+	DeleteChat = 'DeleteChat',
 }
 
 export interface ChatsToUser {
-    id: string
-    avatar: string
-    writeStat: EWriteType
+	id: string
+	avatar: string
+	writeStat: EWriteType
 }

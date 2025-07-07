@@ -328,6 +328,11 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
+			// Сортируем чаты по времени последнего сообщения (новые сверху)
+			validChats.sort(
+				(a, b) => (b.last_message_at || 0) - (a.last_message_at || 0)
+			)
+
 			const interlocutorIds = validChats
 				.map(chat => chat.participants.find(id => id !== telegramId))
 				.filter(Boolean) as string[]
@@ -552,6 +557,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				participants: [telegramId, toUser],
 				created_at: timestamp,
 				last_message_id: null,
+				last_message_at: timestamp, // Инициализируем временем создания чата
 				typing: [], // Инициализируем пустой массив
 			}
 
@@ -713,6 +719,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			// Обновляем метаданные чата
 			chat.last_message_id = messageId
+			chat.last_message_at = timestamp // Обновляем время последнего сообщения
 
 			// Если пользователь был в списке набирающих текст, удаляем его
 			if (chat.typing && chat.typing.includes(fromUser)) {
