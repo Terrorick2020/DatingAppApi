@@ -1,6 +1,6 @@
 import {
-	errorResponse,
-	successResponse,
+    errorResponse,
+    successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
@@ -14,6 +14,7 @@ import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
 import type { ChatPreview, ResCreateChat } from './chats.types'
 import { type Chat, type ChatMsg } from './chats.types'
+import { CreateChatWithPsychologistDto } from './dto/create-chat-with-psychologist.dto'
 import { CreateDto } from './dto/create.dto'
 import { FindDto } from './dto/find.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
@@ -35,7 +36,8 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 		private readonly redisService: RedisService,
 		private readonly storageService: StorageService,
 		private readonly logger: AppLogger,
-		private readonly redisPubSubService: RedisPubSubService
+		private readonly redisPubSubService: RedisPubSubService,
+		private readonly psychologistService: PsychologistService
 	) {}
 
 	/**
@@ -1927,6 +1929,274 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				'Ошибка при получении пользователей с непрочитанными сообщениями',
 				error
 			)
+		}
+	}
+
+	/**
+	 * Создание чата с психологом
+	 */
+	async createWithPsychologist(dto: CreateChatWithPsychologistDto): Promise<ApiResponse<ResCreateChat>> {
+		try {
+			const { telegramId, psychologistId } = dto
+
+			this.logger.debug(
+				`Создание чата между пользователем ${telegramId} и психологом ${psychologistId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование пользователя
+			const sender = await this.prismaService.user.findUnique({
+				where: { telegramId, status: { not: 'Blocked' } },
+			})
+
+			if (!sender) {
+				this.logger.warn(
+					`Пользователь ${telegramId} не найден или заблокирован`,
+					this.CONTEXT
+				)
+				return errorResponse('Пользователь не найден или заблокирован')
+			}
+
+			// Проверяем существование психолога
+			const psychologistResponse = await this.psychologistService.findById(parseInt(psychologistId))
+			if (!psychologistResponse.success || !psychologistResponse.data) {
+				this.logger.warn(
+					`Психолог с ID ${psychologistId} не найден`,
+					this.CONTEXT
+				)
+				return errorResponse('Психолог не найден')
+			}
+
+			const psychologist = psychologistResponse.data
+
+			// Проверяем, существует ли уже чат между этими пользователями
+			const existingChatId = await this.findExistingChat(telegramId, psychologist.telegramId)
+
+			if (existingChatId) {
+				this.logger.debug(
+					`Найден существующий чат ${existingChatId} между пользователем ${telegramId} и психологом ${psychologist.telegramId}`,
+					this.CONTEXT
+				)
+
+				// Продлеваем TTL для существующего чата
+				await this.extendChatTTL(existingChatId)
+
+				// Инвалидируем кеш превью
+				await this.invalidateChatsPreviewCache(telegramId)
+				await this.invalidateChatsPreviewCache(psychologist.telegramId)
+
+				return successResponse(
+					{ chatId: existingChatId, toUser: psychologist.telegramId },
+					'Чат уже существует'
+				)
+			}
+
+			// Создаем новый чат
+			const chatId = v4()
+			const timestamp = Date.now()
+
+			this.logger.debug(
+				`Создание нового чата ${chatId} между пользователем ${telegramId} и психологом ${psychologist.telegramId}`,
+				this.CONTEXT
+			)
+
+			// Метаданные чата
+			const chatMetadata: Chat = {
+				id: chatId,
+				participants: [telegramId, psychologist.telegramId],
+				created_at: timestamp,
+				last_message_id: null,
+				last_message_at: timestamp,
+				typing: [],
+			}
+
+			// Статус прочтения
+			const readStatus = {
+				[telegramId]: null,
+				[psychologist.telegramId]: null,
+			}
+
+			// Сохраняем данные в Redis с точным TTL
+			await Promise.all([
+				this.redisService.setKey(
+					`chat:${chatId}`,
+					JSON.stringify(chatMetadata),
+					this.CHAT_TTL
+				),
+				this.redisService.setKey(
+					`chat:${chatId}:read_status`,
+					JSON.stringify(readStatus),
+					this.CHAT_TTL
+				),
+			])
+
+			// Добавляем чат в списки чатов пользователей
+			await Promise.all([
+				this.addChatToUserList(telegramId, chatId),
+				this.addChatToUserList(psychologist.telegramId, chatId),
+			])
+
+			// Инвалидируем кеш превью
+			await this.invalidateChatsPreviewCache(telegramId)
+			await this.invalidateChatsPreviewCache(psychologist.telegramId)
+
+			// Получаем данные для отправки в уведомлении
+			const userData = await this.prismaService.user.findUnique({
+				where: { telegramId },
+				select: {
+					name: true,
+					photos: { take: 1 },
+				},
+			})
+
+			// Публикуем событие создания чата для обоих участников
+			for (const participant of [telegramId, psychologist.telegramId]) {
+				const otherParticipant = participant === telegramId ? psychologist.telegramId : telegramId
+				const otherUserData = participant === telegramId ? psychologist : userData
+
+				await this.redisPubSubService.publish('chat:new', {
+					userId: participant,
+					chatId,
+					withUser: {
+						id: otherParticipant,
+						name: otherUserData?.name || 'Unknown',
+						avatar: otherUserData?.photos?.[0]?.key || '',
+					},
+					created_at: timestamp,
+					timestamp,
+				})
+			}
+
+			this.logger.debug(`Чат ${chatId} успешно создан`, this.CONTEXT)
+
+			return successResponse({ chatId, toUser: psychologist.telegramId }, 'Чат успешно создан')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при создании чата с психологом`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при создании чата с психологом', error)
+		}
+	}
+
+	/**
+	 * Удаление чата конкретным пользователем
+	 */
+	async deleteByUser(chatId: string, deletedByUserId: string): Promise<ApiResponse<boolean>> {
+		try {
+			this.logger.debug(
+				`Удаление чата ${chatId} пользователем ${deletedByUserId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование чата
+			const chatMetadata = await this.getChatMetadata(chatId)
+
+			if (!chatMetadata.success || !chatMetadata.data) {
+				this.logger.warn(
+					`Попытка удалить несуществующий чат ${chatId}`,
+					this.CONTEXT
+				)
+				return errorResponse('Чат не найден')
+			}
+
+			const chat = chatMetadata.data
+
+			// Проверяем, является ли пользователь участником чата
+			if (!chat.participants.includes(deletedByUserId)) {
+				this.logger.warn(
+					`Пользователь ${deletedByUserId} не является участником чата ${chatId}`,
+					this.CONTEXT
+				)
+				return errorResponse('Вы не являетесь участником этого чата')
+			}
+
+			// Сохраняем архив чата в облачное хранилище перед удалением
+			const archiveSuccess = await this.archiveChatToStorage(chatId)
+			if (!archiveSuccess) {
+				this.logger.warn(
+					`Не удалось архивировать чат ${chatId} перед удалением`,
+					this.CONTEXT
+				)
+			} else {
+				this.logger.debug(
+					`Чат ${chatId} успешно архивирован перед удалением`,
+					this.CONTEXT
+				)
+			}
+
+			// Удаляем все ключи, связанные с чатом
+			await Promise.all([
+				this.redisService.deleteKey(`chat:${chatId}`),
+				this.redisService.deleteKey(`chat:${chatId}:read_status`),
+				this.redisService.deleteKey(`chat:${chatId}:messages`),
+				this.redisService.deleteKey(`chat:${chatId}:order`),
+			])
+
+			// Удаляем чат из списков чатов пользователей
+			const removePromises = chat.participants.map(userId =>
+				this.removeChatFromUserList(userId, chatId)
+			)
+			await Promise.all(removePromises)
+
+			// Инвалидируем кеш превью для всех участников
+			const invalidatePromises = chat.participants.map(userId =>
+				this.invalidateChatsPreviewCache(userId)
+			)
+			await Promise.all(invalidatePromises)
+
+			// Удаляем лайки между участниками чата (если это был матч)
+			if (chat.participants.length === 2) {
+				const [user1, user2] = chat.participants
+				try {
+					await this.prismaService.like.deleteMany({
+						where: {
+							OR: [
+								{
+									fromUserId: user1,
+									toUserId: user2,
+								},
+								{
+									fromUserId: user2,
+									toUserId: user1,
+								},
+							],
+						},
+					})
+					this.logger.debug(
+						`Удалены лайки между ${user1} и ${user2} при удалении чата ${chatId}`,
+						this.CONTEXT
+					)
+				} catch (error: any) {
+					this.logger.warn(
+						`Ошибка при удалении лайков для чата ${chatId}`,
+						this.CONTEXT,
+						{ error }
+					)
+				}
+			}
+
+			// Отправляем уведомления об удалении чата через Redis Pub/Sub
+			await this.redisPubSubService.publishChatDeleted({
+				chatId,
+				deletedByUserId,
+				participants: chat.participants,
+				timestamp: Date.now(),
+			})
+
+			this.logger.debug(`Чат ${chatId} успешно удален пользователем ${deletedByUserId}`, this.CONTEXT)
+
+			return successResponse(true, 'Чат удален')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении чата пользователем`,
+				error?.stack,
+				this.CONTEXT,
+				{ chatId, deletedByUserId, error }
+			)
+			return errorResponse('Ошибка при удалении чата', error)
 		}
 	}
 }

@@ -1,14 +1,14 @@
 import {
-	Injectable,
-	OnModuleInit,
-	OnModuleDestroy,
-	Inject,
-	forwardRef,
+    Inject,
+    Injectable,
+    OnModuleDestroy,
+    OnModuleInit,
+    forwardRef,
 } from '@nestjs/common'
-import Redis from 'ioredis'
 import { ConfigService } from '@nestjs/config'
-import { AppLogger } from '../logger/logger.service'
+import Redis from 'ioredis'
 import { WebSocketService } from '../../websocket/websocket.service'
+import { AppLogger } from '../logger/logger.service'
 
 @Injectable()
 export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +21,7 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 		'match:new',
 		'complaint:update',
 		'user:status',
+		'chat:deleted',
 	]
 	private readonly CONTEXT = 'RedisPubSubSubscriber'
 
@@ -91,6 +92,9 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 				break
 			case 'user:status':
 				this.handleUserStatus(data)
+				break
+			case 'chat:deleted':
+				this.handleChatDeleted(data)
 				break
 			default:
 				this.logger.warn(`Неизвестный канал: ${channel}`, this.CONTEXT)
@@ -172,6 +176,22 @@ export class RedisPubSubSubscriber implements OnModuleInit, OnModuleDestroy {
 					status,
 					timestamp: data.timestamp || Date.now(),
 				})
+			})
+		}
+	}
+
+	private handleChatDeleted(data: any) {
+		const { chatId, deletedByUserId, participants } = data
+		// Уведомляем всех участников чата кроме того, кто удалил
+		if (participants && Array.isArray(participants)) {
+			participants.forEach(participantId => {
+				if (participantId !== deletedByUserId) {
+					this.webSocketService.sendToUser(participantId, 'chatDeleted', {
+						chatId,
+						deletedByUserId,
+						timestamp: data.timestamp || Date.now(),
+					})
+				}
 			})
 		}
 	}

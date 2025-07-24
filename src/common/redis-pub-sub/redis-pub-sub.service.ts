@@ -1,7 +1,7 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
-import { AppLogger } from '../logger/logger.service'
-import Redis from 'ioredis'
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import Redis from 'ioredis'
+import { AppLogger } from '../logger/logger.service'
 
 @Injectable()
 export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
@@ -147,5 +147,17 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     text: string
   }): Promise<void> {
     await this.publish('bot:notify', data)
+  }
+
+  /**
+   * Публикация уведомления об удалении чата другим пользователем
+   */
+  async publishChatDeleted(data: {
+    chatId: string,
+    deletedByUserId: string,
+    participants: string[],
+    timestamp: number
+  }): Promise<void> {
+    await this.publish('chat:deleted', data)
   }
 }

@@ -38,6 +38,26 @@ model User {
   userPlans          UserPlan[]
 }
 
+model Psychologist {
+  id         Int                 @id @default(autoincrement())
+  telegramId String              @unique
+  name       String
+  about      String
+  status     PsychologistStatus  @default(Active)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+  photos     PsychologistPhoto[]
+}
+
+model PsychologistPhoto {
+  id           Int           @id @default(autoincrement())
+  createdAt    DateTime      @default(now()) @map("created_at")
+  key          String
+  tempTgId     String?
+  telegramId   String?
+  psychologist Psychologist? @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
+}
+
 model UserPlan {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now()) @map("created_at")
@@ -170,4 +190,10 @@ enum ComplaintStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+}
+
+enum PsychologistStatus {
+  Active
+  Inactive
+  Blocked
 }

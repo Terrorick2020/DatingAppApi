@@ -1,17 +1,19 @@
 import {
-	Body,
-	Controller,
-	Delete,
-	Get,
-	Param,
-	Patch,
-	Post,
-	Query,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
 } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { AppLogger } from '../common/logger/logger.service'
 import { ChatsService } from './chats.service'
+import { CreateChatWithPsychologistDto } from './dto/create-chat-with-psychologist.dto'
 import { CreateDto } from './dto/create.dto'
+import { DeleteChatDto } from './dto/delete-chat.dto'
 import { FindDto } from './dto/find.dto'
 import { ReadMessagesDto } from './dto/read-messages.dto'
 import { SendMessageWithMediaDto } from './dto/send-message-with-media.dto'
@@ -78,6 +80,17 @@ export class ChatsController {
 		return this.chatsService.create(createDto)
 	}
 
+	@ApiOperation({ summary: 'Создать чат с психологом' })
+	@ApiResponse({ status: 201, description: 'Чат с психологом создан' })
+	@Post('with-psychologist')
+	createWithPsychologist(@Body() createChatWithPsychologistDto: CreateChatWithPsychologistDto) {
+		this.logger.debug(
+			`Запрос на создание чата с психологом ${createChatWithPsychologistDto.psychologistId}`,
+			'ChatsController'
+		)
+		return this.chatsService.createWithPsychologist(createChatWithPsychologistDto)
+	}
+
 	@ApiOperation({ summary: 'Отправить сообщение в чат' })
 	@ApiResponse({ status: 201, description: 'Сообщение отправлено' })
 	@Post('message')
@@ -131,6 +144,17 @@ export class ChatsController {
 	delete(@Param('chatId') chatId: string) {
 		this.logger.debug(`Запрос на удаление чата ${chatId}`, 'ChatsController')
 		return this.chatsService.delete(chatId)
+	}
+
+	@ApiOperation({ summary: 'Удалить чат конкретным пользователем' })
+	@ApiResponse({ status: 200, description: 'Чат удален' })
+	@Delete(':chatId/by-user')
+	deleteByUser(
+		@Param('chatId') chatId: string,
+		@Body() deleteChatDto: DeleteChatDto
+	) {
+		this.logger.debug(`Запрос на удаление чата ${chatId} пользователем ${deleteChatDto.deletedByUserId}`, 'ChatsController')
+		return this.chatsService.deleteByUser(chatId, deleteChatDto.deletedByUserId)
 	}
 
 	@ApiOperation({ summary: 'Получить количество непрочитанных чатов' })
