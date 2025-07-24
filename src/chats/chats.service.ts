@@ -1969,6 +1969,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			const psychologist = psychologistResponse.data
 
+			// Удаляем существующий чат с психологом (если есть)
+			await this.deleteExistingPsychologistChat(telegramId)
+
 			// Проверяем, существует ли уже чат между этими пользователями
 			const existingChatId = await this.findExistingChat(telegramId, psychologist.telegramId)
 
@@ -2078,6 +2081,64 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				{ dto, error }
 			)
 			return errorResponse('Ошибка при создании чата с психологом', error)
+		}
+	}
+
+	/**
+	 * Удаление существующего чата с психологом для пользователя
+	 */
+	private async deleteExistingPsychologistChat(userTelegramId: string): Promise<void> {
+		try {
+			this.logger.debug(
+				`Поиск существующего чата с психологом для пользователя ${userTelegramId}`,
+				this.CONTEXT
+			)
+
+			// Получаем список чатов пользователя
+			const userChatsKey = `user:${userTelegramId}:chats`
+			const userChatsData = await this.redisService.getKey(userChatsKey)
+
+			if (!userChatsData.success || !userChatsData.data) {
+				this.logger.debug(
+					`Список чатов пользователя ${userTelegramId} не найден`,
+					this.CONTEXT
+				)
+				return
+			}
+
+			const userChats: string[] = JSON.parse(userChatsData.data)
+
+			// Ищем чат с психологом
+			for (const chatId of userChats) {
+				const chatData = await this.redisService.getKey(`chat:${chatId}`)
+				
+				if (chatData.success && chatData.data) {
+					const chat: Chat = JSON.parse(chatData.data)
+					
+					// Проверяем, является ли один из участников психологом
+					const hasPsychologist = chat.participants.some(participant => 
+						participant.startsWith('psychologist_')
+					)
+
+					if (hasPsychologist) {
+						this.logger.debug(
+							`Найден существующий чат с психологом ${chatId}, удаляем`,
+							this.CONTEXT
+						)
+
+						// Удаляем чат
+						await this.delete(chatId)
+						break // Удаляем только первый найденный чат с психологом
+					}
+				}
+			}
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении существующего чата с психологом`,
+				error?.stack,
+				this.CONTEXT,
+				{ userTelegramId, error }
+			)
 		}
 	}
 

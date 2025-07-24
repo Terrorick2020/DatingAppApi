@@ -91,71 +91,59 @@ export class PsychologistService {
 	 */
 	async findAll(dto: FindPsychologistsDto): Promise<ApiResponse<PsychologistsListResponse>> {
 		try {
-			const { search, limit = 10, offset = 0 } = dto
+			const { search = '', limit = 10, offset = 0 } = dto
 
 			this.logger.debug(
-				`Получение списка психологов`,
-				this.CONTEXT,
-				{ search, limit, offset }
+				`Поиск психологов: search="${search}", limit=${limit}, offset=${offset}`,
+				this.CONTEXT
 			)
 
-			// Формируем условия поиска
-			const where = {
+			const where: any = {
 				status: 'Active',
-				...(search && {
-					OR: [
-						{ name: { contains: search, mode: 'insensitive' } },
-						{ about: { contains: search, mode: 'insensitive' } },
-					],
-				}),
 			}
 
-			// Получаем общее количество
-			const total = await this.prismaService.psychologist.count({ where })
+			if (search) {
+				where.OR = [
+					{ name: { contains: search, mode: 'insensitive' } },
+					{ about: { contains: search, mode: 'insensitive' } },
+				]
+			}
 
-			// Получаем психологов с пагинацией
-			const psychologists = await this.prismaService.psychologist.findMany({
-				where,
-				include: {
-					photos: {
-						orderBy: { createdAt: 'asc' },
-						take: 1, // Берем только первую фотографию для аватара
+			const [psychologists, total] = await Promise.all([
+				this.prismaService.psychologist.findMany({
+					where,
+					include: {
+						photos: {
+							orderBy: { createdAt: 'asc' },
+						},
 					},
-				},
-				orderBy: { createdAt: 'desc' },
-				take: limit,
-				skip: offset,
-			})
+					orderBy: { createdAt: 'desc' },
+					take: limit,
+					skip: offset,
+				}),
+				this.prismaService.psychologist.count({ where }),
+			])
 
-			// Генерируем URL-ы для аватаров
-			const psychologistsWithAvatars: PsychologistPreview[] = await Promise.all(
-				psychologists.map(async (psychologist) => {
-					const avatarKey = psychologist.photos[0]?.key || ''
-					const avatarUrl = avatarKey ? await this.storageService.getPresignedUrl(avatarKey) : ''
-
-					return {
-						id: psychologist.id,
-						telegramId: psychologist.telegramId,
-						name: psychologist.name,
-						about: psychologist.about,
-						avatarKey,
-						avatarUrl,
-						createdAt: psychologist.createdAt,
-					}
-				})
-			)
+			const previews: PsychologistPreview[] = psychologists.map((psychologist) => ({
+				id: psychologist.id,
+				telegramId: psychologist.telegramId,
+				name: psychologist.name,
+				about: psychologist.about,
+				photos: psychologist.photos.map((photo) => ({
+					id: photo.id,
+					key: photo.key,
+					tempTgId: photo.tempTgId,
+					telegramId: photo.telegramId,
+				})),
+			}))
 
 			this.logger.debug(
-				`Получено ${psychologistsWithAvatars.length} психологов из ${total}`,
+				`Найдено психологов: ${psychologists.length} из ${total}`,
 				this.CONTEXT
 			)
 
 			return successResponse(
-				{
-					psychologists: psychologistsWithAvatars,
-					total,
-					message: 'Список психологов получен',
-				},
+				{ psychologists: previews, total },
 				'Список психологов получен'
 			)
 		} catch (error: any) {
@@ -166,6 +154,115 @@ export class PsychologistService {
 				{ dto, error }
 			)
 			return errorResponse('Ошибка при получении списка психологов', error)
+		}
+	}
+
+	/**
+	 * Получение списка психологов, исключая тех, с которыми уже есть чат
+	 */
+	async findAllExcludingExistingChats(dto: FindPsychologistsDto & { userTelegramId: string }): Promise<ApiResponse<PsychologistsListResponse>> {
+		try {
+			const { search = '', limit = 10, offset = 0, userTelegramId } = dto
+
+			this.logger.debug(
+				`Поиск психологов (исключая существующие чаты): search="${search}", limit=${limit}, offset=${offset}, userTelegramId=${userTelegramId}`,
+				this.CONTEXT
+			)
+
+			// Получаем ID психологов, с которыми уже есть чат
+			const existingChats = await this.prismaService.chat.findMany({
+				where: {
+					OR: [
+						{ user1TelegramId: userTelegramId },
+						{ user2TelegramId: userTelegramId }
+					],
+					AND: [
+						{
+							OR: [
+								{ user1TelegramId: { startsWith: 'psychologist_' } },
+								{ user2TelegramId: { startsWith: 'psychologist_' } }
+							]
+						}
+					]
+				},
+				select: {
+					user1TelegramId: true,
+					user2TelegramId: true
+				}
+			})
+
+			// Извлекаем ID психологов из существующих чатов
+			const existingPsychologistIds = existingChats.map(chat => {
+				if (chat.user1TelegramId.startsWith('psychologist_')) {
+					return chat.user1TelegramId.replace('psychologist_', '')
+				}
+				return chat.user2TelegramId.replace('psychologist_', '')
+			})
+
+			this.logger.debug(
+				`Найдено существующих чатов с психологами: ${existingPsychologistIds.length}`,
+				this.CONTEXT
+			)
+
+			const where: any = {
+				status: 'Active',
+				telegramId: {
+					notIn: existingPsychologistIds
+				}
+			}
+
+			if (search) {
+				where.OR = [
+					{ name: { contains: search, mode: 'insensitive' } },
+					{ about: { contains: search, mode: 'insensitive' } },
+				]
+			}
+
+			const [psychologists, total] = await Promise.all([
+				this.prismaService.psychologist.findMany({
+					where,
+					include: {
+						photos: {
+							orderBy: { createdAt: 'asc' },
+						},
+					},
+					orderBy: { createdAt: 'desc' },
+					take: limit,
+					skip: offset,
+				}),
+				this.prismaService.psychologist.count({ where }),
+			])
+
+			const previews: PsychologistPreview[] = psychologists.map((psychologist) => ({
+				id: psychologist.id,
+				telegramId: psychologist.telegramId,
+				name: psychologist.name,
+				about: psychologist.about,
+				photos: psychologist.photos.map((photo) => ({
+					id: photo.id,
+					key: photo.key,
+					tempTgId: photo.tempTgId,
+					telegramId: photo.telegramId,
+				})),
+			}))
+
+			this.logger.debug(
+				`Найдено доступных психологов: ${psychologists.length} из ${total}`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				{ psychologists: previews, total },
+				'Список доступных психологов получен'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении списка доступных психологов`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при получении списка доступных психологов', error)
 		}
 	}
 

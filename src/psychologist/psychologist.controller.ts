@@ -19,10 +19,10 @@ import { AppLogger } from '../common/logger/logger.service'
 import { CheckPsychologistDto } from './dto/check-psychologist.dto'
 import { CreatePsychologistDto } from './dto/create-psychologist.dto'
 import { DeletePsychologistDto } from './dto/delete-psychologist.dto'
+import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import { PsychologistService } from './psychologist.service'
-import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 
 @ApiTags('Психологи')
 @Controller('psychologists')
@@ -51,10 +51,20 @@ export class PsychologistController {
 	findAll(@Query() findPsychologistsDto: FindPsychologistsDto) {
 		this.logger.debug(
 			`Запрос на получение списка психологов`,
-			'PsychologistController',
-			{ query: findPsychologistsDto }
+			'PsychologistController'
 		)
 		return this.psychologistService.findAll(findPsychologistsDto)
+	}
+
+	@ApiOperation({ summary: 'Получение списка доступных психологов (исключая существующие чаты)' })
+	@ApiResponse({ status: 200, description: 'Список доступных психологов получен' })
+	@Post('available')
+	findAllExcludingExistingChats(@Body() dto: FindPsychologistsDto & { userTelegramId: string }) {
+		this.logger.debug(
+			`Запрос на получение списка доступных психологов для пользователя ${dto.userTelegramId}`,
+			'PsychologistController'
+		)
+		return this.psychologistService.findAllExcludingExistingChats(dto)
 	}
 
 	@ApiOperation({ summary: 'Получение психолога по ID' })
