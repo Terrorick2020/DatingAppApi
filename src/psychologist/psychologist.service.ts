@@ -59,6 +59,27 @@ export class PsychologistService {
 	) {}
 
 	/**
+	 * Преобразование данных психолога из Prisma в наш формат
+	 */
+	private transformPsychologistData(psychologist: any): Psychologist {
+		return {
+			id: psychologist.id,
+			telegramId: psychologist.telegramId,
+			name: psychologist.name,
+			about: psychologist.about,
+			status: psychologist.status as 'Active' | 'Inactive' | 'Blocked',
+			createdAt: psychologist.createdAt,
+			updatedAt: psychologist.updatedAt,
+			photos: psychologist.photos.map((photo: any) => ({
+				id: photo.id,
+				key: photo.key,
+				tempTgId: photo.tempTgId,
+				telegramId: photo.telegramId,
+			})),
+		}
+	}
+
+	/**
 	 * Создание нового психолога
 	 */
 	async create(dto: CreatePsychologistDto): Promise<ApiResponse<CreatePsychologistResponse>> {
@@ -99,8 +120,10 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
+			const psychologistData = this.transformPsychologistData(psychologist)
+
 			return successResponse(
-				{ psychologist, message: 'Психолог успешно зарегистрирован' },
+				{ psychologist: psychologistData, message: 'Психолог успешно зарегистрирован' },
 				'Психолог создан'
 			)
 		} catch (error: any) {
@@ -338,7 +361,8 @@ export class PsychologistService {
 
 			this.logger.debug(`Психолог ${id} успешно получен`, this.CONTEXT)
 
-			return successResponse(psychologist, 'Психолог найден')
+			const psychologistData = this.transformPsychologistData(psychologist)
+			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при получении психолога`,
@@ -382,7 +406,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			return successResponse(psychologist, 'Психолог найден')
+			const psychologistData = this.transformPsychologistData(psychologist)
+			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при получении психолога по telegramId`,
@@ -440,7 +465,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			return successResponse(psychologist, 'Профиль обновлен')
+			const psychologistData = this.transformPsychologistData(psychologist)
+			return successResponse(psychologistData, 'Профиль обновлен')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при обновлении профиля психолога`,
@@ -513,7 +539,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			return successResponse(psychologist, 'Психолог найден')
+			const psychologistData = this.transformPsychologistData(psychologist)
+			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при проверке психолога`,
@@ -633,7 +660,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			return successResponse(psychologist, 'Психолог найден')
+			const psychologistData = this.transformPsychologistData(psychologist)
+			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при поиске психолога по селектору`,

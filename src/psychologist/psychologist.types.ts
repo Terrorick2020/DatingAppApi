@@ -1,8 +1,8 @@
 export interface PsychologistPhoto {
 	id: number
 	key: string
-	tempTgId?: string
-	telegramId?: string
+	tempTgId: string | null
+	telegramId: string | null
 }
 
 export interface Psychologist {
@@ -31,6 +31,7 @@ export interface PsychologistsListResponse {
 
 export interface CreatePsychologistResponse {
 	psychologist: Psychologist
+	message: string
 }
 
 export interface UpdatePsychologistResponse {

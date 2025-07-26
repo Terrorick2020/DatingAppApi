@@ -3,5 +3,8 @@ import { ConnectionDto } from '@/common/abstract/micro/dto/connection.dto'
 
 export class DeleteChatDto extends ConnectionDto {
     @IsString()
-    chatId!:string
+    chatId!: string
+    
+    @IsString()
+    deletedByUserId!: string
 }
