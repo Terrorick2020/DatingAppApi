@@ -1,9 +1,9 @@
 import {
     Inject,
-    Injectable,
+	Injectable,
     OnModuleDestroy,
-    OnModuleInit,
-    forwardRef,
+	OnModuleInit,
+	forwardRef,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'

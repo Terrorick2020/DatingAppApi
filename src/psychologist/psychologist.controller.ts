@@ -7,7 +7,8 @@ import {
     ParseIntPipe,
     Post,
     Put,
-    Query
+    Query,
+    Request
 } from '@nestjs/common'
 import {
     ApiBearerAuth,
@@ -23,6 +24,7 @@ import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-select
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import { PsychologistService } from './psychologist.service'
+import { Status } from '../common/decorators/status.decorator'
 
 @ApiTags('Психологи')
 @Controller('psychologists')
@@ -94,7 +96,6 @@ export class PsychologistController {
 	@ApiOperation({ summary: 'Обновление профиля психолога' })
 	@ApiResponse({ status: 200, description: 'Профиль обновлен' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })
-	@ApiBearerAuth()
 	@Put(':telegramId')
 	update(
 		@Param('telegramId') telegramId: string,
@@ -130,5 +131,29 @@ export class PsychologistController {
 			'PsychologistController'
 		)
 		return this.psychologistService.delete(deletePsychologistDto)
+	}
+
+	@ApiOperation({ summary: 'Генерация ссылки для регистрации психолога (только для админов)' })
+	@ApiResponse({ status: 201, description: 'Ссылка создана' })
+	@Post('generate-invite-link')
+	generateInviteLink(@Request() req: any) {
+		this.logger.debug(
+			`Запрос на генерацию ссылки для психолога от ${req.user?.telegramId}`,
+			'PsychologistController'
+		)
+		return this.psychologistService.generatePsychologistInviteLink(
+			req.user?.telegramId || 'admin'
+		)
+	}
+
+	@ApiOperation({ summary: 'Проверка валидности кода приглашения' })
+	@ApiResponse({ status: 200, description: 'Код проверен' })
+	@Post('validate-invite-code')
+	validateInviteCode(@Body() body: { code: string }) {
+		this.logger.debug(
+			`Запрос на проверку кода: ${body.code}`,
+			'PsychologistController'
+		)
+		return this.psychologistService.validateInviteCode(body.code)
 	}
 } 

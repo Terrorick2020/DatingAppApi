@@ -1,11 +1,14 @@
 import {
-    errorResponse,
-    successResponse,
+	errorResponse,
+	successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
+
 import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '~/prisma/prisma.service'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
 import { CheckPsychologistDto } from './dto/check-psychologist.dto'
 import { CreatePsychologistDto } from './dto/create-psychologist.dto'
@@ -14,11 +17,34 @@ import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-select
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import type {
-    CreatePsychologistResponse,
-    Psychologist,
-    PsychologistPreview,
-    PsychologistsListResponse,
+	CreatePsychologistResponse,
+	Psychologist,
+	PsychologistPreview,
+	PsychologistsListResponse
 } from './psychologist.types'
+
+// Типы для Prisma
+interface PsychologistWithPhotos {
+	id: number
+	telegramId: string
+	name: string
+	about: string
+	status: string
+	createdAt: Date
+	updatedAt: Date
+	photos: Array<{
+		id: number
+		key: string
+		tempTgId: string | null
+		telegramId: string | null
+		createdAt: Date
+	}>
+}
+
+interface ChatRecord {
+	user1TelegramId: string
+	user2TelegramId: string
+}
 
 @Injectable()
 export class PsychologistService {
@@ -27,7 +53,9 @@ export class PsychologistService {
 	constructor(
 		private readonly prismaService: PrismaService,
 		private readonly storageService: StorageService,
-		private readonly logger: AppLogger
+		private readonly logger: AppLogger,
+		private readonly configService: ConfigService,
+		private readonly redisService: RedisService
 	) {}
 
 	/**
@@ -124,7 +152,7 @@ export class PsychologistService {
 				this.prismaService.psychologist.count({ where }),
 			])
 
-			const previews: PsychologistPreview[] = psychologists.map((psychologist) => ({
+			const previews: PsychologistPreview[] = psychologists.map((psychologist: PsychologistWithPhotos) => ({
 				id: psychologist.id,
 				telegramId: psychologist.telegramId,
 				name: psychologist.name,
@@ -169,35 +197,48 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			// Получаем ID психологов, с которыми уже есть чат
-			const existingChats = await this.prismaService.chat.findMany({
-				where: {
-					OR: [
-						{ user1TelegramId: userTelegramId },
-						{ user2TelegramId: userTelegramId }
-					],
-					AND: [
-						{
-							OR: [
-								{ user1TelegramId: { startsWith: 'psychologist_' } },
-								{ user2TelegramId: { startsWith: 'psychologist_' } }
-							]
+			// Получаем ID психологов, с которыми уже есть чат из Redis
+			const userChatsKey = `user:${userTelegramId}:chats`
+			const userChatsResponse = await this.redisService.getKey(userChatsKey)
+			
+			const existingPsychologistIds: string[] = []
+			
+			if (userChatsResponse.success && userChatsResponse.data) {
+				try {
+					const chatIds: string[] = JSON.parse(userChatsResponse.data)
+					
+					// Проверяем каждый чат на наличие психолога
+					for (const chatId of chatIds) {
+						const chatDataResponse = await this.redisService.getKey(`chat:${chatId}`)
+						
+						if (chatDataResponse.success && chatDataResponse.data) {
+							try {
+								const chatData = JSON.parse(chatDataResponse.data)
+								
+								// Проверяем, есть ли среди участников психолог
+								for (const participant of chatData.participants || []) {
+									if (participant.startsWith('psychologist_')) {
+										const psychologistId = participant.replace('psychologist_', '')
+										existingPsychologistIds.push(psychologistId)
+									}
+								}
+							} catch (parseError) {
+								this.logger.warn(
+									`Ошибка при парсинге данных чата ${chatId}`,
+									this.CONTEXT,
+									{ error: parseError }
+								)
+							}
 						}
-					]
-				},
-				select: {
-					user1TelegramId: true,
-					user2TelegramId: true
+					}
+				} catch (parseError) {
+					this.logger.warn(
+						`Ошибка при парсинге списка чатов пользователя ${userTelegramId}`,
+						this.CONTEXT,
+						{ error: parseError }
+					)
 				}
-			})
-
-			// Извлекаем ID психологов из существующих чатов
-			const existingPsychologistIds = existingChats.map(chat => {
-				if (chat.user1TelegramId.startsWith('psychologist_')) {
-					return chat.user1TelegramId.replace('psychologist_', '')
-				}
-				return chat.user2TelegramId.replace('psychologist_', '')
-			})
+			}
 
 			this.logger.debug(
 				`Найдено существующих чатов с психологами: ${existingPsychologistIds.length}`,
@@ -233,7 +274,7 @@ export class PsychologistService {
 				this.prismaService.psychologist.count({ where }),
 			])
 
-			const previews: PsychologistPreview[] = psychologists.map((psychologist) => ({
+			const previews: PsychologistPreview[] = psychologists.map((psychologist: PsychologistWithPhotos) => ({
 				id: psychologist.id,
 				telegramId: psychologist.telegramId,
 				name: psychologist.name,
@@ -602,5 +643,122 @@ export class PsychologistService {
 			)
 			return errorResponse('Ошибка при поиске психолога', error)
 		}
+	}
+
+	/**
+	 * Генерация ссылки для регистрации психолога (только для админов)
+	 */
+	async generatePsychologistInviteLink(createdBy: string): Promise<ApiResponse<{ code: string; inviteUrl: string }>> {
+		try {
+			this.logger.debug(
+				`Генерация ссылки для психолога админом ${createdBy}`,
+				this.CONTEXT
+			)
+
+			// Генерируем уникальный код приглашения
+			const code = this.generateInviteCode()
+
+			// Создаем приглашение
+			const invite = await this.prismaService.psychologistInvite.create({
+				data: {
+					code,
+					expiresAt: null, // Бессрочное приглашение
+					maxUses: 1,
+					createdBy,
+				},
+			})
+
+			// Формируем ссылку на бота
+			const botUsername = this.configService.get<string>('BOT_USERNAME') || 'your_bot'
+			const inviteUrl = `https://t.me/${botUsername}?start=psychologist_${code}`
+
+			this.logger.debug(
+				`Ссылка для психолога ${code} успешно создана`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				{ code, inviteUrl },
+				'Ссылка для психолога создана'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при генерации ссылки для психолога`,
+				error?.stack,
+				this.CONTEXT,
+				{ createdBy, error }
+			)
+			return errorResponse('Ошибка при генерации ссылки для психолога', error)
+		}
+	}
+
+	/**
+	 * Проверка валидности кода приглашения
+	 */
+	async validateInviteCode(code: string): Promise<ApiResponse<{ isValid: boolean; message?: string }>> {
+		try {
+			this.logger.debug(
+				`Проверка валидности кода: ${code}`,
+				this.CONTEXT
+			)
+
+			// Ищем приглашение
+			const invite = await this.prismaService.psychologistInvite.findUnique({
+				where: { code },
+			})
+
+			if (!invite) {
+				return successResponse(
+					{ isValid: false, message: 'Код приглашения не найден' },
+					'Код недействителен'
+				)
+			}
+
+			// Проверяем срок действия
+			if (invite.expiresAt && invite.expiresAt < new Date()) {
+				return successResponse(
+					{ isValid: false, message: 'Код приглашения истек' },
+					'Код недействителен'
+				)
+			}
+
+			// Проверяем количество использований
+			if (invite.usedCount >= invite.maxUses) {
+				return successResponse(
+					{ isValid: false, message: 'Код приглашения уже использован' },
+					'Код недействителен'
+				)
+			}
+
+			this.logger.debug(
+				`Код ${code} валиден`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				{ isValid: true },
+				'Код действителен'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при проверке кода`,
+				error?.stack,
+				this.CONTEXT,
+				{ code, error }
+			)
+			return errorResponse('Ошибка при проверке кода', error)
+		}
+	}
+
+	/**
+	 * Генерация уникального кода приглашения
+	 */
+	private generateInviteCode(): string {
+		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+		let result = 'PSYCH_'
+		for (let i = 0; i < 8; i++) {
+			result += chars.charAt(Math.floor(Math.random() * chars.length))
+		}
+		return result
 	}
 } 
