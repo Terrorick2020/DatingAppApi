@@ -626,7 +626,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					withUser: {
 						id: otherParticipant,
 						name: otherUserData?.name || 'Unknown',
-						avatar: otherUserData?.photos?.[0]?.key || '',
+						avatar: otherUserData?.photos?.[0]?.url || '',
 					},
 					created_at: timestamp,
 					timestamp,
@@ -2064,7 +2064,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					withUser: {
 						id: otherParticipant,
 						name: otherUserData?.name || 'Unknown',
-						avatar: otherUserData?.photos?.[0]?.key || '',
+						avatar: otherUserData?.photos?.[0]?.url || '',
 					},
 					created_at: timestamp,
 					timestamp,

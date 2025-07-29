@@ -1,6 +1,6 @@
 import {
-	errorResponse,
-	successResponse,
+    errorResponse,
+    successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 
@@ -17,11 +17,11 @@ import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-select
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import type {
-	CreatePsychologistResponse,
-	Psychologist,
-	PsychologistPhotoResponse,
-	PsychologistPreview,
-	PsychologistsListResponse
+    CreatePsychologistResponse,
+    Psychologist,
+    PsychologistPhotoResponse,
+    PsychologistPreview,
+    PsychologistsListResponse
 } from './psychologist.types'
 
 // Типы для Prisma
@@ -40,11 +40,6 @@ interface PsychologistWithPhotos {
 		telegramId: string | null
 		createdAt: Date
 	}>
-}
-
-interface ChatRecord {
-	user1TelegramId: string
-	user2TelegramId: string
 }
 
 @Injectable()
@@ -304,7 +299,7 @@ export class PsychologistService {
 			}
 
 			return await this.prisma.$transaction(async tx => {
-				const { photoIds, ...psychologistData } = dto
+				const { photoIds, ...userData } = dto
 
 				// Проверяем наличие фотографий
 				if (photoIds && photoIds.length > 0) {
@@ -347,10 +342,10 @@ export class PsychologistService {
 					this.CONTEXT
 				)
 
-				const psychologistData = await this.transformPsychologistData(psychologist)
+				const transformedData = await this.transformPsychologistData(psychologist)
 
 				return successResponse(
-					{ psychologist: psychologistData, message: 'Психолог успешно зарегистрирован' },
+					{ psychologist: transformedData, message: 'Психолог успешно зарегистрирован' },
 					'Психолог создан'
 				)
 			})
