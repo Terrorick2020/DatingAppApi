@@ -8,30 +8,39 @@ import {
     Post,
     Put,
     Query,
-    Request
+    Request,
+    UploadedFile,
+    UseInterceptors
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import {
     ApiBearerAuth,
+    ApiBody,
+    ApiConsumes,
     ApiOperation,
     ApiResponse,
     ApiTags,
 } from '@nestjs/swagger'
 import { AppLogger } from '../common/logger/logger.service'
+import { multerOptions } from '../config/multer.config'
+import { StorageService } from '../storage/storage.service'
 import { CheckPsychologistDto } from './dto/check-psychologist.dto'
 import { CreatePsychologistDto } from './dto/create-psychologist.dto'
+import { DeletePhotoDto } from './dto/delete-photo.dto'
 import { DeletePsychologistDto } from './dto/delete-psychologist.dto'
 import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
+import { UploadPhotoRequestDto } from './dto/upload-photo-request.dto'
 import { PsychologistService } from './psychologist.service'
-import { Status } from '../common/decorators/status.decorator'
 
 @ApiTags('Психологи')
 @Controller('psychologists')
 export class PsychologistController {
 	constructor(
 		private readonly psychologistService: PsychologistService,
-		private readonly logger: AppLogger
+		private readonly logger: AppLogger,
+		private readonly storageService: StorageService
 	) {}
 
 	@ApiOperation({ summary: 'Регистрация психолога' })
@@ -45,6 +54,63 @@ export class PsychologistController {
 			'PsychologistController'
 		)
 		return this.psychologistService.create(createPsychologistDto)
+	}
+
+	@ApiOperation({ summary: 'Загрузка фотографии психолога' })
+	@ApiConsumes('multipart/form-data')
+	@ApiBody({
+		schema: {
+			type: 'object',
+			properties: {
+				photo: {
+					type: 'string',
+					format: 'binary',
+					description: 'Фотография для загрузки',
+				},
+				telegramId: {
+					type: 'string',
+					description: 'Telegram ID психолога',
+				},
+			},
+			required: ['photo', 'telegramId'],
+		},
+	})
+	@ApiResponse({
+		status: 201,
+		description: 'Фотография успешно загружена и временно сохранена',
+	})
+	@Post('upload-photo')
+	@UseInterceptors(FileInterceptor('photo', multerOptions))
+	async uploadPhoto(
+		@UploadedFile() file: any,
+		@Body() dto: UploadPhotoRequestDto
+	) {
+		this.logger.debug(
+			`Запрос на загрузку фото для психолога ${dto.telegramId}`,
+			'PsychologistController'
+		)
+		
+		const key = await this.storageService.uploadPhoto(file)
+		return this.psychologistService.uploadPhoto(dto.telegramId, key)
+	}
+
+	@ApiOperation({ summary: 'Удаление фотографии психолога' })
+	@ApiResponse({
+		status: 200,
+		description: 'Фотография успешно удалена',
+	})
+	@ApiResponse({
+		status: 404,
+		description: 'Фотография не найдена',
+	})
+	@ApiBody({ type: DeletePhotoDto })
+	@Post('delete-photo')
+	async deletePhoto(@Body() deletePhotoDto: DeletePhotoDto) {
+		this.logger.debug(
+			`Запрос на удаление фото ${deletePhotoDto.photoId} для психолога ${deletePhotoDto.telegramId}`,
+			'PsychologistController'
+		)
+		return this.psychologistService.deletePhoto(deletePhotoDto.photoId, deletePhotoDto.telegramId)
 	}
 
 	@ApiOperation({ summary: 'Получение списка психологов' })

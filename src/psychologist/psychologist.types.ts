@@ -5,6 +5,11 @@ export interface PsychologistPhoto {
 	telegramId: string | null
 }
 
+export interface PsychologistPhotoResponse {
+	id: number
+	url: string
+}
+
 export interface Psychologist {
 	id: number
 	telegramId: string
@@ -13,7 +18,7 @@ export interface Psychologist {
 	status: 'Active' | 'Inactive' | 'Blocked'
 	createdAt: Date
 	updatedAt: Date
-	photos: PsychologistPhoto[]
+	photos: PsychologistPhotoResponse[]
 }
 
 export interface PsychologistPreview {
@@ -21,7 +26,7 @@ export interface PsychologistPreview {
 	telegramId: string
 	name: string
 	about: string
-	photos: PsychologistPhoto[]
+	photos: PsychologistPhotoResponse[]
 }
 
 export interface PsychologistsListResponse {

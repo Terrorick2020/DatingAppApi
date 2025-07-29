@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator'
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
 
 export class CreatePsychologistDto {
   @ApiProperty({ description: 'Telegram ID психолога' })
@@ -20,4 +20,15 @@ export class CreatePsychologistDto {
   @MinLength(10)
   @MaxLength(1000)
   about!: string
+
+  @ApiProperty({ 
+    description: 'ID фотографий психолога', 
+    type: [Number],
+    required: false,
+    example: [1, 2, 3]
+  })
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  photoIds?: number[]
 } 
