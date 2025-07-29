@@ -2058,13 +2058,23 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				const otherParticipant = participant === telegramId ? psychologist.telegramId : telegramId
 				const otherUserData = participant === telegramId ? psychologist : userData
 
+				// Определяем аватар в зависимости от типа данных
+				let avatar = ''
+				if (participant === telegramId) {
+					// Для пользователя: данные психолога с .url
+					avatar = otherUserData?.photos?.[0]?.url || ''
+				} else {
+					// Для психолога: данные пользователя с .key
+					avatar = otherUserData?.photos?.[0]?.key || ''
+				}
+
 				await this.redisPubSubService.publish('chat:new', {
 					userId: participant,
 					chatId,
 					withUser: {
 						id: otherParticipant,
 						name: otherUserData?.name || 'Unknown',
-						avatar: otherUserData?.photos?.[0]?.key || '',
+						avatar,
 					},
 					created_at: timestamp,
 					timestamp,
