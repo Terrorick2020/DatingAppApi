@@ -2062,10 +2062,12 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				let avatar = ''
 				if (participant === telegramId) {
 					// Для пользователя: данные психолога с .url
-					avatar = otherUserData?.photos?.[0]?.url || ''
+					const photo = otherUserData?.photos?.[0] as any
+					avatar = photo?.url || ''
 				} else {
 					// Для психолога: данные пользователя с .key
-					avatar = otherUserData?.photos?.[0]?.key || ''
+					const photo = otherUserData?.photos?.[0] as any
+					avatar = photo?.key || ''
 				}
 
 				await this.redisPubSubService.publish('chat:new', {
