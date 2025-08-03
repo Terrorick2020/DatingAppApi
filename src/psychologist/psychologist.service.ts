@@ -1,6 +1,6 @@
 import {
-    errorResponse,
-    successResponse,
+	errorResponse,
+	successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 
@@ -17,11 +17,11 @@ import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-select
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import type {
-    CreatePsychologistResponse,
-    Psychologist,
-    PsychologistPhotoResponse,
-    PsychologistPreview,
-    PsychologistsListResponse
+	CreatePsychologistResponse,
+	Psychologist,
+	PsychologistPhotoResponse,
+	PsychologistPreview,
+	PsychologistsListResponse,
 } from './psychologist.types'
 
 // Типы для Prisma
@@ -60,9 +60,19 @@ export class PsychologistService {
 	private async getPsychologistPhotoUrls(
 		photos: { id: number; key: string }[]
 	): Promise<PsychologistPhotoResponse[]> {
+		this.logger.debug(
+			`Получаем URL для ${photos.length} фотографий психолога`,
+			this.CONTEXT
+		)
+
 		const photoResponses: PsychologistPhotoResponse[] = []
 
 		for (const photo of photos) {
+			this.logger.debug(
+				`Обрабатываем фото ID: ${photo.id}, key: ${photo.key}`,
+				this.CONTEXT
+			)
+
 			const cacheKey = `psychologist_photo:${photo.id}:url`
 
 			// Проверяем кеш по ID фотографии
@@ -108,13 +118,20 @@ export class PsychologistService {
 			}
 		}
 
+		this.logger.debug(
+			`Возвращаем ${photoResponses.length} URL фотографий`,
+			this.CONTEXT
+		)
+
 		return photoResponses
 	}
 
 	/**
 	 * Преобразование данных психолога из Prisma в наш формат
 	 */
-	private async transformPsychologistData(psychologist: any): Promise<Psychologist> {
+	private async transformPsychologistData(
+		psychologist: any
+	): Promise<Psychologist> {
 		// Получаем URL фотографий
 		const photoUrls = await this.getPsychologistPhotoUrls(psychologist.photos)
 
@@ -133,7 +150,9 @@ export class PsychologistService {
 	/**
 	 * Преобразование данных психолога для превью
 	 */
-	private async transformPsychologistPreview(psychologist: PsychologistWithPhotos): Promise<PsychologistPhotoResponse[]> {
+	private async transformPsychologistPreview(
+		psychologist: PsychologistWithPhotos
+	): Promise<PsychologistPhotoResponse[]> {
 		// Получаем URL фотографий
 		return await this.getPsychologistPhotoUrls(psychologist.photos)
 	}
@@ -155,7 +174,7 @@ export class PsychologistService {
 			}))
 
 			await this.prisma.psychologistPhoto.createMany({ data: photos })
-			
+
 			this.logger.debug(
 				`Фотографии для психолога ${telegramId} успешно сохранены`,
 				this.CONTEXT
@@ -278,7 +297,9 @@ export class PsychologistService {
 	/**
 	 * Создание нового психолога
 	 */
-	async create(dto: CreatePsychologistDto): Promise<ApiResponse<CreatePsychologistResponse>> {
+	async create(
+		dto: CreatePsychologistDto
+	): Promise<ApiResponse<CreatePsychologistResponse>> {
 		try {
 			this.logger.debug(
 				`Создание психолога с telegramId ${dto.telegramId}`,
@@ -301,10 +322,33 @@ export class PsychologistService {
 			return await this.prisma.$transaction(async tx => {
 				const { photoIds, ...userData } = dto
 
+				this.logger.debug(
+					`Начинаем создание психолога. photoIds: ${JSON.stringify(photoIds)}`,
+					this.CONTEXT
+				)
+
 				// Проверяем наличие фотографий
 				if (photoIds && photoIds.length > 0) {
+					this.logger.debug(
+						`Проверяем наличие фотографий: ${photoIds.join(', ')}`,
+						this.CONTEXT
+					)
+
 					const photos = await tx.psychologistPhoto.findMany({
 						where: { id: { in: photoIds } },
+					})
+
+					this.logger.debug(
+						`Найдено фотографий: ${photos.length}, ожидалось: ${photoIds.length}`,
+						this.CONTEXT
+					)
+
+					// Логируем детали найденных фотографий
+					photos.forEach(photo => {
+						this.logger.debug(
+							`Фото ID: ${photo.id}, key: ${photo.key}, telegramId: ${photo.telegramId}, tempTgId: ${photo.tempTgId}`,
+							this.CONTEXT
+						)
 					})
 
 					if (photos.length !== photoIds.length) {
@@ -314,8 +358,15 @@ export class PsychologistService {
 							`Не найдены фотографии: ${missingIds.join(', ')}`,
 							this.CONTEXT
 						)
-						return errorResponse('Некоторые фотографии не найдены в базе данных')
+						return errorResponse(
+							'Некоторые фотографии не найдены в базе данных'
+						)
 					}
+				} else {
+					this.logger.debug(
+						`Фотографии не переданы или пустой массив`,
+						this.CONTEXT
+					)
 				}
 
 				// Создаем нового психолога
@@ -331,23 +382,52 @@ export class PsychologistService {
 					},
 				})
 
+				this.logger.debug(
+					`Психолог ${psychologist.id} создан. Привязываем фотографии...`,
+					this.CONTEXT
+				)
+
 				// Привязываем фотографии к психологу ПОСЛЕ создания психолога
 				if (photoIds && photoIds.length > 0) {
-					await tx.psychologistPhoto.updateMany({
+					this.logger.debug(
+						`Обновляем фотографии с telegramId: ${dto.telegramId}`,
+						this.CONTEXT
+					)
+
+					const updateResult = await tx.psychologistPhoto.updateMany({
 						where: { id: { in: photoIds } },
 						data: { telegramId: dto.telegramId, tempTgId: null },
 					})
+
+					this.logger.debug(
+						`Обновлено фотографий: ${updateResult.count}`,
+						this.CONTEXT
+					)
 				}
+
+				// Получаем обновленные данные психолога с фотографиями
+				const updatedPsychologist = await tx.psychologist.findUnique({
+					where: { id: psychologist.id },
+					include: {
+						photos: {
+							orderBy: { createdAt: 'asc' },
+						},
+					},
+				})
 
 				this.logger.debug(
 					`Психолог ${psychologist.id} успешно создан`,
 					this.CONTEXT
 				)
 
-				const transformedData = await this.transformPsychologistData(psychologist)
+				const transformedData =
+					await this.transformPsychologistData(updatedPsychologist)
 
 				return successResponse(
-					{ psychologist: transformedData, message: 'Психолог успешно зарегистрирован' },
+					{
+						psychologist: transformedData,
+						message: 'Психолог успешно зарегистрирован',
+					},
 					'Психолог создан'
 				)
 			})
@@ -365,7 +445,9 @@ export class PsychologistService {
 	/**
 	 * Получение списка психологов
 	 */
-	async findAll(dto: FindPsychologistsDto): Promise<ApiResponse<PsychologistsListResponse>> {
+	async findAll(
+		dto: FindPsychologistsDto
+	): Promise<ApiResponse<PsychologistsListResponse>> {
 		try {
 			const { search = '', limit = 10, offset = 0 } = dto
 
@@ -400,13 +482,15 @@ export class PsychologistService {
 				this.prisma.psychologist.count({ where }),
 			])
 
-			const previews: PsychologistPreview[] = await Promise.all(psychologists.map(async (psychologist: PsychologistWithPhotos) => ({
-				id: psychologist.id,
-				telegramId: psychologist.telegramId,
-				name: psychologist.name,
-				about: psychologist.about,
-				photos: await this.transformPsychologistPreview(psychologist),
-			})))
+			const previews: PsychologistPreview[] = await Promise.all(
+				psychologists.map(async (psychologist: PsychologistWithPhotos) => ({
+					id: psychologist.id,
+					telegramId: psychologist.telegramId,
+					name: psychologist.name,
+					about: psychologist.about,
+					photos: await this.transformPsychologistPreview(psychologist),
+				}))
+			)
 
 			this.logger.debug(
 				`Найдено психологов: ${psychologists.length} из ${total}`,
@@ -431,7 +515,9 @@ export class PsychologistService {
 	/**
 	 * Получение списка психологов, исключая тех, с которыми уже есть чат
 	 */
-	async findAllExcludingExistingChats(dto: FindPsychologistsDto & { userTelegramId: string }): Promise<ApiResponse<PsychologistsListResponse>> {
+	async findAllExcludingExistingChats(
+		dto: FindPsychologistsDto & { userTelegramId: string }
+	): Promise<ApiResponse<PsychologistsListResponse>> {
 		try {
 			const { search = '', limit = 10, offset = 0, userTelegramId } = dto
 
@@ -443,25 +529,30 @@ export class PsychologistService {
 			// Получаем ID психологов, с которыми уже есть чат из Redis
 			const userChatsKey = `user:${userTelegramId}:chats`
 			const userChatsResponse = await this.redisService.getKey(userChatsKey)
-			
+
 			const existingPsychologistIds: string[] = []
-			
+
 			if (userChatsResponse.success && userChatsResponse.data) {
 				try {
 					const chatIds: string[] = JSON.parse(userChatsResponse.data)
-					
+
 					// Проверяем каждый чат на наличие психолога
 					for (const chatId of chatIds) {
-						const chatDataResponse = await this.redisService.getKey(`chat:${chatId}`)
-						
+						const chatDataResponse = await this.redisService.getKey(
+							`chat:${chatId}`
+						)
+
 						if (chatDataResponse.success && chatDataResponse.data) {
 							try {
 								const chatData = JSON.parse(chatDataResponse.data)
-								
+
 								// Проверяем, есть ли среди участников психолог
 								for (const participant of chatData.participants || []) {
 									if (participant.startsWith('psychologist_')) {
-										const psychologistId = participant.replace('psychologist_', '')
+										const psychologistId = participant.replace(
+											'psychologist_',
+											''
+										)
 										existingPsychologistIds.push(psychologistId)
 									}
 								}
@@ -491,8 +582,8 @@ export class PsychologistService {
 			const where: any = {
 				status: 'Active',
 				telegramId: {
-					notIn: existingPsychologistIds
-				}
+					notIn: existingPsychologistIds,
+				},
 			}
 
 			if (search) {
@@ -517,13 +608,15 @@ export class PsychologistService {
 				this.prisma.psychologist.count({ where }),
 			])
 
-			const previews: PsychologistPreview[] = await Promise.all(psychologists.map(async (psychologist: PsychologistWithPhotos) => ({
-				id: psychologist.id,
-				telegramId: psychologist.telegramId,
-				name: psychologist.name,
-				about: psychologist.about,
-				photos: await this.transformPsychologistPreview(psychologist),
-			})))
+			const previews: PsychologistPreview[] = await Promise.all(
+				psychologists.map(async (psychologist: PsychologistWithPhotos) => ({
+					id: psychologist.id,
+					telegramId: psychologist.telegramId,
+					name: psychologist.name,
+					about: psychologist.about,
+					photos: await this.transformPsychologistPreview(psychologist),
+				}))
+			)
 
 			this.logger.debug(
 				`Найдено доступных психологов: ${psychologists.length} из ${total}`,
@@ -541,7 +634,10 @@ export class PsychologistService {
 				this.CONTEXT,
 				{ dto, error }
 			)
-			return errorResponse('Ошибка при получении списка доступных психологов', error)
+			return errorResponse(
+				'Ошибка при получении списка доступных психологов',
+				error
+			)
 		}
 	}
 
@@ -576,7 +672,8 @@ export class PsychologistService {
 
 			this.logger.debug(`Психолог ${id} успешно получен`, this.CONTEXT)
 
-			const psychologistData = await this.transformPsychologistData(psychologist)
+			const psychologistData =
+				await this.transformPsychologistData(psychologist)
 			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
@@ -592,7 +689,9 @@ export class PsychologistService {
 	/**
 	 * Получение психолога по Telegram ID
 	 */
-	async findByTelegramId(telegramId: string): Promise<ApiResponse<Psychologist>> {
+	async findByTelegramId(
+		telegramId: string
+	): Promise<ApiResponse<Psychologist>> {
 		try {
 			this.logger.debug(
 				`Получение психолога с telegramId ${telegramId}`,
@@ -621,7 +720,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			const psychologistData = await this.transformPsychologistData(psychologist)
+			const psychologistData =
+				await this.transformPsychologistData(psychologist)
 			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
@@ -680,7 +780,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			const psychologistData = await this.transformPsychologistData(psychologist)
+			const psychologistData =
+				await this.transformPsychologistData(psychologist)
 			return successResponse(psychologistData, 'Профиль обновлен')
 		} catch (error: any) {
 			this.logger.error(
@@ -734,10 +835,7 @@ export class PsychologistService {
 			})
 
 			if (!psychologist) {
-				this.logger.debug(
-					`Психолог ${dto.telegramId} не найден`,
-					this.CONTEXT
-				)
+				this.logger.debug(`Психолог ${dto.telegramId} не найден`, this.CONTEXT)
 				return errorResponse('Психолог не найден')
 			}
 
@@ -754,7 +852,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			const psychologistData = await this.transformPsychologistData(psychologist)
+			const psychologistData =
+				await this.transformPsychologistData(psychologist)
 			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
@@ -772,10 +871,7 @@ export class PsychologistService {
 	 */
 	async delete(dto: DeletePsychologistDto): Promise<ApiResponse<boolean>> {
 		try {
-			this.logger.debug(
-				`Удаление психолога ${dto.telegramId}`,
-				this.CONTEXT
-			)
+			this.logger.debug(`Удаление психолога ${dto.telegramId}`, this.CONTEXT)
 
 			// Проверяем существование психолога
 			const psychologist = await this.prisma.psychologist.findUnique({
@@ -815,7 +911,9 @@ export class PsychologistService {
 	/**
 	 * Поиск психолога по селектору (ID или имя)
 	 */
-	async findBySelector(dto: FindPsychologistBySelectorDto): Promise<ApiResponse<Psychologist>> {
+	async findBySelector(
+		dto: FindPsychologistBySelectorDto
+	): Promise<ApiResponse<Psychologist>> {
 		try {
 			const { selector } = dto
 
@@ -842,9 +940,9 @@ export class PsychologistService {
 			} else {
 				// Поиск по имени (точное совпадение)
 				psychologist = await this.prisma.psychologist.findFirst({
-					where: { 
+					where: {
 						name: selector,
-						status: 'Active'
+						status: 'Active',
 					},
 					include: {
 						photos: {
@@ -875,7 +973,8 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			const psychologistData = await this.transformPsychologistData(psychologist)
+			const psychologistData =
+				await this.transformPsychologistData(psychologist)
 			return successResponse(psychologistData, 'Психолог найден')
 		} catch (error: any) {
 			this.logger.error(
@@ -891,7 +990,9 @@ export class PsychologistService {
 	/**
 	 * Генерация ссылки для регистрации психолога (только для админов)
 	 */
-	async generatePsychologistInviteLink(createdBy: string): Promise<ApiResponse<{ code: string; inviteUrl: string }>> {
+	async generatePsychologistInviteLink(
+		createdBy: string
+	): Promise<ApiResponse<{ code: string; inviteUrl: string }>> {
 		try {
 			this.logger.debug(
 				`Генерация ссылки для психолога админом ${createdBy}`,
@@ -912,7 +1013,8 @@ export class PsychologistService {
 			})
 
 			// Формируем ссылку на бота
-			const botUsername = this.configService.get<string>('BOT_USERNAME') || 'your_bot'
+			const botUsername =
+				this.configService.get<string>('BOT_USERNAME') || 'your_bot'
 			// const inviteUrl = `https://t.me/${botUsername}?start=psychologist_${code}`
 			const inviteUrl = code
 
@@ -939,12 +1041,11 @@ export class PsychologistService {
 	/**
 	 * Проверка валидности кода приглашения
 	 */
-	async validateInviteCode(code: string): Promise<ApiResponse<{ isValid: boolean; message?: string }>> {
+	async validateInviteCode(
+		code: string
+	): Promise<ApiResponse<{ isValid: boolean; message?: string }>> {
 		try {
-			this.logger.debug(
-				`Проверка валидности кода: ${code}`,
-				this.CONTEXT
-			)
+			this.logger.debug(`Проверка валидности кода: ${code}`, this.CONTEXT)
 
 			// Ищем приглашение
 			const invite = await this.prisma.psychologistInvite.findUnique({
@@ -974,15 +1075,9 @@ export class PsychologistService {
 				)
 			}
 
-			this.logger.debug(
-				`Код ${code} валиден`,
-				this.CONTEXT
-			)
+			this.logger.debug(`Код ${code} валиден`, this.CONTEXT)
 
-			return successResponse(
-				{ isValid: true },
-				'Код действителен'
-			)
+			return successResponse({ isValid: true }, 'Код действителен')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при проверке кода`,
@@ -1005,4 +1100,4 @@ export class PsychologistService {
 		}
 		return result
 	}
-} 
+}
