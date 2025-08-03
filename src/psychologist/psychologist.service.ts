@@ -316,12 +316,6 @@ export class PsychologistService {
 						)
 						return errorResponse('Некоторые фотографии не найдены в базе данных')
 					}
-
-					// Привязываем фотографии к психологу
-					await tx.psychologistPhoto.updateMany({
-						where: { id: { in: photoIds } },
-						data: { telegramId: dto.telegramId, tempTgId: null },
-					})
 				}
 
 				// Создаем нового психолога
@@ -336,6 +330,14 @@ export class PsychologistService {
 						photos: true,
 					},
 				})
+
+				// Привязываем фотографии к психологу ПОСЛЕ создания психолога
+				if (photoIds && photoIds.length > 0) {
+					await tx.psychologistPhoto.updateMany({
+						where: { id: { in: photoIds } },
+						data: { telegramId: dto.telegramId, tempTgId: null },
+					})
+				}
 
 				this.logger.debug(
 					`Психолог ${psychologist.id} успешно создан`,
