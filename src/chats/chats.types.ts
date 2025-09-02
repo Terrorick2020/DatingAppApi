@@ -62,6 +62,11 @@ export interface ChatPreview {
 		age: number
 		avatarKey?: string
 		avatarUrl?: string
+		interest?: {
+			id: number
+			value: string
+			label: string
+		} | null
 	}
 	lastMsg: string
 	created_at: number

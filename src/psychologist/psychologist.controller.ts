@@ -26,7 +26,7 @@ import { multerOptions } from '../config/multer.config'
 import { StorageService } from '../storage/storage.service'
 import { CheckPsychologistDto } from './dto/check-psychologist.dto'
 import { CreatePsychologistDto } from './dto/create-psychologist.dto'
-import { DeletePhotoDto } from './dto/delete-photo.dto'
+import { DeletePsychologistPhotoDto } from './dto/delete-photo.dto'
 import { DeletePsychologistDto } from './dto/delete-psychologist.dto'
 import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
@@ -103,14 +103,14 @@ export class PsychologistController {
 		status: 404,
 		description: 'Фотография не найдена',
 	})
-	@ApiBody({ type: DeletePhotoDto })
+	@ApiBody({ type: DeletePsychologistPhotoDto })
 	@Post('delete-photo')
-	async deletePhoto(@Body() deletePhotoDto: DeletePhotoDto) {
+	async deletePhoto(@Body() DeletePsychologistPhotoDto: DeletePsychologistPhotoDto) {
 		this.logger.debug(
-			`Запрос на удаление фото ${deletePhotoDto.photoId} для психолога ${deletePhotoDto.telegramId}`,
+			`Запрос на удаление фото ${DeletePsychologistPhotoDto.photoId} для психолога ${DeletePsychologistPhotoDto.telegramId}`,
 			'PsychologistController'
 		)
-		return this.psychologistService.deletePhoto(deletePhotoDto.photoId, deletePhotoDto.telegramId)
+		return this.psychologistService.deletePhoto(DeletePsychologistPhotoDto.photoId, DeletePsychologistPhotoDto.telegramId)
 	}
 
 	@ApiOperation({ summary: 'Получение списка психологов' })

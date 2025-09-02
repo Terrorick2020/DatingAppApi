@@ -7,5 +7,12 @@ export const FindAllChatsUserFields = {
             key: true
         },
         take: 1
+    },
+    interest: {
+        select: {
+            id: true,
+            value: true,
+            label: true
+        }
     }
 }

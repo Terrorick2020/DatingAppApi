@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsNumber, IsString } from 'class-validator'
 
-export class DeletePhotoDto {
+export class DeletePsychologistPhotoDto {
   @ApiProperty({ description: 'ID фотографии' })
   @IsNumber()
   @IsNotEmpty()

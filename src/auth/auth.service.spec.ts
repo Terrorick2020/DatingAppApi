@@ -22,6 +22,7 @@ describe('AuthService', () => {
 		name: 'Alice',
 		town: 'Wonderland',
 		sex: Sex.Female,
+		selSex: Sex.Male,
 		age: 21,
 		bio: 'Explorer',
 		lang: 'ru',

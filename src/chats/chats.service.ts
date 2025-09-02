@@ -458,6 +458,13 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						age: user.age,
 						avatarKey: photoInfo.key,
 						avatarUrl: photoInfo.url,
+						interest: user.interest
+							? {
+									id: user.interest.id,
+									value: user.interest.value,
+									label: user.interest.label,
+								}
+							: null,
 					},
 					lastMsg: lastMessage?.text || '',
 					created_at: chat.created_at,
@@ -1936,7 +1943,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Создание чата с психологом
 	 */
-	async createWithPsychologist(dto: CreateChatWithPsychologistDto): Promise<ApiResponse<ResCreateChat>> {
+	async createWithPsychologist(
+		dto: CreateChatWithPsychologistDto
+	): Promise<ApiResponse<ResCreateChat>> {
 		try {
 			const { telegramId, psychologistId } = dto
 
@@ -1959,7 +1968,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Проверяем существование психолога
-			const psychologistResponse = await this.psychologistService.findById(parseInt(psychologistId))
+			const psychologistResponse = await this.psychologistService.findById(
+				parseInt(psychologistId)
+			)
 			if (!psychologistResponse.success || !psychologistResponse.data) {
 				this.logger.warn(
 					`Психолог с ID ${psychologistId} не найден`,
@@ -1974,7 +1985,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			await this.deleteExistingPsychologistChat(telegramId)
 
 			// Проверяем, существует ли уже чат между этими пользователями
-			const existingChatId = await this.findExistingChat(telegramId, psychologist.telegramId)
+			const existingChatId = await this.findExistingChat(
+				telegramId,
+				psychologist.telegramId
+			)
 
 			if (existingChatId) {
 				this.logger.debug(
@@ -2055,8 +2069,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			// Публикуем событие создания чата для обоих участников
 			for (const participant of [telegramId, psychologist.telegramId]) {
-				const otherParticipant = participant === telegramId ? psychologist.telegramId : telegramId
-				const otherUserData = participant === telegramId ? psychologist : userData
+				const otherParticipant =
+					participant === telegramId ? psychologist.telegramId : telegramId
+				const otherUserData =
+					participant === telegramId ? psychologist : userData
 
 				// Определяем аватар в зависимости от типа данных
 				let avatar = ''
@@ -2085,7 +2101,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			this.logger.debug(`Чат ${chatId} успешно создан`, this.CONTEXT)
 
-			return successResponse({ chatId, toUser: psychologist.telegramId }, 'Чат успешно создан')
+			return successResponse(
+				{ chatId, toUser: psychologist.telegramId },
+				'Чат успешно создан'
+			)
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при создании чата с психологом`,
@@ -2100,7 +2119,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Удаление существующего чата с психологом для пользователя
 	 */
-	private async deleteExistingPsychologistChat(userTelegramId: string): Promise<void> {
+	private async deleteExistingPsychologistChat(
+		userTelegramId: string
+	): Promise<void> {
 		try {
 			this.logger.debug(
 				`Поиск существующего чата с психологом для пользователя ${userTelegramId}`,
@@ -2124,12 +2145,12 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			// Ищем чат с психологом
 			for (const chatId of userChats) {
 				const chatData = await this.redisService.getKey(`chat:${chatId}`)
-				
+
 				if (chatData.success && chatData.data) {
 					const chat: Chat = JSON.parse(chatData.data)
-					
+
 					// Проверяем, является ли один из участников психологом
-					const hasPsychologist = chat.participants.some(participant => 
+					const hasPsychologist = chat.participants.some(participant =>
 						participant.startsWith('psychologist_')
 					)
 
@@ -2158,7 +2179,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 	/**
 	 * Удаление чата конкретным пользователем
 	 */
-	async deleteByUser(chatId: string, deletedByUserId: string): Promise<ApiResponse<boolean>> {
+	async deleteByUser(
+		chatId: string,
+		deletedByUserId: string
+	): Promise<ApiResponse<boolean>> {
 		try {
 			this.logger.debug(
 				`Удаление чата ${chatId} пользователем ${deletedByUserId}`,
@@ -2260,7 +2284,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				timestamp: Date.now(),
 			})
 
-			this.logger.debug(`Чат ${chatId} успешно удален пользователем ${deletedByUserId}`, this.CONTEXT)
+			this.logger.debug(
+				`Чат ${chatId} успешно удален пользователем ${deletedByUserId}`,
+				this.CONTEXT
+			)
 
 			return successResponse(true, 'Чат удален')
 		} catch (error: any) {

@@ -154,13 +154,13 @@ export class UserService {
 				skip,
 				take: limit,
 				orderBy,
-				include: { photos: true, userPlans: true },
+				include: { photos: true, userPlans: true, interest: true },
 			})
 
 			const usersWithPhotoUrls = await Promise.all(
 				users.map(async u => ({
 					...u,
-					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
+					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
 					city: await this.prisma.cityes.findUnique({
 						where: { value: u.town },
 					}),
@@ -170,6 +170,13 @@ export class UserService {
 					region: await this.prisma.regions.findUnique({
 						where: { id: u.userPlans[0].regionId },
 					}),
+					interest: u.interest
+						? {
+								id: u.interest.id,
+								value: u.interest.value,
+								label: u.interest.label,
+							}
+						: null,
 				}))
 			)
 
@@ -203,7 +210,7 @@ export class UserService {
 		try {
 			const user = await this.prisma.user.findUnique({
 				where: { telegramId },
-				include: { userPlans: true },
+				include: { userPlans: true, interest: true },
 			})
 
 			if (!user) {
@@ -237,7 +244,7 @@ export class UserService {
 			// Получаем всех пользователей с базовыми фильтрами
 			const allUsers = await this.prisma.user.findMany({
 				where: baseWhere,
-				include: { photos: true, userPlans: true },
+				include: { photos: true, userPlans: true, interest: true },
 			})
 
 			// Группируем пользователей по приоритету
@@ -310,6 +317,13 @@ export class UserService {
 						photos: (await this.getPhotoUrlsWithIds(u.photos)).map(
 							item => item.url
 						),
+						interest: u.interest
+							? {
+									id: u.interest.id,
+									value: u.interest.value,
+									label: u.interest.label,
+								}
+							: null,
 					}
 				})
 			)
