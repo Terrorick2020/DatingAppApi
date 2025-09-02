@@ -200,8 +200,8 @@ export class LikeController {
 		},
 	})
 	@Delete(':fromUserId/:toUserId')
-	@UseGuards(UserStatusGuard)
-	@Status('Pro', 'Noob')
+	// @UseGuards(UserStatusGuard)
+	// @Status('Pro', 'Noob')
 	async deleteLike(
 		@Param('fromUserId') fromUserId: string,
 		@Param('toUserId') toUserId: string
