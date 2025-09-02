@@ -170,13 +170,7 @@ export class UserService {
 					region: await this.prisma.regions.findUnique({
 						where: { id: u.userPlans[0].regionId },
 					}),
-					interest: u.interest
-						? {
-								id: u.interest.id,
-								value: u.interest.value,
-								label: u.interest.label,
-							}
-						: null,
+					interest: u.interest?.label || null,
 				}))
 			)
 
@@ -317,13 +311,7 @@ export class UserService {
 						photos: (await this.getPhotoUrlsWithIds(u.photos)).map(
 							item => item.url
 						),
-						interest: u.interest
-							? {
-									id: u.interest.id,
-									value: u.interest.value,
-									label: u.interest.label,
-								}
-							: null,
+						interest: u.interest?.label || null,
 					}
 				})
 			)

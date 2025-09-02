@@ -1,6 +1,6 @@
 import {
-    errorResponse,
-    successResponse,
+	errorResponse,
+	successResponse,
 } from '@/common/helpers/api.response.helper'
 import type { ApiResponse } from '@/common/interfaces/api-response.interface'
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
@@ -458,13 +458,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						age: user.age,
 						avatarKey: photoInfo.key,
 						avatarUrl: photoInfo.url,
-						interest: user.interest
-							? {
-									id: user.interest.id,
-									value: user.interest.value,
-									label: user.interest.label,
-								}
-							: null,
+						interest: user.interest?.label || null,
 					},
 					lastMsg: lastMessage?.text || '',
 					created_at: chat.created_at,
