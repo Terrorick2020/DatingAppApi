@@ -94,6 +94,31 @@ export class UserService {
 
 		return photoResponses
 	}
+
+	/**
+	 * Получение значений городов по названию (для фильтрации)
+	 */
+	private async getCityValuesByLabel(label: string): Promise<string[]> {
+		try {
+			const cities = await this.prisma.cityes.findMany({
+				where: {
+					OR: [
+						{ label: { contains: label, mode: 'insensitive' } },
+						{ value: { contains: label, mode: 'insensitive' } },
+					],
+				},
+				select: { value: true },
+			})
+			return cities.map(city => city.value)
+		} catch (error) {
+			this.logger.warn(
+				`Ошибка при поиске городов по названию: ${label}`,
+				this.CONTEXT,
+				{ error }
+			)
+			return []
+		}
+	}
 	async findAll(params: FindAllUsersDto) {
 		try {
 			const {
@@ -124,7 +149,22 @@ export class UserService {
 			}
 
 			if (town) {
-				where.town = { contains: town, mode: 'insensitive' }
+				// Фильтрация по городу - ищем по частичному совпадению в поле town
+				// Также ищем по названию города в таблице cityes
+				const cityValues = await this.getCityValuesByLabel(town)
+				if (cityValues.length > 0) {
+					where.OR = [
+						{ town: { contains: town, mode: 'insensitive' } },
+						{ town: { in: cityValues } },
+					]
+				} else {
+					where.town = { contains: town, mode: 'insensitive' }
+				}
+				this.logger.debug(
+					`Применена фильтрация по городу: ${town}`,
+					this.CONTEXT,
+					{ cityValues }
+				)
 			}
 
 			if (ageMin !== undefined || ageMax !== undefined) {
@@ -146,6 +186,9 @@ export class UserService {
 			}
 
 			// Получаем общее количество записей для метаданных пагинации
+			this.logger.debug(`Выполняется запрос с фильтрами:`, this.CONTEXT, {
+				where,
+			})
 			const totalCount = await this.prisma.user.count({ where })
 
 			// Получаем записи с учетом пагинации, сортировки и фильтрации
@@ -156,6 +199,11 @@ export class UserService {
 				orderBy,
 				include: { photos: true, userPlans: true, interest: true },
 			})
+
+			this.logger.debug(
+				`Найдено пользователей: ${users.length} из ${totalCount}`,
+				this.CONTEXT
+			)
 
 			const usersWithPhotoUrls = await Promise.all(
 				users.map(async u => ({
