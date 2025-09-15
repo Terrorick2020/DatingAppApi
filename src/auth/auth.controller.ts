@@ -8,23 +8,25 @@ import {
 	UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import {
+	ApiBody,
+	ApiConsumes,
+	ApiOperation,
+	ApiResponse,
+	ApiTags,
+} from '@nestjs/swagger'
+import { RequireSmartCaptcha } from '../common/decorators/smart-captcha.decorator'
+import { RegistrationRateLimitGuard } from '../common/guards/rate-limit.guard'
+import { SmartCaptchaGuard } from '../common/guards/smart-captcha.guard'
 import { multerOptions } from '../config/multer.config'
 import { StorageService } from '../storage/storage.service'
 import { AuthService } from './auth.service'
-import { CreateAuthDto } from './dto/create-auth.dto'
-import { UploadPhotoRequestDto } from './dto/upload-photo-request.dto'
-import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
 import { CheckAuthDto } from './dto/check-auth.dto'
-import {
-	ApiTags,
-	ApiOperation,
-	ApiResponse,
-	ApiConsumes,
-	ApiBody,
-} from '@nestjs/swagger'
-import { RegistrationRateLimitGuard } from '../common/guards/rate-limit.guard'
-import { LoginDto } from './dto/login.dto'
+import { CreateAuthDto } from './dto/create-auth.dto'
 import { DeletePhotoDto } from './dto/delete-photo.dto'
+import { LoginDto } from './dto/login.dto'
+import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
+import { UploadPhotoRequestDto } from './dto/upload-photo-request.dto'
 
 @ApiTags('auth')
 @Controller('auth')
@@ -89,8 +91,13 @@ export class AuthController {
 		status: 400,
 		description: 'Ошибка валидации или пользователь уже существует',
 	})
+	@ApiResponse({
+		status: 403,
+		description: 'Пользователь заблокирован (не прошел проверку SmartCaptcha)',
+	})
 	@ApiBody({ type: CreateAuthDto })
-	@UseGuards(RegistrationRateLimitGuard)
+	@RequireSmartCaptcha()
+	@UseGuards(SmartCaptchaGuard, RegistrationRateLimitGuard)
 	@Post('register')
 	register(@Body() createAuthDto: CreateAuthDto) {
 		return this.authService.register(createAuthDto)

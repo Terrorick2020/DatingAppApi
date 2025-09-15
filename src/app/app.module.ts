@@ -24,12 +24,13 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
 import microservicesConfig from '../config/microservices.config'
+import smartCaptchaConfig from '../config/smart-captcha.config'
 
 @Module({
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
-			load: [microservicesConfig],
+			load: [microservicesConfig, smartCaptchaConfig],
 		}),
 		CoreModule,
 		LoggerModule,
@@ -51,12 +52,7 @@ import microservicesConfig from '../config/microservices.config'
 		PsychologistModule,
 	],
 	controllers: [AppController],
-	providers: [
-		AppService,
-		AppLogger,
-		PrismaService,
-		SeedService,
-	],
+	providers: [AppService, AppLogger, PrismaService, SeedService],
 	exports: [AppLogger],
 })
 export class AppModule {}

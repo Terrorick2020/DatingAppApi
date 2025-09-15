@@ -1,12 +1,13 @@
 import { Module, ValidationPipe } from '@nestjs/common'
+import { APP_PIPE } from '@nestjs/core'
 import { PrismaService } from '../../prisma/prisma.service'
+import { SmartCaptchaGuard } from '../common/guards/smart-captcha.guard'
+import { AppLogger } from '../common/logger/logger.service'
+import { GeoService } from '../geo/geo.service'
+import { StorageService } from '../storage/storage.service'
 import { UserService } from '../user/user.service'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
-import { StorageService } from '../storage/storage.service'
-import { AppLogger } from '../common/logger/logger.service'
-import { APP_PIPE } from '@nestjs/core'
-import { GeoService } from '../geo/geo.service'
 
 @Module({
 	controllers: [AuthController],
@@ -17,6 +18,7 @@ import { GeoService } from '../geo/geo.service'
 		StorageService,
 		AppLogger,
 		GeoService,
+		SmartCaptchaGuard,
 		{
 			provide: APP_PIPE,
 			useFactory: () =>
