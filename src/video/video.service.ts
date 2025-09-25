@@ -390,8 +390,7 @@ export class VideoService {
 		try {
 			this.logger.debug(
 				`Лайк видео ${videoId} от пользователя ${dto.userId}`,
-				this.CONTEXT,
-				{ isLiked: dto.isLiked }
+				this.CONTEXT
 			)
 
 			// Проверяем существование видео
@@ -427,32 +426,20 @@ export class VideoService {
 			let likesCount = video.likesCount
 
 			if (existingLike) {
-				// Обновляем существующий лайк
-				await this.prisma.videoLike.update({
+				// Убираем лайк
+				await this.prisma.videoLike.delete({
 					where: { id: existingLike.id },
-					data: { isLiked: dto.isLiked },
 				})
-
-				// Обновляем счетчик лайков
-				if (existingLike.isLiked && !dto.isLiked) {
-					likesCount -= 1
-				} else if (!existingLike.isLiked && dto.isLiked) {
-					likesCount += 1
-				}
+				likesCount -= 1
 			} else {
 				// Создаем новый лайк
 				await this.prisma.videoLike.create({
 					data: {
 						videoId: videoId,
 						userId: dto.userId,
-						isLiked: dto.isLiked,
 					},
 				})
-
-				// Обновляем счетчик лайков
-				if (dto.isLiked) {
-					likesCount += 1
-				}
+				likesCount += 1
 			}
 
 			// Обновляем счетчик лайков в видео
@@ -467,7 +454,7 @@ export class VideoService {
 			)
 
 			return successResponse(
-				{ isLiked: dto.isLiked, likesCount },
+				{ isLiked: !existingLike, likesCount },
 				'Лайк обновлен'
 			)
 		} catch (error: any) {
@@ -602,7 +589,7 @@ export class VideoService {
 			// Генерируем URL для каждого видео
 			const videosWithUrls: VideoWithUrl[] = await Promise.all(
 				videos.map(async video => {
-					const url = await this.getPresignedUrl(video.key)
+					const url = await this.getVideoUrl(video.key)
 					return {
 						...video,
 						url,

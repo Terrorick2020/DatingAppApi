@@ -33,6 +33,7 @@ model User {
   likesReceived      Like[]      @relation("LikesReceived")
   photos             Photo[]
   videoLikes         VideoLike[]
+  videoViews         VideoView[]
   interest           Interest?   @relation(fields: [interestId], references: [id])
   invitedBy          User?       @relation("UserInvites", fields: [invitedById], references: [telegramId])
   invitedUsers       User[]      @relation("UserInvites")
@@ -221,6 +222,7 @@ model Video {
 
   psychologist Psychologist @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
   likes        VideoLike[]
+  views        VideoView[]
 }
 
 model VideoLike {
@@ -228,7 +230,18 @@ model VideoLike {
   createdAt DateTime @default(now()) @map("created_at")
   videoId   Int
   userId    String
-  isLiked   Boolean  @default(true)
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  @@unique([videoId, userId])
+}
+
+model VideoView {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  videoId   Int
+  userId    String
 
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [telegramId], onDelete: Cascade)

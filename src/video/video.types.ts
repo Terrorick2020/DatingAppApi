@@ -4,8 +4,8 @@ export interface VideoResponse {
 	updatedAt: Date
 	key: string
 	telegramId: string
-	title?: string
-	description?: string
+	title?: string | null
+	description?: string | null
 	isPublished: boolean
 	likesCount: number
 	viewsCount: number
