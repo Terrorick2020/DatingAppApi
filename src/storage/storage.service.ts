@@ -1,13 +1,13 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import {
-	S3Client,
-	PutObjectCommand,
 	DeleteObjectCommand,
 	GetObjectCommand,
+	PutObjectCommand,
+	S3Client,
 } from '@aws-sdk/client-s3'
-import { config } from 'dotenv'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { randomUUID } from 'crypto'
+import { config } from 'dotenv'
 
 config()
 
@@ -51,6 +51,55 @@ export class StorageService {
 			this.logger.error(`Ошибка при загрузке фото в хранилище: ${error}`)
 			throw new BadRequestException(
 				'Не удалось загрузить фото. Пожалуйста, попробуйте снова.'
+			)
+		}
+	}
+
+	async uploadVideo(video: Express.Multer.File): Promise<string> {
+		if (!video || !video.buffer) {
+			throw new BadRequestException('Видеофайл не найден или повреждён')
+		}
+
+		// Проверяем размер файла (максимум 100MB)
+		const maxSize = 100 * 1024 * 1024 // 100MB
+		if (video.size > maxSize) {
+			throw new BadRequestException(
+				'Размер видеофайла не должен превышать 100MB'
+			)
+		}
+
+		// Проверяем тип файла
+		const allowedTypes = [
+			'video/mp4',
+			'video/avi',
+			'video/mov',
+			'video/wmv',
+			'video/webm',
+		]
+		if (!allowedTypes.includes(video.mimetype)) {
+			throw new BadRequestException(
+				'Неподдерживаемый формат видео. Разрешены: MP4, AVI, MOV, WMV, WebM'
+			)
+		}
+
+		const key = `psychologist_videos/${randomUUID()}-${video.originalname}`
+
+		try {
+			const command = new PutObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+				Body: video.buffer,
+				ContentType: video.mimetype,
+				ContentLength: video.size,
+			})
+
+			await this.s3.send(command)
+			this.logger.log(`Видео успешно загружено: ${key}`)
+			return key
+		} catch (error) {
+			this.logger.error(`Ошибка при загрузке видео в хранилище: ${error}`)
+			throw new BadRequestException(
+				'Не удалось загрузить видео. Пожалуйста, попробуйте снова.'
 			)
 		}
 	}
@@ -136,6 +185,21 @@ export class StorageService {
 		} catch (error) {
 			this.logger.error(`Ошибка при удалении файла ${key}: ${error}`)
 			throw new BadRequestException('Не удалось удалить файл')
+		}
+	}
+
+	async deleteVideo(key: string): Promise<void> {
+		try {
+			const command = new DeleteObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+			})
+
+			await this.s3.send(command)
+			this.logger.log(`Видео успешно удалено: ${key}`)
+		} catch (error) {
+			this.logger.error(`Ошибка при удалении видео ${key}: ${error}`)
+			throw new BadRequestException('Не удалось удалить видео')
 		}
 	}
 

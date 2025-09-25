@@ -319,7 +319,7 @@ export class PsychologistService {
 				return errorResponse('Психолог с таким Telegram ID уже существует')
 			}
 
-			return await this.prisma.$transaction(async tx => {
+			return await this.prisma.$transaction(async (tx: any) => {
 				const { photoIds, ...userData } = dto
 
 				this.logger.debug(
@@ -344,7 +344,7 @@ export class PsychologistService {
 					)
 
 					// Логируем детали найденных фотографий
-					photos.forEach(photo => {
+					photos.forEach((photo: any) => {
 						this.logger.debug(
 							`Фото ID: ${photo.id}, key: ${photo.key}, telegramId: ${photo.telegramId}, tempTgId: ${photo.tempTgId}`,
 							this.CONTEXT
@@ -352,7 +352,7 @@ export class PsychologistService {
 					})
 
 					if (photos.length !== photoIds.length) {
-						const foundIds = photos.map(p => p.id)
+						const foundIds = photos.map((p: any) => p.id)
 						const missingIds = photoIds.filter(id => !foundIds.includes(id))
 						this.logger.warn(
 							`Не найдены фотографии: ${missingIds.join(', ')}`,

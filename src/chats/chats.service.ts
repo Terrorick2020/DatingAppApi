@@ -353,7 +353,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
-			const usersMap = new Map(users.map(user => [user.telegramId, user]))
+			const usersMap = new Map<string, any>(
+				users.map((user: any) => [user.telegramId, user])
+			)
 
 			// Генерация URL-ов аватаров
 			const photoUrlMap = new Map<string, { key: string; url: string }>()
@@ -379,7 +381,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				const interlocutorId = chat.participants.find(id => id !== telegramId)
 				if (!interlocutorId) continue
 
-				const user = usersMap.get(interlocutorId)
+				const user = usersMap.get(interlocutorId)!
 				if (!user) continue
 
 				const readStatus = readStatusMap.get(chat.id)
@@ -445,7 +447,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					}
 				}
 
-				const photoInfo = photoUrlMap.get(user.telegramId) || {
+				const photoInfo = photoUrlMap.get(interlocutorId) || {
 					key: '',
 					url: '',
 				}

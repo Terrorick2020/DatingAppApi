@@ -32,6 +32,7 @@ model User {
   likesSent          Like[]      @relation("LikesSent")
   likesReceived      Like[]      @relation("LikesReceived")
   photos             Photo[]
+  videoLikes         VideoLike[]
   interest           Interest?   @relation(fields: [interestId], references: [id])
   invitedBy          User?       @relation("UserInvites", fields: [invitedById], references: [telegramId])
   invitedUsers       User[]      @relation("UserInvites")
@@ -47,6 +48,7 @@ model Psychologist {
   createdAt  DateTime            @default(now()) @map("created_at")
   updatedAt  DateTime            @updatedAt @map("updated_at")
   photos     PsychologistPhoto[]
+  videos     Video[]
   invite     PsychologistInvite?
 }
 
@@ -203,6 +205,35 @@ enum ComplaintStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+}
+
+model Video {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  key         String
+  telegramId  String
+  title       String?
+  description String?
+  isPublished Boolean  @default(true)
+  likesCount  Int      @default(0)
+  viewsCount  Int      @default(0)
+
+  psychologist Psychologist @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
+  likes        VideoLike[]
+}
+
+model VideoLike {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  videoId   Int
+  userId    String
+  isLiked   Boolean  @default(true)
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  @@unique([videoId, userId])
 }
 
 enum PsychologistStatus {

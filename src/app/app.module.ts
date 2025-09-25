@@ -19,6 +19,7 @@ import { PsychologistModule } from '../psychologist/psychologist.module'
 import { RedisModule } from '../redis/redis.module'
 import { SeedService } from '../seed/seed.service'
 import { UserModule } from '../user/user.module'
+import { VideoModule } from '../video/video.module'
 import { WebsocketModule } from '../websocket/websocket.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
@@ -50,6 +51,7 @@ import smartCaptchaConfig from '../config/smart-captcha.config'
 		WebsocketModule,
 		RedisPubSubModule,
 		PsychologistModule,
+		VideoModule,
 	],
 	controllers: [AppController],
 	providers: [AppService, AppLogger, PrismaService, SeedService],
