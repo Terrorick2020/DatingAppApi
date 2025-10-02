@@ -12,4 +12,4 @@ npx prisma db push
 
 # Запускаем приложение
 npm run build
-npm run start:prod
+npm run start

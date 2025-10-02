@@ -14,9 +14,26 @@ async function bootstrap() {
 	const app = await NestFactory.create(AppModule)
 
 	app.enableCors({
-		origin: '*',
-		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-		allowedHeaders: 'Content-Type, Authorization',
+		origin: (origin, callback) => {
+			const allowedOrigins = ['http://localhost:4177', 'https://vmestedate.ru']
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true)
+			} else {
+				callback(new Error('Not allowed by CORS'))
+			}
+		},
+		credentials: true, 
+		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+		allowedHeaders: [
+			'Content-Type',
+			'Accept',
+			'Origin',
+			'X-Requested-With',
+			'Authorization',
+			'X-Spectre-Telegram-Id', 
+		],
+		preflightContinue: false, 
+		optionsSuccessStatus: 204, 
 	})
 
 	const appLogger = app.get(AppLogger)
@@ -89,7 +106,7 @@ process.on('unhandledRejection', (reason, promise) => {
 	console.error('🚨 Unhandled Rejection:', reason)
 })
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
 	console.error('🚨 Uncaught Exception:', error)
 })
 
