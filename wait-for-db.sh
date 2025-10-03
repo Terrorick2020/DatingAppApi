@@ -11,5 +11,4 @@ echo "Database is up, running prisma db push"
 npx prisma db push
 
 # Запускаем приложение
-npm run build
-npm run start
+npm run start:prod
