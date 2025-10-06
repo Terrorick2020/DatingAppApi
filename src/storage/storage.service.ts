@@ -107,7 +107,7 @@ export class StorageService {
 	/**
 	 * Создание превью для видео
 	 */
-	async createVideoPreview(videoKey: string): Promise<string> {
+	async createVideoPreview(videoKey: string): Promise<string | null> {
 		try {
 			// Создаем ключ для превью
 			const previewKey = videoKey
@@ -118,18 +118,20 @@ export class StorageService {
 				.replace('.webm', '_preview.jpg')
 
 			// В реальном приложении здесь должен быть код для извлечения кадра из видео
-			// Для демонстрации создаем заглушку
-			this.logger.log(`Создание превью для видео: ${videoKey} -> ${previewKey}`)
+			// Для демонстрации пока возвращаем null, чтобы не создавать ложные превью
+			this.logger.log(
+				`Создание превью для видео: ${videoKey} -> ${previewKey} (пока не реализовано)`
+			)
 
 			// TODO: Реализовать извлечение кадра из видео с помощью ffmpeg или аналогичной библиотеки
-			// Пока возвращаем ключ превью (в реальности нужно будет загрузить изображение в S3)
+			// Пока возвращаем null, чтобы не создавать ложные превью
 
-			return previewKey
+			return null
 		} catch (error) {
 			this.logger.error(
 				`Ошибка при создании превью для видео ${videoKey}: ${error}`
 			)
-			throw new BadRequestException('Не удалось создать превью для видео')
+			return null
 		}
 	}
 
@@ -234,7 +236,6 @@ export class StorageService {
 			throw new BadRequestException('Не удалось удалить файл')
 		}
 	}
-
 
 	async updatePhoto(
 		oldKey: string,
