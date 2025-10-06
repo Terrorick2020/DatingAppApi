@@ -22,11 +22,13 @@ export interface VideoResponse {
 export interface VideoWithUrl extends VideoResponse {
 	url: string
 	previewUrl?: string
+	isLiked?: boolean
 }
 
 export interface VideoListResponse {
 	videos: VideoWithUrl[]
 	total: number
+	isChecked?: boolean
 }
 
 export interface UploadVideoResponse {

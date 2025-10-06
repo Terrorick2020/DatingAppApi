@@ -430,6 +430,22 @@ export class VideoService {
 							about: true,
 						},
 					},
+					likes: {
+						where: {
+							userId: telegramId,
+						},
+						select: {
+							id: true,
+						},
+					},
+					views: {
+						where: {
+							userId: telegramId,
+						},
+						select: {
+							id: true,
+						},
+					},
 				},
 				orderBy: {
 					createdAt: 'desc',
@@ -445,17 +461,32 @@ export class VideoService {
 				},
 			})
 
-			// Генерируем URL для каждого видео
+			// Проверяем, смотрел ли пользователь хотя бы одно видео
+			const hasViewedAnyVideo = await this.prisma.videoView.findFirst({
+				where: {
+					userId: telegramId,
+				},
+			})
+
+			// Генерируем URL для каждого видео и добавляем информацию о лайках
 			const videosWithUrls: VideoWithUrl[] = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
 					const previewUrl = video.previewKey
 						? await this.getPreviewUrl(video.previewKey)
 						: undefined
+
+					// Проверяем, лайкал ли пользователь это видео
+					const isLiked = video.likes.length > 0
+
 					return {
 						...video,
 						url,
 						previewUrl,
+						isLiked,
+						// Убираем массивы likes и views из ответа
+						likes: undefined,
+						views: undefined,
 					}
 				})
 			)
@@ -469,6 +500,7 @@ export class VideoService {
 				{
 					videos: videosWithUrls,
 					total,
+					isChecked: !!hasViewedAnyVideo,
 				},
 				'Лента коротких видео получена'
 			)
