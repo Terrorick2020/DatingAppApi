@@ -12,6 +12,10 @@ export class SaveVideoDto {
 	key: string
 
 	@IsString()
+	@IsOptional()
+	previewKey?: string
+
+	@IsString()
 	@IsNotEmpty()
 	telegramId: string
 

@@ -105,6 +105,53 @@ export class StorageService {
 	}
 
 	/**
+	 * Создание превью для видео
+	 */
+	async createVideoPreview(videoKey: string): Promise<string> {
+		try {
+			// Создаем ключ для превью
+			const previewKey = videoKey
+				.replace('.mp4', '_preview.jpg')
+				.replace('.avi', '_preview.jpg')
+				.replace('.mov', '_preview.jpg')
+				.replace('.wmv', '_preview.jpg')
+				.replace('.webm', '_preview.jpg')
+
+			// В реальном приложении здесь должен быть код для извлечения кадра из видео
+			// Для демонстрации создаем заглушку
+			this.logger.log(`Создание превью для видео: ${videoKey} -> ${previewKey}`)
+
+			// TODO: Реализовать извлечение кадра из видео с помощью ffmpeg или аналогичной библиотеки
+			// Пока возвращаем ключ превью (в реальности нужно будет загрузить изображение в S3)
+
+			return previewKey
+		} catch (error) {
+			this.logger.error(
+				`Ошибка при создании превью для видео ${videoKey}: ${error}`
+			)
+			throw new BadRequestException('Не удалось создать превью для видео')
+		}
+	}
+
+	/**
+	 * Удаление видео из облака
+	 */
+	async deleteVideo(key: string): Promise<void> {
+		try {
+			const command = new DeleteObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+			})
+
+			await this.s3.send(command)
+			this.logger.log(`Видео успешно удалено: ${key}`)
+		} catch (error) {
+			this.logger.error(`Ошибка при удалении видео из хранилища: ${error}`)
+			throw new BadRequestException('Не удалось удалить видео из хранилища')
+		}
+	}
+
+	/**
 	 * Загрузка архива чата в облачное хранилище
 	 */
 	async uploadChatArchive(key: string, data: Buffer): Promise<string> {

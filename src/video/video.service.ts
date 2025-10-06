@@ -2,16 +2,14 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '~/prisma/prisma.service'
 import {
 	errorResponse,
-	successResponse, 
+	successResponse,
 } from '../common/helpers/api.response.helper'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
-import { GetMyVideosDto, GetPublicVideosDto } from './dto/get-videos.dto'
-import { LikeVideoDto } from './dto/like-video.dto'
+import { GetShortVideosDto } from './dto/get-short-videos.dto'
 import { UpdateVideoDto } from './dto/update-video.dto'
 import { SaveVideoDto, UploadVideoDto } from './dto/upload-video.dto'
-import { ViewVideoDto } from './dto/view-video.dto'
 import {
 	LikeVideoResponse,
 	UploadVideoResponse,
@@ -32,9 +30,54 @@ export class VideoService {
 	) {}
 
 	/**
-	 * Загрузка видео в облако
+	 * Получение URL видео с кешированием
 	 */
-	async uploadVideo(
+	private async getVideoUrl(key: string): Promise<string> {
+		const cacheKey = `video:${key}:url`
+
+		// Проверяем кеш
+		const cachedUrl = await this.redisService.getKey(cacheKey)
+		if (cachedUrl.success && cachedUrl.data) {
+			return cachedUrl.data
+		}
+
+		// Генерируем новый URL
+		const presignedUrl = await this.storageService.getPresignedUrl(key, 7200)
+
+		// Кешируем на 1 час 50 минут
+		await this.redisService.setKey(cacheKey, presignedUrl, 6600)
+
+		return presignedUrl
+	}
+
+	/**
+	 * Получение URL превью с кешированием
+	 */
+	private async getPreviewUrl(previewKey: string): Promise<string> {
+		const cacheKey = `preview:${previewKey}:url`
+
+		// Проверяем кеш
+		const cachedUrl = await this.redisService.getKey(cacheKey)
+		if (cachedUrl.success && cachedUrl.data) {
+			return cachedUrl.data
+		}
+
+		// Генерируем новый URL
+		const presignedUrl = await this.storageService.getPresignedUrl(
+			previewKey,
+			7200
+		)
+
+		// Кешируем на 1 час 50 минут
+		await this.redisService.setKey(cacheKey, presignedUrl, 6600)
+
+		return presignedUrl
+	}
+
+	/**
+	 * Загрузка короткого видео в облако
+	 */
+	async uploadShortVideo(
 		video: Express.Multer.File,
 		dto: UploadVideoDto
 	): Promise<{
@@ -44,7 +87,7 @@ export class VideoService {
 	}> {
 		try {
 			this.logger.debug(
-				`Загрузка видео для психолога ${dto.telegramId}`,
+				`Загрузка короткого видео для психолога ${dto.telegramId}`,
 				this.CONTEXT,
 				{ videoSize: video.size, videoType: video.mimetype }
 			)
@@ -65,37 +108,40 @@ export class VideoService {
 			// Загружаем видео в облако
 			const key = await this.storageService.uploadVideo(video)
 
+			// Создаем превью для видео
+			const previewKey = await this.storageService.createVideoPreview(key)
+
 			this.logger.debug(
-				`Видео успешно загружено в облако: ${key}`,
+				`Короткое видео успешно загружено в облако: ${key}, превью: ${previewKey}`,
 				this.CONTEXT
 			)
 
 			return successResponse(
-				{ videoId: 0, key }, // videoId будет установлен после сохранения в БД
-				'Видео загружено в облако'
+				{ videoId: 0, key, previewKey }, // videoId будет установлен после сохранения в БД
+				'Короткое видео загружено в облако'
 			)
 		} catch (error: any) {
 			this.logger.error(
-				`Ошибка при загрузке видео для психолога ${dto.telegramId}`,
+				`Ошибка при загрузке короткого видео для психолога ${dto.telegramId}`,
 				error?.stack,
 				this.CONTEXT,
 				{ dto, error }
 			)
-			return errorResponse('Ошибка при загрузке видео:', error)
+			return errorResponse('Ошибка при загрузке короткого видео:', error)
 		}
 	}
 
 	/**
-	 * Сохранение видео в базе данных
+	 * Сохранение короткого видео в базе данных
 	 */
-	async saveVideo(dto: SaveVideoDto): Promise<{
+	async saveShortVideo(dto: SaveVideoDto): Promise<{
 		success: boolean
 		data?: UploadVideoResponse
 		message?: string
 	}> {
 		try {
 			this.logger.debug(
-				`Сохранение видео в БД для психолога ${dto.telegramId}`,
+				`Сохранение короткого видео в БД для психолога ${dto.telegramId}`,
 				this.CONTEXT,
 				{ key: dto.key }
 			)
@@ -113,10 +159,11 @@ export class VideoService {
 				return errorResponse('Психолог не найден')
 			}
 
-			// Сохраняем видео в БД
+			// Сохраняем короткое видео в БД
 			const video = await this.prisma.video.create({
 				data: {
 					key: dto.key,
+					previewKey: dto.previewKey,
 					telegramId: dto.telegramId,
 					title: dto.title,
 					description: dto.description,
@@ -124,419 +171,231 @@ export class VideoService {
 			})
 
 			this.logger.debug(
-				`Видео успешно сохранено в БД с ID: ${video.id}`,
+				`Короткое видео успешно сохранено в БД с ID: ${video.id}`,
 				this.CONTEXT
 			)
 
 			return successResponse(
 				{ videoId: video.id, key: video.key },
-				'Видео сохранено'
+				'Короткое видео сохранено'
 			)
 		} catch (error: any) {
 			this.logger.error(
-				`Ошибка при сохранении видео для психолога ${dto.telegramId}`,
+				`Ошибка при сохранении короткого видео для психолога ${dto.telegramId}`,
 				error?.stack,
 				this.CONTEXT,
 				{ dto, error }
 			)
-			return errorResponse('Ошибка при сохранении видео:', error)
+			return errorResponse('Ошибка при сохранении короткого видео:', error)
 		}
 	}
 
 	/**
-	 * Обновление видео
+	 * Обновление короткого видео
 	 */
-	async updateVideo(
+	async updateShortVideo(
 		videoId: number,
 		telegramId: string,
 		dto: UpdateVideoDto
 	): Promise<{ success: boolean; data?: VideoResponse; message?: string }> {
 		try {
 			this.logger.debug(
-				`Обновление видео ${videoId} для психолога ${telegramId}`,
+				`Обновление короткого видео ${videoId} психолога ${telegramId}`,
 				this.CONTEXT,
-				dto
+				{ dto }
 			)
 
-			// Проверяем существование видео и права доступа
-			const existingVideo = await this.prisma.video.findFirst({
+			// Проверяем существование видео и принадлежность психологу
+			const video = await this.prisma.video.findFirst({
 				where: {
 					id: videoId,
 					telegramId: telegramId,
 				},
 			})
 
-			if (!existingVideo) {
+			if (!video) {
 				this.logger.warn(
-					`Видео ${videoId} не найдено или нет прав доступа для психолога ${telegramId}`,
+					`Короткое видео ${videoId} не найдено или не принадлежит психологу ${telegramId}`,
 					this.CONTEXT
 				)
-				return errorResponse('Видео не найдено или нет прав доступа')
+				return errorResponse('Короткое видео не найдено')
 			}
 
 			// Обновляем видео
 			const updatedVideo = await this.prisma.video.update({
 				where: { id: videoId },
-				data: dto,
+				data: {
+					title: dto.title,
+					description: dto.description,
+					isPublished: dto.isPublished,
+				},
+				include: {
+					psychologist: {
+						select: {
+							id: true,
+							name: true,
+							about: true,
+						},
+					},
+				},
 			})
 
-			this.logger.debug(`Видео ${videoId} успешно обновлено`, this.CONTEXT)
+			this.logger.debug(
+				`Короткое видео ${videoId} успешно обновлено`,
+				this.CONTEXT
+			)
 
-			return successResponse(updatedVideo, 'Видео обновлено')
+			return successResponse(updatedVideo, 'Короткое видео обновлено')
 		} catch (error: any) {
 			this.logger.error(
-				`Ошибка при обновлении видео ${videoId}`,
+				`Ошибка при обновлении короткого видео ${videoId}`,
 				error?.stack,
 				this.CONTEXT,
 				{ videoId, telegramId, dto, error }
 			)
-			return errorResponse('Ошибка при обновлении видео:', error)
+			return errorResponse('Ошибка при обновлении короткого видео:', error)
 		}
 	}
 
 	/**
-	 * Удаление видео
+	 * Удаление короткого видео
 	 */
-	async deleteVideo(
+	async deleteShortVideo(
 		videoId: number,
 		telegramId: string
 	): Promise<{ success: boolean; message?: string }> {
 		try {
 			this.logger.debug(
-				`Удаление видео ${videoId} для психолога ${telegramId}`,
+				`Удаление короткого видео ${videoId} психолога ${telegramId}`,
 				this.CONTEXT
 			)
 
-			// Проверяем существование видео и права доступа
-			const existingVideo = await this.prisma.video.findFirst({
+			// Проверяем существование видео и принадлежность психологу
+			const video = await this.prisma.video.findFirst({
 				where: {
 					id: videoId,
 					telegramId: telegramId,
 				},
 			})
 
-			if (!existingVideo) {
+			if (!video) {
 				this.logger.warn(
-					`Видео ${videoId} не найдено или нет прав доступа для психолога ${telegramId}`,
+					`Короткое видео ${videoId} не найдено или не принадлежит психологу ${telegramId}`,
 					this.CONTEXT
 				)
-				return errorResponse('Видео не найдено или нет прав доступа')
+				return errorResponse('Короткое видео не найдено')
 			}
 
 			// Удаляем видео из облака
-			await this.storageService.deleteVideo(existingVideo.key)
+			try {
+				await this.storageService.deleteVideo(video.key)
+			} catch (error) {
+				this.logger.warn(
+					`Не удалось удалить видео из облака: ${video.key}`,
+					this.CONTEXT,
+					{ error }
+				)
+			}
 
-			// Удаляем видео из БД (каскадное удаление лайков)
+			// Удаляем видео из БД
 			await this.prisma.video.delete({
 				where: { id: videoId },
 			})
 
-			this.logger.debug(`Видео ${videoId} успешно удалено`, this.CONTEXT)
+			this.logger.debug(
+				`Короткое видео ${videoId} успешно удалено`,
+				this.CONTEXT
+			)
 
-			return successResponse(null, 'Видео удалено')
+			return successResponse(null, 'Короткое видео удалено')
 		} catch (error: any) {
 			this.logger.error(
-				`Ошибка при удалении видео ${videoId}`,
+				`Ошибка при удалении короткого видео ${videoId}`,
 				error?.stack,
 				this.CONTEXT,
 				{ videoId, telegramId, error }
 			)
-			return errorResponse('Ошибка при удалении видео:', error)
+			return errorResponse('Ошибка при удалении короткого видео:', error)
 		}
 	}
 
 	/**
-	 * Получение списка видео психолога
+	 * Получение списка моих коротких видео
 	 */
-	async getMyVideos(
-		dto: GetMyVideosDto
+	async getMyShortVideos(
+		dto: GetShortVideosDto
 	): Promise<{ success: boolean; data?: VideoListResponse; message?: string }> {
 		try {
 			this.logger.debug(
-				`Получение видео психолога ${dto.telegramId}`,
+				`Получение коротких видео психолога ${dto.telegramId}`,
 				this.CONTEXT,
 				{ limit: dto.limit, offset: dto.offset }
 			)
 
-			const [videos, total] = await Promise.all([
-				this.prisma.video.findMany({
-					where: { telegramId: dto.telegramId },
-					orderBy: { createdAt: 'desc' },
-					take: dto.limit,
-					skip: dto.offset,
-				}),
-				this.prisma.video.count({
-					where: { telegramId: dto.telegramId },
-				}),
-			])
-
-			// Получаем URL для каждого видео
-			const videosWithUrls: VideoWithUrl[] = await Promise.all(
-				videos.map(async video => {
-					const url = await this.getVideoUrl(video.key)
-					return {
-						...video,
-						url,
-					}
-				})
-			)
-
-			this.logger.debug(
-				`Найдено видео: ${videos.length} из ${total}`,
-				this.CONTEXT
-			)
-
-			return successResponse(
-				{ videos: videosWithUrls, total },
-				'Список видео получен'
-			)
-		} catch (error: any) {
-			this.logger.error(
-				`Ошибка при получении видео психолога ${dto.telegramId}`,
-				error?.stack,
-				this.CONTEXT,
-				{ dto, error }
-			)
-			return errorResponse('Ошибка при получении видео:', error)
-		}
-	}
-
-	/**
-	 * Получение публичной ленты видео
-	 */
-	async getPublicVideos(
-		dto: GetPublicVideosDto
-	): Promise<{ success: boolean; data?: VideoListResponse; message?: string }> {
-		try {
-			this.logger.debug(`Получение публичной ленты видео`, this.CONTEXT, {
-				limit: dto.limit,
-				offset: dto.offset,
-				search: dto.search,
-			})
-
-			const where: any = {
-				isPublished: true,
-			}
-
-			if (dto.search) {
-				where.OR = [
-					{ title: { contains: dto.search, mode: 'insensitive' } },
-					{ description: { contains: dto.search, mode: 'insensitive' } },
-					{
-						psychologist: {
-							name: { contains: dto.search, mode: 'insensitive' },
-						},
-					},
-				]
-			}
-
-			const [videos, total] = await Promise.all([
-				this.prisma.video.findMany({
-					where,
-					include: {
-						psychologist: {
-							select: {
-								id: true,
-								name: true,
-								about: true,
-							},
-						},
-					},
-					orderBy: { createdAt: 'desc' },
-					take: dto.limit,
-					skip: dto.offset,
-				}),
-				this.prisma.video.count({ where }),
-			])
-
-			// Получаем URL для каждого видео
-			const videosWithUrls: VideoWithUrl[] = await Promise.all(
-				videos.map(async video => {
-					const url = await this.getVideoUrl(video.key)
-					return {
-						...video,
-						url,
-					}
-				})
-			)
-
-			this.logger.debug(
-				`Найдено публичных видео: ${videos.length} из ${total}`,
-				this.CONTEXT
-			)
-
-			return successResponse(
-				{ videos: videosWithUrls, total },
-				'Публичная лента видео получена'
-			)
-		} catch (error: any) {
-			this.logger.error(
-				`Ошибка при получении публичной ленты видео`,
-				error?.stack,
-				this.CONTEXT,
-				{ dto, error }
-			)
-			return errorResponse('Ошибка при получении публичной ленты:', error)
-		}
-	}
-
-	/**
-	 * Лайк/анлайк видео
-	 */
-	async likeVideo(
-		videoId: number,
-		dto: LikeVideoDto
-	): Promise<{ success: boolean; data?: LikeVideoResponse; message?: string }> {
-		try {
-			this.logger.debug(
-				`Лайк видео ${videoId} от пользователя ${dto.userId}`,
-				this.CONTEXT
-			)
-
-			// Проверяем существование видео
-			const video = await this.prisma.video.findUnique({
-				where: { id: videoId },
-			})
-
-			if (!video) {
-				this.logger.warn(`Видео ${videoId} не найдено`, this.CONTEXT)
-				return errorResponse('Видео не найдено')
-			}
-
-			// Проверяем существование пользователя
-			const user = await this.prisma.user.findUnique({
-				where: { telegramId: dto.userId },
-			})
-
-			if (!user) {
-				this.logger.warn(`Пользователь ${dto.userId} не найден`, this.CONTEXT)
-				return errorResponse('Пользователь не найден')
-			}
-
-			// Ищем существующий лайк
-			const existingLike = await this.prisma.videoLike.findUnique({
+			// Получаем видео психолога с пагинацией
+			const videos = await this.prisma.video.findMany({
 				where: {
-					videoId_userId: {
-						videoId: videoId,
-						userId: dto.userId,
+					telegramId: dto.telegramId,
+				},
+				include: {
+					psychologist: {
+						select: {
+							id: true,
+							name: true,
+							about: true,
+						},
 					},
+				},
+				orderBy: {
+					createdAt: 'desc',
+				},
+				take: dto.limit,
+				skip: dto.offset,
+			})
+
+			// Получаем общее количество видео психолога
+			const total = await this.prisma.video.count({
+				where: {
+					telegramId: dto.telegramId,
 				},
 			})
 
-			let likesCount = video.likesCount
-
-			if (existingLike) {
-				// Убираем лайк
-				await this.prisma.videoLike.delete({
-					where: { id: existingLike.id },
+			// Генерируем URL для каждого видео
+			const videosWithUrls: VideoWithUrl[] = await Promise.all(
+				videos.map(async video => {
+					const url = await this.getVideoUrl(video.key)
+					const previewUrl = video.previewKey
+						? await this.getPreviewUrl(video.previewKey)
+						: undefined
+					return {
+						...video,
+						url,
+						previewUrl,
+					}
 				})
-				likesCount -= 1
-			} else {
-				// Создаем новый лайк
-				await this.prisma.videoLike.create({
-					data: {
-						videoId: videoId,
-						userId: dto.userId,
-					},
-				})
-				likesCount += 1
-			}
-
-			// Обновляем счетчик лайков в видео
-			await this.prisma.video.update({
-				where: { id: videoId },
-				data: { likesCount },
-			})
+			)
 
 			this.logger.debug(
-				`Лайк видео ${videoId} обновлен, новый счетчик: ${likesCount}`,
+				`Получено ${videosWithUrls.length} коротких видео психолога ${dto.telegramId}`,
 				this.CONTEXT
 			)
 
 			return successResponse(
-				{ isLiked: !existingLike, likesCount },
-				'Лайк обновлен'
-			)
-		} catch (error: any) {
-			this.logger.error(
-				`Ошибка при лайке видео ${videoId}`,
-				error?.stack,
-				this.CONTEXT,
-				{ videoId, dto, error }
-			)
-			return errorResponse('Ошибка при лайке видео:', error)
-		}
-	}
-
-	/**
-	 * Увеличение счетчика просмотров
-	 */
-	async viewVideo(
-		videoId: number,
-		dto: ViewVideoDto
-	): Promise<{ success: boolean; message?: string }> {
-		try {
-			this.logger.debug(
-				`Просмотр видео ${videoId} пользователем ${dto.userId}`,
-				this.CONTEXT
-			)
-
-			// Проверяем существование видео
-			const video = await this.prisma.video.findUnique({
-				where: { id: videoId },
-			})
-
-			if (!video) {
-				this.logger.warn(`Видео ${videoId} не найдено`, this.CONTEXT)
-				return errorResponse('Видео не найдено')
-			}
-
-			// Увеличиваем счетчик просмотров
-			await this.prisma.video.update({
-				where: { id: videoId },
-				data: {
-					viewsCount: {
-						increment: 1,
-					},
+				{
+					videos: videosWithUrls,
+					total,
 				},
-			})
-
-			this.logger.debug(
-				`Счетчик просмотров видео ${videoId} увеличен`,
-				this.CONTEXT
+				'Короткие видео получены'
 			)
-
-			return successResponse(null, 'Просмотр засчитан')
 		} catch (error: any) {
 			this.logger.error(
-				`Ошибка при увеличении счетчика просмотров видео ${videoId}`,
+				`Ошибка при получении коротких видео психолога ${dto.telegramId}`,
 				error?.stack,
 				this.CONTEXT,
-				{ videoId, dto, error }
+				{ dto, error }
 			)
-			return errorResponse('Ошибка при засчете просмотра:', error)
+			return errorResponse('Ошибка при получении коротких видео:', error)
 		}
-	}
-
-	/**
-	 * Получение URL видео с кешированием
-	 */
-	private async getVideoUrl(key: string): Promise<string> {
-		const cacheKey = `video:${key}:url`
-
-		// Проверяем кеш
-		const cachedUrl = await this.redisService.getKey(cacheKey)
-		if (cachedUrl.success && cachedUrl.data) {
-			return cachedUrl.data
-		}
-
-		// Генерируем новый URL
-		const presignedUrl = await this.storageService.getPresignedUrl(key, 7200)
-
-		// Кешируем на 1 час 50 минут
-		await this.redisService.setKey(cacheKey, presignedUrl, 6600)
-
-		return presignedUrl
 	}
 
 	/**
@@ -590,9 +449,13 @@ export class VideoService {
 			const videosWithUrls: VideoWithUrl[] = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
+					const previewUrl = video.previewKey
+						? await this.getPreviewUrl(video.previewKey)
+						: undefined
 					return {
 						...video,
 						url,
+						previewUrl,
 					}
 				})
 			)

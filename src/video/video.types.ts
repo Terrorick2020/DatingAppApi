@@ -3,6 +3,7 @@ export interface VideoResponse {
 	createdAt: Date
 	updatedAt: Date
 	key: string
+	previewKey?: string | null
 	telegramId: string
 	title?: string | null
 	description?: string | null
@@ -10,6 +11,7 @@ export interface VideoResponse {
 	likesCount: number
 	viewsCount: number
 	url?: string
+	previewUrl?: string
 	psychologist?: {
 		id: number
 		name: string
@@ -19,6 +21,7 @@ export interface VideoResponse {
 
 export interface VideoWithUrl extends VideoResponse {
 	url: string
+	previewUrl?: string
 }
 
 export interface VideoListResponse {

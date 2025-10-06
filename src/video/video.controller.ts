@@ -14,13 +14,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { AppLogger } from '../common/logger/logger.service'
 import { GetShortVideosDto } from './dto/get-short-videos.dto'
-import { GetMyVideosDto, GetPublicVideosDto } from './dto/get-videos.dto'
 import { LikeShortVideoDto } from './dto/like-short-video.dto'
-import { LikeVideoDto } from './dto/like-video.dto'
 import { UpdateVideoDto } from './dto/update-video.dto'
 import { SaveVideoDto, UploadVideoDto } from './dto/upload-video.dto'
 import { ViewShortVideoDto } from './dto/view-short-video.dto'
-import { ViewVideoDto } from './dto/view-video.dto'
 import { VideoService } from './video.service'
 
 @Controller('video')
@@ -33,133 +30,84 @@ export class VideoController {
 	) {}
 
 	/**
-	 * Загрузка видео в облако
+	 * Загрузка короткого видео в облако
 	 */
-	@Post('upload')
+	@Post('short-videos/upload')
 	// @UseGuards(UserStatusGuard)
 	@UseInterceptors(FileInterceptor('video'))
-	async uploadVideo(
+	async uploadShortVideo(
 		@UploadedFile() video: Express.Multer.File,
 		@Body() dto: UploadVideoDto
 	) {
 		this.logger.debug(
-			`Запрос на загрузку видео от психолога ${dto.telegramId}`,
+			`Запрос на загрузку короткого видео от психолога ${dto.telegramId}`,
 			this.CONTEXT
 		)
 
-		return this.videoService.uploadVideo(video, dto)
+		return this.videoService.uploadShortVideo(video, dto)
 	}
 
 	/**
-	 * Сохранение видео в базе данных
+	 * Сохранение короткого видео в базе данных
 	 */
-	@Post('save')
+	@Post('short-videos/save')
 	// @UseGuards(UserStatusGuard)
-	async saveVideo(@Body() dto: SaveVideoDto) {
+	async saveShortVideo(@Body() dto: SaveVideoDto) {
 		this.logger.debug(
-			`Запрос на сохранение видео от психолога ${dto.telegramId}`,
+			`Запрос на сохранение короткого видео от психолога ${dto.telegramId}`,
 			this.CONTEXT
 		)
 
-		return this.videoService.saveVideo(dto)
+		return this.videoService.saveShortVideo(dto)
 	}
 
 	/**
-	 * Обновление видео
+	 * Обновление короткого видео
 	 */
-	@Patch(':id')
+	@Patch('short-videos/:id')
 	// @UseGuards(UserStatusGuard)
-	async updateVideo(
+	async updateShortVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Body() dto: UpdateVideoDto,
 		@Query('telegramId') telegramId: string
 	) {
 		this.logger.debug(
-			`Запрос на обновление видео ${videoId} от психолога ${telegramId}`,
+			`Запрос на обновление короткого видео ${videoId} от психолога ${telegramId}`,
 			this.CONTEXT
 		)
 
-		return this.videoService.updateVideo(videoId, telegramId, dto)
+		return this.videoService.updateShortVideo(videoId, telegramId, dto)
 	}
 
 	/**
-	 * Удаление видео
+	 * Удаление короткого видео
 	 */
-	@Delete(':id')
+	@Delete('short-videos/:id')
 	// @UseGuards(UserStatusGuard)
-	async deleteVideo(
+	async deleteShortVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Query('telegramId') telegramId: string
 	) {
 		this.logger.debug(
-			`Запрос на удаление видео ${videoId} от психолога ${telegramId}`,
+			`Запрос на удаление короткого видео ${videoId} от психолога ${telegramId}`,
 			this.CONTEXT
 		)
 
-		return this.videoService.deleteVideo(videoId, telegramId)
+		return this.videoService.deleteShortVideo(videoId, telegramId)
 	}
 
 	/**
-	 * Получение списка видео психолога
+	 * Получение списка моих коротких видео
 	 */
-	@Get('my')
+	@Get('short-videos/my')
 	// @UseGuards(UserStatusGuard)
-	async getMyVideos(@Query() dto: GetMyVideosDto) {
+	async getMyShortVideos(@Query() dto: GetShortVideosDto) {
 		this.logger.debug(
-			`Запрос на получение видео психолога ${dto.telegramId}`,
+			`Запрос на получение коротких видео психолога ${dto.telegramId}`,
 			this.CONTEXT
 		)
 
-		return this.videoService.getMyVideos(dto)
-	}
-
-	/**
-	 * Получение публичной ленты видео
-	 */
-	@Get('public')
-	// @UseGuards(UserStatusGuard)
-	async getPublicVideos(@Query() dto: GetPublicVideosDto) {
-		this.logger.debug(
-			`Запрос на получение публичной ленты видео`,
-			this.CONTEXT,
-			{ search: dto.search, limit: dto.limit, offset: dto.offset }
-		)
-
-		return this.videoService.getPublicVideos(dto)
-	}
-
-	/**
-	 * Лайк/анлайк видео
-	 */
-	@Post(':id/like')
-	// @UseGuards(UserStatusGuard)
-	async likeVideo(
-		@Param('id', ParseIntPipe) videoId: number,
-		@Body() dto: LikeVideoDto
-	) {
-		this.logger.debug(
-			`Запрос на лайк видео ${videoId} от пользователя ${dto.userId}`,
-			this.CONTEXT
-		)
-
-		return this.videoService.likeVideo(videoId, dto)
-	}
-
-	/**
-	 * Увеличение счетчика просмотров
-	 */
-	@Post(':id/view')
-	// @UseGuards(UserStatusGuard)
-	async viewVideo(
-		@Param('id', ParseIntPipe) videoId: number,
-		@Body() dto: ViewVideoDto
-	) {
-		this.logger.debug(
-			`Запрос на просмотр видео ${videoId} от пользователя ${dto.userId}`,
-			this.CONTEXT
-		)
-
-		return this.videoService.viewVideo(videoId, dto)
+		return this.videoService.getMyShortVideos(dto)
 	}
 
 	/**
