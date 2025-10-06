@@ -37,9 +37,9 @@ async function bootstrap() {
 	// 	optionsSuccessStatus: 204,
 	// })
 
-	app.enableCors({
-		origin: '*',
-	})
+	// app.enableCors({
+	// 	origin: '*',
+	// })
 
 	const appLogger = app.get(AppLogger)
 	const prisma = app.get(PrismaService)
