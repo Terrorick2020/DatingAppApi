@@ -235,20 +235,6 @@ export class StorageService {
 		}
 	}
 
-	async deleteVideo(key: string): Promise<void> {
-		try {
-			const command = new DeleteObjectCommand({
-				Bucket: this.bucketName,
-				Key: key,
-			})
-
-			await this.s3.send(command)
-			this.logger.log(`Видео успешно удалено: ${key}`)
-		} catch (error) {
-			this.logger.error(`Ошибка при удалении видео ${key}: ${error}`)
-			throw new BadRequestException('Не удалось удалить видео')
-		}
-	}
 
 	async updatePhoto(
 		oldKey: string,
