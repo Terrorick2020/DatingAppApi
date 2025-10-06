@@ -1,25 +1,22 @@
 import {
-	Controller,
-	Get,
-	Post,
-	Param,
-	Query,
 	Body,
+	Controller,
 	Delete,
-	UseGuards,
+	Get,
+	Param,
+	Post,
+	Query,
 } from '@nestjs/common'
 import {
-	ApiTags,
+	ApiBody,
 	ApiOperation,
 	ApiParam,
 	ApiQuery,
-	ApiBody,
-	ApiResponse,
+	ApiTags,
 } from '@nestjs/swagger'
-import { RedisService } from './redis.service'
 import { Status } from '../common/decorators/status.decorator'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
 import { AppLogger } from '../common/logger/logger.service'
+import { RedisService } from './redis.service'
 import { GetKeyType } from './redis.types'
 
 interface KeyValueDto {
@@ -42,7 +39,7 @@ interface SortedSetDto {
 
 @ApiTags('redis')
 @Controller('redis')
-@UseGuards(UserStatusGuard)
+// @UseGuards(UserStatusGuard)
 @Status('Admin') // Ограничиваем доступ только для администраторов
 export class RedisController {
 	private readonly CONTEXT = 'RedisController'

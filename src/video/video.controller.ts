@@ -9,11 +9,9 @@ import {
 	Post,
 	Query,
 	UploadedFile,
-	UseGuards,
 	UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
 import { AppLogger } from '../common/logger/logger.service'
 import { GetShortVideosDto } from './dto/get-short-videos.dto'
 import { GetMyVideosDto, GetPublicVideosDto } from './dto/get-videos.dto'
@@ -38,7 +36,7 @@ export class VideoController {
 	 * Загрузка видео в облако
 	 */
 	@Post('upload')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@UseInterceptors(FileInterceptor('video'))
 	async uploadVideo(
 		@UploadedFile() video: Express.Multer.File,
@@ -56,7 +54,7 @@ export class VideoController {
 	 * Сохранение видео в базе данных
 	 */
 	@Post('save')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async saveVideo(@Body() dto: SaveVideoDto) {
 		this.logger.debug(
 			`Запрос на сохранение видео от психолога ${dto.telegramId}`,
@@ -70,7 +68,7 @@ export class VideoController {
 	 * Обновление видео
 	 */
 	@Patch(':id')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async updateVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Body() dto: UpdateVideoDto,
@@ -88,7 +86,7 @@ export class VideoController {
 	 * Удаление видео
 	 */
 	@Delete(':id')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async deleteVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Query('telegramId') telegramId: string
@@ -105,7 +103,7 @@ export class VideoController {
 	 * Получение списка видео психолога
 	 */
 	@Get('my')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async getMyVideos(@Query() dto: GetMyVideosDto) {
 		this.logger.debug(
 			`Запрос на получение видео психолога ${dto.telegramId}`,
@@ -119,7 +117,7 @@ export class VideoController {
 	 * Получение публичной ленты видео
 	 */
 	@Get('public')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async getPublicVideos(@Query() dto: GetPublicVideosDto) {
 		this.logger.debug(
 			`Запрос на получение публичной ленты видео`,
@@ -134,7 +132,7 @@ export class VideoController {
 	 * Лайк/анлайк видео
 	 */
 	@Post(':id/like')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async likeVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Body() dto: LikeVideoDto
@@ -151,7 +149,7 @@ export class VideoController {
 	 * Увеличение счетчика просмотров
 	 */
 	@Post(':id/view')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async viewVideo(
 		@Param('id', ParseIntPipe) videoId: number,
 		@Body() dto: ViewVideoDto
@@ -168,7 +166,7 @@ export class VideoController {
 	 * Получение ленты коротких видео для пользователей
 	 */
 	@Get('short-videos/feed')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async getShortVideosFeed(@Query() dto: GetShortVideosDto) {
 		this.logger.debug(
 			`Запрос на получение ленты коротких видео от пользователя ${dto.telegramId}`,
@@ -187,7 +185,7 @@ export class VideoController {
 	 * Лайк/дизлайк короткого видео
 	 */
 	@Post('short-videos/:videoId/like')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async likeShortVideo(
 		@Param('videoId', ParseIntPipe) videoId: number,
 		@Body() dto: LikeShortVideoDto
@@ -204,7 +202,7 @@ export class VideoController {
 	 * Увеличение счетчика просмотров короткого видео
 	 */
 	@Post('short-videos/:videoId/view')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	async viewShortVideo(
 		@Param('videoId', ParseIntPipe) videoId: number,
 		@Body() dto: ViewShortVideoDto

@@ -1,3 +1,4 @@
+import type { ApiResponse as ApiRes } from '@/common/interfaces/api-response.interface'
 import {
 	Body,
 	Controller,
@@ -6,19 +7,16 @@ import {
 	Param,
 	Patch,
 	Query,
-	UseGuards,
 } from '@nestjs/common'
+import { ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { AdminOnly } from '../common/decorators/admin-only.decorator'
-import { UpdateUserDto } from './dto/update-user.dto'
-import { UserService } from './user.service'
+import { DeleteUserDto } from './dto/delete-user.dto'
 import { FindAllUsersDto } from './dto/find-all-users.dto'
 import { FindQuestsQueryDto } from './dto/find-quests.dto'
-import { ApiOperation, ApiResponse } from '@nestjs/swagger'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
-import { DeleteUserDto } from './dto/delete-user.dto'
-import type { ApiResponse as ApiRes } from '@/common/interfaces/api-response.interface'
-import type { QuestItem } from './interfaces/quests.interface'
 import { SearchUserDto } from './dto/search-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto'
+import type { QuestItem } from './interfaces/quests.interface'
+import { UserService } from './user.service'
 
 @Controller('user')
 export class UserController {
@@ -30,12 +28,17 @@ export class UserController {
 	}
 
 	@Get('quests')
-	async findQuests(@Query() queryParams: FindQuestsQueryDto): Promise<ApiRes<QuestItem[]>> {
+	async findQuests(
+		@Query() queryParams: FindQuestsQueryDto
+	): Promise<ApiRes<QuestItem[]>> {
 		return await this.userService.findQuests(queryParams)
 	}
 
 	@Patch(':telegramId')
-	async update(@Param('telegramId') telegramId: string, @Body() dto: UpdateUserDto) {
+	async update(
+		@Param('telegramId') telegramId: string,
+		@Body() dto: UpdateUserDto
+	) {
 		return this.userService.update(telegramId, dto)
 	}
 
@@ -54,7 +57,7 @@ export class UserController {
 		status: 404,
 		description: 'Пользователь не найден',
 	})
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@AdminOnly()
 	@Delete('delete-user')
 	async deleteUser(@Body() deleteUserDto: DeleteUserDto) {
@@ -66,7 +69,7 @@ export class UserController {
 		status: 200,
 		description: 'Ваш аккаунт успешно удален',
 	})
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@Delete('delete-self/:telegramId')
 	async deleteSelf(@Param('telegramId') telegramId: string) {
 		return this.userService.deleteUser({
@@ -87,6 +90,6 @@ export class UserController {
 
 	@Get('search')
 	async searchUsers(@Query('query') query: SearchUserDto) {
-		return this.userService.searchUsers(query.searchText);
+		return this.userService.searchUsers(query.searchText)
 	}
 }

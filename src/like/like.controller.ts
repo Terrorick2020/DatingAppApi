@@ -6,7 +6,6 @@ import {
 	Param,
 	Post,
 	Query,
-	UseGuards,
 } from '@nestjs/common'
 import {
 	ApiBody,
@@ -17,11 +16,10 @@ import {
 	ApiTags,
 } from '@nestjs/swagger'
 import { Status } from '../common/decorators/status.decorator'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
-import { ExpiredMatchesService } from './expired-matches.service'
 import { CreateLikeDto } from './dto/create-like.dto'
 import { GetLikesDto } from './dto/get-likes.dto'
 import { MarkLikesReadDto } from './dto/mark-likes-read.dto'
+import { ExpiredMatchesService } from './expired-matches.service'
 import { LikeService } from './like.service'
 
 @ApiTags('likes')
@@ -160,7 +158,7 @@ export class LikeController {
 		},
 	})
 	@Get()
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@Status('Pro', 'Noob')
 	async getLikes(@Query() getLikesDto: GetLikesDto) {
 		return this.likeService.getLikes(getLikesDto)
@@ -231,7 +229,7 @@ export class LikeController {
 		},
 	})
 	@Post('mark-read')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@Status('Pro', 'Noob')
 	async markLikesAsRead(@Body() markLikesReadDto: MarkLikesReadDto) {
 		return this.likeService.markLikesAsRead(markLikesReadDto)
@@ -263,7 +261,7 @@ export class LikeController {
 		},
 	})
 	@Get('unread-count/:telegramId')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@Status('Pro', 'Noob')
 	async getUnreadLikesCount(@Param('telegramId') telegramId: string) {
 		return this.likeService.getUnreadLikesCount(telegramId)
@@ -310,7 +308,7 @@ export class LikeController {
 		},
 	})
 	@Get('unread/:telegramId')
-	@UseGuards(UserStatusGuard)
+	// @UseGuards(UserStatusGuard)
 	@Status('Pro', 'Noob')
 	async getUnreadLikes(@Param('telegramId') telegramId: string) {
 		return this.likeService.getUnreadLikes(telegramId)
