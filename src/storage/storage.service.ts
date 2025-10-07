@@ -129,10 +129,17 @@ export class StorageService {
 
 			try {
 				// Скачиваем видео из S3 во временный файл
+				this.logger.log(`Скачивание видео из S3: ${videoKey}`)
 				const videoBuffer = await this.downloadVideoFromS3(videoKey)
+				this.logger.log(`Видео скачано, размер: ${videoBuffer.length} байт`)
+
 				fs.writeFileSync(tempVideoPath, videoBuffer)
+				this.logger.log(`Видео сохранено во временный файл: ${tempVideoPath}`)
 
 				// Создаем превью с помощью ffmpeg
+				this.logger.log(
+					`Создание превью с помощью ffmpeg: ${tempVideoPath} -> ${tempPreviewPath}`
+				)
 				await this.extractVideoFrame(tempVideoPath, tempPreviewPath)
 
 				// Проверяем, что превью создалось
@@ -141,7 +148,12 @@ export class StorageService {
 					return null
 				}
 
+				this.logger.log(
+					`Превью создано, размер: ${fs.statSync(tempPreviewPath).size} байт`
+				)
+
 				// Загружаем превью в S3
+				this.logger.log(`Загрузка превью в S3: ${previewKey}`)
 				const previewBuffer = fs.readFileSync(tempPreviewPath)
 				await this.uploadPreviewToS3(previewKey, previewBuffer)
 

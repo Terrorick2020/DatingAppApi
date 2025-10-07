@@ -363,9 +363,31 @@ export class VideoService {
 			const videosWithUrls = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
-					const previewUrl = video.previewKey
-						? await this.getPreviewUrl(video.previewKey)
-						: null
+
+					// Логируем информацию о превью
+					this.logger.debug(
+						`Обработка видео ${video.id}: key=${video.key}, previewKey=${video.previewKey}`,
+						this.CONTEXT
+					)
+
+					let previewUrl = null
+					if (video.previewKey) {
+						this.logger.debug(
+							`Создание URL для превью видео ${video.id}: previewKey=${video.previewKey}`,
+							this.CONTEXT
+						)
+						previewUrl = await this.getPreviewUrl(video.previewKey)
+						this.logger.debug(
+							`URL превью для видео ${video.id}: ${previewUrl}`,
+							this.CONTEXT
+						)
+					} else {
+						this.logger.debug(
+							`У видео ${video.id} нет previewKey, превью не будет создано`,
+							this.CONTEXT
+						)
+					}
+
 					return {
 						...video,
 						url,
@@ -472,9 +494,30 @@ export class VideoService {
 			const videosWithUrls = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
-					const previewUrl = video.previewKey
-						? await this.getPreviewUrl(video.previewKey)
-						: null
+
+					// Логируем информацию о превью
+					this.logger.debug(
+						`Обработка видео ${video.id} в ленте: key=${video.key}, previewKey=${video.previewKey}`,
+						this.CONTEXT
+					)
+
+					let previewUrl = null
+					if (video.previewKey) {
+						this.logger.debug(
+							`Создание URL для превью видео ${video.id} в ленте: previewKey=${video.previewKey}`,
+							this.CONTEXT
+						)
+						previewUrl = await this.getPreviewUrl(video.previewKey)
+						this.logger.debug(
+							`URL превью для видео ${video.id} в ленте: ${previewUrl}`,
+							this.CONTEXT
+						)
+					} else {
+						this.logger.debug(
+							`У видео ${video.id} в ленте нет previewKey, превью не будет создано`,
+							this.CONTEXT
+						)
+					}
 
 					// Проверяем, лайкал ли пользователь это видео
 					const isLiked = video.likes.length > 0
@@ -661,7 +704,17 @@ export class VideoService {
 			}
 
 			// Создаем превью
+			this.logger.debug(
+				`Начинаем создание превью для видео ${videoId}: key=${video.key}`,
+				this.CONTEXT
+			)
+
 			const previewKey = await this.storageService.createVideoPreview(video.key)
+
+			this.logger.debug(
+				`Результат создания превью для видео ${videoId}: previewKey=${previewKey}`,
+				this.CONTEXT
+			)
 
 			if (!previewKey) {
 				this.logger.warn(
