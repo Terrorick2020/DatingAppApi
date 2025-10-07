@@ -469,7 +469,6 @@ export class VideoService {
 						psychologist: {
 							...video.psychologist,
 							photoUrl: psychologistPhotoUrl,
-							// Убираем массив photos из ответа, так как возвращаем photoUrl
 							photos: undefined,
 						},
 					}

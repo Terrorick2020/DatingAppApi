@@ -287,7 +287,7 @@ export class StorageService {
 					timestamps: [time.toString()],
 					filename: path.basename(outputPath),
 					folder: path.dirname(outputPath),
-					size: '320x240',
+					size: '960x720',
 				})
 				.on('end', () => resolve())
 				.on('error', (err: Error) => reject(err))
