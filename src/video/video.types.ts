@@ -13,7 +13,7 @@ export interface VideoResponse {
 	url?: string
 	previewUrl?: string | null
 	psychologist?: {
-		telegramId: string
+		id: string
 		name: string
 		about: string
 		photoUrl?: string | null

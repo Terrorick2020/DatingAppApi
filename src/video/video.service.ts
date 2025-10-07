@@ -297,7 +297,17 @@ export class VideoService {
 				this.CONTEXT
 			)
 
-			return successResponse(updatedVideo, 'Короткое видео обновлено')
+			// Преобразуем объект психолога для соответствия типам
+			const transformedVideo = {
+				...updatedVideo,
+				psychologist: {
+					id: updatedVideo.psychologist.telegramId,
+					name: updatedVideo.psychologist.name,
+					about: updatedVideo.psychologist.about,
+				},
+			}
+
+			return successResponse(transformedVideo, 'Короткое видео обновлено')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при обновлении короткого видео ${videoId}`,
@@ -468,7 +478,7 @@ export class VideoService {
 						previewUrl: previewUrl,
 						previewKey: undefined,
 						psychologist: {
-							telegramId: video.psychologist.telegramId,
+							id: video.psychologist.telegramId,
 							name: video.psychologist.name,
 							about: video.psychologist.about,
 							photoUrl: psychologistPhotoUrl,
@@ -629,7 +639,7 @@ export class VideoService {
 						previewUrl,
 						isLiked,
 						psychologist: {
-							telegramId: video.psychologist.telegramId,
+							id: video.psychologist.telegramId,
 							name: video.psychologist.name,
 							about: video.psychologist.about,
 							photoUrl: psychologistPhotoUrl,
