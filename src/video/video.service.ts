@@ -370,7 +370,7 @@ export class VideoService {
 					return {
 						...video,
 						url,
-						previewUrl,
+						previewUrl: previewUrl,
 					}
 				})
 			)
