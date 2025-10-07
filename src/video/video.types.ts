@@ -11,7 +11,7 @@ export interface VideoResponse {
 	likesCount: number
 	viewsCount: number
 	url?: string
-	previewUrl?: string
+	previewUrl?: string | null
 	psychologist?: {
 		id: number
 		name: string
@@ -21,7 +21,7 @@ export interface VideoResponse {
 
 export interface VideoWithUrl extends VideoResponse {
 	url: string
-	previewUrl?: string
+	previewUrl?: string | null
 	isLiked?: boolean
 }
 

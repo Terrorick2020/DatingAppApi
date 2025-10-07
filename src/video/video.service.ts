@@ -15,7 +15,6 @@ import {
 	UploadVideoResponse,
 	VideoListResponse,
 	VideoResponse,
-	VideoWithUrl,
 } from './video.types'
 
 @Injectable()
@@ -361,12 +360,12 @@ export class VideoService {
 			})
 
 			// Генерируем URL для каждого видео
-			const videosWithUrls: VideoWithUrl[] = await Promise.all(
+			const videosWithUrls = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
 					const previewUrl = video.previewKey
 						? await this.getPreviewUrl(video.previewKey)
-						: undefined
+						: null
 					return {
 						...video,
 						url,
@@ -470,12 +469,12 @@ export class VideoService {
 			})
 
 			// Генерируем URL для каждого видео и добавляем информацию о лайках
-			const videosWithUrls: VideoWithUrl[] = await Promise.all(
+			const videosWithUrls = await Promise.all(
 				videos.map(async video => {
 					const url = await this.getVideoUrl(video.key)
 					const previewUrl = video.previewKey
 						? await this.getPreviewUrl(video.previewKey)
-						: undefined
+						: null
 
 					// Проверяем, лайкал ли пользователь это видео
 					const isLiked = video.likes.length > 0
