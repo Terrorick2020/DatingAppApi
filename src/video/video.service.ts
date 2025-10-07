@@ -115,8 +115,24 @@ export class VideoService {
 				this.CONTEXT
 			)
 
+			// Сохраняем видео в БД сразу с previewKey
+			const savedVideo = await this.prisma.video.create({
+				data: {
+					key,
+					previewKey,
+					telegramId: dto.telegramId,
+					title: '', // Будет обновлено в saveShortVideo
+					description: '', // Будет обновлено в saveShortVideo
+				},
+			})
+
+			this.logger.debug(
+				`Короткое видео успешно сохранено в БД с ID: ${savedVideo.id}`,
+				this.CONTEXT
+			)
+
 			return successResponse(
-				{ videoId: 0, key, previewKey }, // videoId будет установлен после сохранения в БД
+				{ videoId: savedVideo.id, key, previewKey },
 				'Короткое видео загружено в облако'
 			)
 		} catch (error: any) {
@@ -158,24 +174,37 @@ export class VideoService {
 				return errorResponse('Психолог не найден')
 			}
 
-			// Сохраняем короткое видео в БД
-			const video = await this.prisma.video.create({
-				data: {
+			// Находим и обновляем существующее видео в БД
+			const video = await this.prisma.video.findFirst({
+				where: {
 					key: dto.key,
-					previewKey: dto.previewKey,
 					telegramId: dto.telegramId,
+				},
+			})
+
+			if (!video) {
+				this.logger.warn(
+					`Видео с ключом ${dto.key} не найдено для психолога ${dto.telegramId}`,
+					this.CONTEXT
+				)
+				return errorResponse('Видео не найдено')
+			}
+
+			const updatedVideo = await this.prisma.video.update({
+				where: { id: video.id },
+				data: {
 					title: dto.title,
 					description: dto.description,
 				},
 			})
 
 			this.logger.debug(
-				`Короткое видео успешно сохранено в БД с ID: ${video.id}`,
+				`Короткое видео успешно обновлено в БД с ID: ${updatedVideo.id}`,
 				this.CONTEXT
 			)
 
 			return successResponse(
-				{ videoId: video.id, key: video.key },
+				{ videoId: updatedVideo.id, key: updatedVideo.key },
 				'Короткое видео сохранено'
 			)
 		} catch (error: any) {
