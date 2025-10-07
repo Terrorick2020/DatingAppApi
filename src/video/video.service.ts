@@ -107,7 +107,7 @@ export class VideoService {
 			// Загружаем видео в облако
 			const key = await this.storageService.uploadVideo(video)
 
-			// Создаем превью для видео (пока возвращает null)
+			// Создаем превью для видео
 			const previewKey = await this.storageService.createVideoPreview(key)
 
 			this.logger.debug(
