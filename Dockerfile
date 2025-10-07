@@ -13,6 +13,9 @@ RUN npm run build
 # Продуктивный образ
 FROM node:22-alpine
 
+# Устанавливаем ffmpeg для создания превью видео
+RUN apk add --no-cache ffmpeg
+
 WORKDIR /api
 
 COPY package.json ./

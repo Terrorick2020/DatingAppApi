@@ -8,6 +8,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { config } from 'dotenv'
+import * as fs from 'fs'
+import * as path from 'path'
+const ffmpeg = require('fluent-ffmpeg')
 
 config()
 
@@ -117,22 +120,141 @@ export class StorageService {
 				.replace('.wmv', '_preview.jpg')
 				.replace('.webm', '_preview.jpg')
 
-			// В реальном приложении здесь должен быть код для извлечения кадра из видео
-			// Для демонстрации пока возвращаем null, чтобы не создавать ложные превью
-			this.logger.log(
-				`Создание превью для видео: ${videoKey} -> ${previewKey} (пока не реализовано)`
-			)
+			this.logger.log(`Создание превью для видео: ${videoKey} -> ${previewKey}`)
 
-			// TODO: Реализовать извлечение кадра из видео с помощью ffmpeg или аналогичной библиотеки
-			// Пока возвращаем null, чтобы не создавать ложные превью
+			// Создаем временные файлы
+			const tempDir = '/tmp'
+			const tempVideoPath = path.join(tempDir, `temp_${randomUUID()}.mp4`)
+			const tempPreviewPath = path.join(tempDir, `preview_${randomUUID()}.jpg`)
 
-			return null
+			try {
+				// Скачиваем видео из S3 во временный файл
+				const videoBuffer = await this.downloadVideoFromS3(videoKey)
+				fs.writeFileSync(tempVideoPath, videoBuffer)
+
+				// Создаем превью с помощью ffmpeg
+				await this.extractVideoFrame(tempVideoPath, tempPreviewPath)
+
+				// Проверяем, что превью создалось
+				if (!fs.existsSync(tempPreviewPath)) {
+					this.logger.warn(`Превью не было создано для видео ${videoKey}`)
+					return null
+				}
+
+				// Загружаем превью в S3
+				const previewBuffer = fs.readFileSync(tempPreviewPath)
+				await this.uploadPreviewToS3(previewKey, previewBuffer)
+
+				this.logger.log(`Превью успешно создано: ${previewKey}`)
+				return previewKey
+			} finally {
+				// Удаляем временные файлы
+				this.cleanupTempFiles([tempVideoPath, tempPreviewPath])
+			}
 		} catch (error) {
 			this.logger.error(
 				`Ошибка при создании превью для видео ${videoKey}: ${error}`
 			)
 			return null
 		}
+	}
+
+	/**
+	 * Скачивание видео из S3
+	 */
+	private async downloadVideoFromS3(videoKey: string): Promise<Buffer> {
+		try {
+			const command = new GetObjectCommand({
+				Bucket: this.bucketName,
+				Key: videoKey,
+			})
+
+			const response = await this.s3.send(command)
+
+			if (!response.Body) {
+				throw new Error('Тело ответа пусто')
+			}
+
+			const chunks: Uint8Array[] = []
+			const streamReader = response.Body as any
+
+			for await (const chunk of streamReader) {
+				chunks.push(chunk)
+			}
+
+			return Buffer.concat(chunks)
+		} catch (error) {
+			this.logger.error(`Ошибка при скачивании видео ${videoKey}: ${error}`)
+			throw error
+		}
+	}
+
+	/**
+	 * Извлечение кадра из видео с помощью ffmpeg
+	 */
+	private async extractVideoFrame(
+		videoPath: string,
+		outputPath: string
+	): Promise<void> {
+		return new Promise((resolve, reject) => {
+			ffmpeg(videoPath)
+				.screenshots({
+					timestamps: ['10%'], // Берем кадр на 10% от длительности видео
+					filename: path.basename(outputPath),
+					folder: path.dirname(outputPath),
+					size: '320x240', // Размер превью
+				})
+				.on('end', () => {
+					this.logger.log(`Превью создано: ${outputPath}`)
+					resolve()
+				})
+				.on('error', (err: Error) => {
+					this.logger.error(`Ошибка ffmpeg: ${err.message}`)
+					reject(err)
+				})
+		})
+	}
+
+	/**
+	 * Загрузка превью в S3
+	 */
+	private async uploadPreviewToS3(
+		previewKey: string,
+		previewBuffer: Buffer
+	): Promise<void> {
+		try {
+			const command = new PutObjectCommand({
+				Bucket: this.bucketName,
+				Key: previewKey,
+				Body: previewBuffer,
+				ContentType: 'image/jpeg',
+				ContentLength: previewBuffer.length,
+			})
+
+			await this.s3.send(command)
+			this.logger.log(`Превью загружено в S3: ${previewKey}`)
+		} catch (error) {
+			this.logger.error(`Ошибка при загрузке превью в S3: ${error}`)
+			throw error
+		}
+	}
+
+	/**
+	 * Очистка временных файлов
+	 */
+	private cleanupTempFiles(filePaths: string[]): void {
+		filePaths.forEach(filePath => {
+			try {
+				if (fs.existsSync(filePath)) {
+					fs.unlinkSync(filePath)
+					this.logger.debug(`Временный файл удален: ${filePath}`)
+				}
+			} catch (error) {
+				this.logger.warn(
+					`Не удалось удалить временный файл ${filePath}: ${error}`
+				)
+			}
+		})
 	}
 
 	/**
