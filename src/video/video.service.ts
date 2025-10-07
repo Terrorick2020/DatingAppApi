@@ -629,6 +629,76 @@ export class VideoService {
 	}
 
 	/**
+	 * Создание превью для существующего видео
+	 */
+	async createVideoPreview(
+		videoId: number,
+		telegramId: string
+	): Promise<{
+		success: boolean
+		data?: { previewUrl: string }
+		message?: string
+	}> {
+		try {
+			this.logger.debug(
+				`Создание превью для видео ${videoId} психолога ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование видео и принадлежность психологу
+			const video = await this.prisma.video.findFirst({
+				where: {
+					id: videoId,
+					telegramId: telegramId,
+				},
+			})
+
+			if (!video) {
+				this.logger.warn(
+					`Видео ${videoId} не найдено или не принадлежит психологу ${telegramId}`,
+					this.CONTEXT
+				)
+				return errorResponse('Видео не найдено')
+			}
+
+			// Создаем превью
+			const previewKey = await this.storageService.createVideoPreview(video.key)
+
+			if (!previewKey) {
+				this.logger.warn(
+					`Не удалось создать превью для видео ${videoId}`,
+					this.CONTEXT
+				)
+				return errorResponse('Не удалось создать превью')
+			}
+
+			// Обновляем видео в БД с новым previewKey
+			await this.prisma.video.update({
+				where: { id: videoId },
+				data: { previewKey },
+			})
+
+			// Генерируем URL для превью
+			const previewUrl = await this.getPreviewUrl(previewKey)
+
+			this.logger.debug(
+				`Превью для видео ${videoId} успешно создано`,
+				this.CONTEXT
+			)
+
+			return successResponse({ previewUrl }, 'Превью для видео создано')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при создании превью для видео ${videoId}`,
+				error?.stack,
+				this.CONTEXT,
+				{ videoId, telegramId, error }
+			)
+			return errorResponse('Ошибка при создании превью:', error)
+		}
+	}
+
+	/**
 	 * Увеличение счетчика просмотров короткого видео
 	 */
 	async incrementShortVideoViews(

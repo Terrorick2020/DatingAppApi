@@ -162,4 +162,21 @@ export class VideoController {
 
 		return this.videoService.incrementShortVideoViews(videoId, dto.telegramId)
 	}
+
+	/**
+	 * Создание превью для существующего видео
+	 */
+	@Post('short-videos/:videoId/preview')
+	// @UseGuards(UserStatusGuard)
+	async createVideoPreview(
+		@Param('videoId', ParseIntPipe) videoId: number,
+		@Query('telegramId') telegramId: string
+	) {
+		this.logger.debug(
+			`Запрос на создание превью для видео ${videoId} от психолога ${telegramId}`,
+			this.CONTEXT
+		)
+
+		return this.videoService.createVideoPreview(videoId, telegramId)
+	}
 }
