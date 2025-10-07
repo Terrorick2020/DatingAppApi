@@ -371,6 +371,7 @@ export class VideoService {
 						...video,
 						url,
 						previewUrl: previewUrl,
+						previewKey: undefined,
 					}
 				})
 			)
@@ -487,6 +488,8 @@ export class VideoService {
 						// Убираем массивы likes и views из ответа
 						likes: undefined,
 						views: undefined,
+						// Убираем previewKey из ответа, так как возвращаем previewUrl
+						previewKey: undefined,
 					}
 				})
 			)
