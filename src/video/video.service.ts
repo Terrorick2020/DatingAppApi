@@ -74,6 +74,30 @@ export class VideoService {
 	}
 
 	/**
+	 * Получение URL фото с кешированием
+	 */
+	private async getPhotoUrl(photoKey: string): Promise<string> {
+		const cacheKey = `photo:${photoKey}:url`
+
+		// Проверяем кеш
+		const cachedUrl = await this.redisService.getKey(cacheKey)
+		if (cachedUrl.success && cachedUrl.data) {
+			return cachedUrl.data
+		}
+
+		// Генерируем новый URL
+		const presignedUrl = await this.storageService.getPresignedUrl(
+			photoKey,
+			7200
+		)
+
+		// Кешируем на 1 час 50 минут
+		await this.redisService.setKey(cacheKey, presignedUrl, 6600)
+
+		return presignedUrl
+	}
+
+	/**
 	 * Загрузка короткого видео в облако
 	 */
 	async uploadShortVideo(
@@ -371,6 +395,15 @@ export class VideoService {
 							id: true,
 							name: true,
 							about: true,
+							photos: {
+								select: {
+									key: true,
+								},
+								take: 1,
+								orderBy: {
+									createdAt: 'asc',
+								},
+							},
 						},
 					},
 				},
@@ -417,11 +450,28 @@ export class VideoService {
 						)
 					}
 
+					// Генерируем URL для фото психолога
+					let psychologistPhotoUrl = null
+					if (
+						video.psychologist.photos &&
+						video.psychologist.photos.length > 0
+					) {
+						psychologistPhotoUrl = await this.getPhotoUrl(
+							video.psychologist.photos[0].key
+						)
+					}
+
 					return {
 						...video,
 						url,
 						previewUrl: previewUrl,
 						previewKey: undefined,
+						psychologist: {
+							...video.psychologist,
+							photoUrl: psychologistPhotoUrl,
+							// Убираем массив photos из ответа, так как возвращаем photoUrl
+							photos: undefined,
+						},
 					}
 				})
 			)
@@ -479,6 +529,15 @@ export class VideoService {
 							id: true,
 							name: true,
 							about: true,
+							photos: {
+								select: {
+									key: true,
+								},
+								take: 1,
+								orderBy: {
+									createdAt: 'asc',
+								},
+							},
 						},
 					},
 					likes: {
@@ -551,11 +610,28 @@ export class VideoService {
 					// Проверяем, лайкал ли пользователь это видео
 					const isLiked = video.likes.length > 0
 
+					// Генерируем URL для фото психолога
+					let psychologistPhotoUrl = null
+					if (
+						video.psychologist.photos &&
+						video.psychologist.photos.length > 0
+					) {
+						psychologistPhotoUrl = await this.getPhotoUrl(
+							video.psychologist.photos[0].key
+						)
+					}
+
 					return {
 						...video,
 						url,
 						previewUrl,
 						isLiked,
+						psychologist: {
+							...video.psychologist,
+							photoUrl: psychologistPhotoUrl,
+							// Убираем массив photos из ответа, так как возвращаем photoUrl
+							photos: undefined,
+						},
 						// Убираем массивы likes и views из ответа
 						likes: undefined,
 						views: undefined,

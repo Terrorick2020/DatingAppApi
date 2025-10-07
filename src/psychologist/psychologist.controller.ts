@@ -1,25 +1,24 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    ParseIntPipe,
-    Post,
-    Put,
-    Query,
-    Request,
-    UploadedFile,
-    UseInterceptors
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	Post,
+	Put,
+	Query,
+	Request,
+	UploadedFile,
+	UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import {
-    ApiBearerAuth,
-    ApiBody,
-    ApiConsumes,
-    ApiOperation,
-    ApiResponse,
-    ApiTags,
+	ApiBearerAuth,
+	ApiBody,
+	ApiConsumes,
+	ApiOperation,
+	ApiResponse,
+	ApiTags,
 } from '@nestjs/swagger'
 import { AppLogger } from '../common/logger/logger.service'
 import { multerOptions } from '../config/multer.config'
@@ -46,7 +45,10 @@ export class PsychologistController {
 	@ApiOperation({ summary: 'Регистрация психолога' })
 	@ApiResponse({ status: 201, description: 'Психолог успешно зарегистрирован' })
 	@ApiResponse({ status: 400, description: 'Ошибка валидации' })
-	@ApiResponse({ status: 409, description: 'Психолог с таким Telegram ID уже существует' })
+	@ApiResponse({
+		status: 409,
+		description: 'Психолог с таким Telegram ID уже существует',
+	})
 	@Post()
 	create(@Body() createPsychologistDto: CreatePsychologistDto) {
 		this.logger.debug(
@@ -89,7 +91,7 @@ export class PsychologistController {
 			`Запрос на загрузку фото для психолога ${dto.telegramId}`,
 			'PsychologistController'
 		)
-		
+
 		const key = await this.storageService.uploadPhoto(file)
 		return this.psychologistService.uploadPhoto(dto.telegramId, key)
 	}
@@ -105,12 +107,17 @@ export class PsychologistController {
 	})
 	@ApiBody({ type: DeletePsychologistPhotoDto })
 	@Post('delete-photo')
-	async deletePhoto(@Body() DeletePsychologistPhotoDto: DeletePsychologistPhotoDto) {
+	async deletePhoto(
+		@Body() DeletePsychologistPhotoDto: DeletePsychologistPhotoDto
+	) {
 		this.logger.debug(
 			`Запрос на удаление фото ${DeletePsychologistPhotoDto.photoId} для психолога ${DeletePsychologistPhotoDto.telegramId}`,
 			'PsychologistController'
 		)
-		return this.psychologistService.deletePhoto(DeletePsychologistPhotoDto.photoId, DeletePsychologistPhotoDto.telegramId)
+		return this.psychologistService.deletePhoto(
+			DeletePsychologistPhotoDto.photoId,
+			DeletePsychologistPhotoDto.telegramId
+		)
 	}
 
 	@ApiOperation({ summary: 'Получение списка психологов' })
@@ -124,10 +131,18 @@ export class PsychologistController {
 		return this.psychologistService.findAll(findPsychologistsDto)
 	}
 
-	@ApiOperation({ summary: 'Получение списка доступных психологов (исключая существующие чаты)' })
-	@ApiResponse({ status: 200, description: 'Список доступных психологов получен' })
+	@ApiOperation({
+		summary:
+			'Получение списка доступных психологов (исключая существующие чаты)',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Список доступных психологов получен',
+	})
 	@Post('available')
-	findAllExcludingExistingChats(@Body() dto: FindPsychologistsDto & { userTelegramId: string }) {
+	findAllExcludingExistingChats(
+		@Body() dto: FindPsychologistsDto & { userTelegramId: string }
+	) {
 		this.logger.debug(
 			`Запрос на получение списка доступных психологов для пользователя ${dto.userTelegramId}`,
 			'PsychologistController'
@@ -135,28 +150,32 @@ export class PsychologistController {
 		return this.psychologistService.findAllExcludingExistingChats(dto)
 	}
 
-	@ApiOperation({ summary: 'Получение психолога по ID' })
+	@ApiOperation({ summary: 'Получение психолога по Telegram ID' })
 	@ApiResponse({ status: 200, description: 'Психолог найден' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })
-	@Get(':id')
-	findById(@Param('id', ParseIntPipe) id: number) {
+	@Get(':telegramId')
+	findByTelegramId(@Param('telegramId') telegramId: string) {
 		this.logger.debug(
-			`Запрос на получение психолога с ID ${id}`,
+			`Запрос на получение психолога с Telegram ID ${telegramId}`,
 			'PsychologistController'
 		)
-		return this.psychologistService.findById(id)
+		return this.psychologistService.findByTelegramId(telegramId)
 	}
 
 	@ApiOperation({ summary: 'Поиск психолога по селектору (ID или имя)' })
 	@ApiResponse({ status: 200, description: 'Психолог найден' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })
 	@Post('find')
-	findBySelector(@Body() findPsychologistBySelectorDto: FindPsychologistBySelectorDto) {
+	findBySelector(
+		@Body() findPsychologistBySelectorDto: FindPsychologistBySelectorDto
+	) {
 		this.logger.debug(
 			`Запрос на поиск психолога по селектору: ${findPsychologistBySelectorDto.selector}`,
 			'PsychologistController'
 		)
-		return this.psychologistService.findBySelector(findPsychologistBySelectorDto)
+		return this.psychologistService.findBySelector(
+			findPsychologistBySelectorDto
+		)
 	}
 
 	@ApiOperation({ summary: 'Обновление профиля психолога' })
@@ -199,7 +218,9 @@ export class PsychologistController {
 		return this.psychologistService.delete(deletePsychologistDto)
 	}
 
-	@ApiOperation({ summary: 'Генерация ссылки для регистрации психолога (только для админов)' })
+	@ApiOperation({
+		summary: 'Генерация ссылки для регистрации психолога (только для админов)',
+	})
 	@ApiResponse({ status: 201, description: 'Ссылка создана' })
 	@Post('generate-invite-link')
 	generateInviteLink(@Request() req: any) {
@@ -222,4 +243,4 @@ export class PsychologistController {
 		)
 		return this.psychologistService.validateInviteCode(body.code)
 	}
-} 
+}
