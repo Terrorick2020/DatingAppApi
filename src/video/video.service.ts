@@ -284,7 +284,7 @@ export class VideoService {
 				include: {
 					psychologist: {
 						select: {
-							id: true,
+							telegramId: true,
 							name: true,
 							about: true,
 						},
@@ -393,6 +393,7 @@ export class VideoService {
 					psychologist: {
 						select: {
 							id: true,
+							telegramId: true,
 							name: true,
 							about: true,
 							photos: {
@@ -467,9 +468,10 @@ export class VideoService {
 						previewUrl: previewUrl,
 						previewKey: undefined,
 						psychologist: {
-							...video.psychologist,
+							telegramId: video.psychologist.telegramId,
+							name: video.psychologist.name,
+							about: video.psychologist.about,
 							photoUrl: psychologistPhotoUrl,
-							photos: undefined,
 						},
 					}
 				})
@@ -526,6 +528,7 @@ export class VideoService {
 					psychologist: {
 						select: {
 							id: true,
+							telegramId: true,
 							name: true,
 							about: true,
 							photos: {
@@ -626,10 +629,10 @@ export class VideoService {
 						previewUrl,
 						isLiked,
 						psychologist: {
-							...video.psychologist,
+							telegramId: video.psychologist.telegramId,
+							name: video.psychologist.name,
+							about: video.psychologist.about,
 							photoUrl: psychologistPhotoUrl,
-							// Убираем массив photos из ответа, так как возвращаем photoUrl
-							photos: undefined,
 						},
 						// Убираем массивы likes и views из ответа
 						likes: undefined,
