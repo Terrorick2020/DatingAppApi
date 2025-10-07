@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto'
 import { config } from 'dotenv'
 import * as fs from 'fs'
 import * as path from 'path'
+const Jimp = require('jimp')
 const ffmpeg = require('fluent-ffmpeg')
 
 config()
@@ -209,22 +210,139 @@ export class StorageService {
 		outputPath: string
 	): Promise<void> {
 		return new Promise((resolve, reject) => {
+			// Сначала получаем информацию о видео
+			ffmpeg.ffprobe(videoPath, (err: any, metadata: any) => {
+				if (err) {
+					this.logger.error(`Ошибка получения метаданных видео: ${err.message}`)
+					reject(err)
+					return
+				}
+
+				const duration = metadata.format.duration || 0
+				this.logger.log(`Длительность видео: ${duration} секунд`)
+
+				// Пытаемся найти первый не-черный кадр
+				this.findFirstNonBlackFrame(videoPath, outputPath, duration)
+					.then(() => resolve())
+					.catch(reject)
+			})
+		})
+	}
+
+	/**
+	 * Поиск первого не-черного кадра
+	 */
+	private async findFirstNonBlackFrame(
+		videoPath: string,
+		outputPath: string,
+		duration: number
+	): Promise<void> {
+		const step = Math.max(0.5, duration / 10) // Шаг как на клиенте
+		let currentTime = Math.min(1, duration / 10) // Начинаем с 1 секунды или 10% от длительности
+
+		this.logger.log(
+			`Поиск первого не-черного кадра, начиная с ${currentTime} секунд`
+		)
+
+		while (currentTime <= duration) {
+			try {
+				await this.extractFrameAtTime(videoPath, outputPath, currentTime)
+
+				// Проверяем, не черный ли кадр
+				const isBlack = await this.isFrameBlack(outputPath)
+
+				if (!isBlack) {
+					this.logger.log(`Найден не-черный кадр на ${currentTime} секунде`)
+					return
+				}
+
+				this.logger.log(
+					`Кадр на ${currentTime} секунде черный, пробуем следующий`
+				)
+				currentTime += step
+			} catch (error) {
+				this.logger.warn(
+					`Ошибка при извлечении кадра на ${currentTime} секунде: ${error}`
+				)
+				currentTime += step
+			}
+		}
+
+		// Если не нашли не-черный кадр, берем первый кадр
+		this.logger.log('Не удалось найти не-черный кадр, используем первый кадр')
+		await this.extractFrameAtTime(videoPath, outputPath, 0)
+	}
+
+	/**
+	 * Извлечение кадра в определенное время
+	 */
+	private async extractFrameAtTime(
+		videoPath: string,
+		outputPath: string,
+		time: number
+	): Promise<void> {
+		return new Promise((resolve, reject) => {
 			ffmpeg(videoPath)
 				.screenshots({
-					timestamps: ['10%'], // Берем кадр на 10% от длительности видео
+					timestamps: [time.toString()],
 					filename: path.basename(outputPath),
 					folder: path.dirname(outputPath),
-					size: '320x240', // Размер превью
+					size: '320x240',
 				})
-				.on('end', () => {
-					this.logger.log(`Превью создано: ${outputPath}`)
-					resolve()
-				})
-				.on('error', (err: Error) => {
-					this.logger.error(`Ошибка ffmpeg: ${err.message}`)
-					reject(err)
-				})
+				.on('end', () => resolve())
+				.on('error', (err: Error) => reject(err))
 		})
+	}
+
+	/**
+	 * Проверка, является ли кадр черным
+	 */
+	private async isFrameBlack(imagePath: string): Promise<boolean> {
+		try {
+			// Читаем изображение с помощью Jimp
+			const image = await Jimp.read(imagePath)
+
+			// Получаем размеры изображения
+			const width = image.getWidth()
+			const height = image.getHeight()
+
+			// Проверяем несколько случайных пикселей
+			const sampleSize = Math.min(100, (width * height) / 100) // Проверяем 1% пикселей или максимум 100
+			let blackPixels = 0
+			let totalPixels = 0
+
+			// Проверяем пиксели в сетке
+			const stepX = Math.max(1, Math.floor(width / 10))
+			const stepY = Math.max(1, Math.floor(height / 10))
+
+			for (let x = 0; x < width; x += stepX) {
+				for (let y = 0; y < height; y += stepY) {
+					const color = Jimp.intToRGBA(image.getPixelColor(x, y))
+
+					// Считаем пиксель черным, если все RGB компоненты меньше 30
+					const isBlack = color.r < 30 && color.g < 30 && color.b < 30
+
+					if (isBlack) {
+						blackPixels++
+					}
+					totalPixels++
+				}
+			}
+
+			// Если более 80% пикселей черные, считаем кадр черным
+			const blackRatio = blackPixels / totalPixels
+			const isBlack = blackRatio > 0.8
+
+			this.logger.log(
+				`Анализ кадра: ${blackPixels}/${totalPixels} черных пикселей (${(blackRatio * 100).toFixed(1)}%), черный: ${isBlack}`
+			)
+
+			return isBlack
+		} catch (error) {
+			this.logger.warn(`Ошибка при анализе кадра: ${error}`)
+			// В случае ошибки считаем кадр не черным
+			return false
+		}
 	}
 
 	/**
