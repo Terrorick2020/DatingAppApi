@@ -1980,6 +1980,17 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			// Удаляем существующий чат с психологом (если есть)
 			await this.deleteExistingPsychologistChat(telegramId)
 
+			// Привязываем психолога к пользователю
+			await this.prismaService.user.update({
+				where: { telegramId },
+				data: { assignedPsychologistId: psychologist.telegramId },
+			})
+
+			this.logger.debug(
+				`Психолог ${psychologist.telegramId} привязан к пользователю ${telegramId}`,
+				this.CONTEXT
+			)
+
 			// Проверяем, существует ли уже чат между этими пользователями
 			const existingChatId = await this.findExistingChat(
 				telegramId,
@@ -2241,6 +2252,38 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			)
 			await Promise.all(invalidatePromises)
 
+			// Проверяем, является ли чат чатом с психологом
+			const hasPsychologist = chat.participants.some(participant =>
+				participant.startsWith('psychologist_')
+			)
+
+			// Если это чат с психологом, отвязываем психолога от пользователя
+			if (hasPsychologist) {
+				const userParticipant = chat.participants.find(
+					participant => !participant.startsWith('psychologist_')
+				)
+
+				if (userParticipant) {
+					try {
+						await this.prismaService.user.update({
+							where: { telegramId: userParticipant },
+							data: { assignedPsychologistId: null },
+						})
+
+						this.logger.debug(
+							`Психолог отвязан от пользователя ${userParticipant} при удалении чата ${chatId}`,
+							this.CONTEXT
+						)
+					} catch (error: any) {
+						this.logger.warn(
+							`Ошибка при отвязке психолога от пользователя ${userParticipant}`,
+							this.CONTEXT,
+							{ error }
+						)
+					}
+				}
+			}
+
 			// Удаляем лайки между участниками чата (если это был матч)
 			if (chat.participants.length === 2) {
 				const [user1, user2] = chat.participants
@@ -2294,6 +2337,47 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				{ chatId, deletedByUserId, error }
 			)
 			return errorResponse('Ошибка при удалении чата', error)
+		}
+	}
+
+	/**
+	 * Получение закрепленного психолога для пользователя
+	 */
+	async getAssignedPsychologist(
+		telegramId: string
+	): Promise<ApiResponse<{ psychologistId: string | null }>> {
+		try {
+			this.logger.debug(
+				`Запрос на получение закрепленного психолога для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем существование пользователя
+			const user = await this.prismaService.user.findUnique({
+				where: { telegramId },
+				select: { assignedPsychologistId: true },
+			})
+
+			if (!user) {
+				this.logger.warn(`Пользователь ${telegramId} не найден`, this.CONTEXT)
+				return errorResponse('Пользователь не найден')
+			}
+
+			return successResponse(
+				{ psychologistId: user.assignedPsychologistId },
+				'Закрепленный психолог получен'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении закрепленного психолога`,
+				error?.stack,
+				this.CONTEXT,
+				{ telegramId, error }
+			)
+			return errorResponse(
+				'Ошибка при получении закрепленного психолога',
+				error
+			)
 		}
 	}
 }

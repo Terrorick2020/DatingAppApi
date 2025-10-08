@@ -1,12 +1,12 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	Patch,
+	Post,
+	Query,
 } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { AppLogger } from '../common/logger/logger.service'
@@ -83,12 +83,16 @@ export class ChatsController {
 	@ApiOperation({ summary: 'Создать чат с психологом' })
 	@ApiResponse({ status: 201, description: 'Чат с психологом создан' })
 	@Post('with-psychologist')
-	createWithPsychologist(@Body() createChatWithPsychologistDto: CreateChatWithPsychologistDto) {
+	createWithPsychologist(
+		@Body() createChatWithPsychologistDto: CreateChatWithPsychologistDto
+	) {
 		this.logger.debug(
 			`Запрос на создание чата с психологом ${createChatWithPsychologistDto.psychologistId}`,
 			'ChatsController'
 		)
-		return this.chatsService.createWithPsychologist(createChatWithPsychologistDto)
+		return this.chatsService.createWithPsychologist(
+			createChatWithPsychologistDto
+		)
 	}
 
 	@ApiOperation({ summary: 'Отправить сообщение в чат' })
@@ -153,7 +157,10 @@ export class ChatsController {
 		@Param('chatId') chatId: string,
 		@Body() deleteChatDto: DeleteChatDto
 	) {
-		this.logger.debug(`Запрос на удаление чата ${chatId} пользователем ${deleteChatDto.deletedByUserId}`, 'ChatsController')
+		this.logger.debug(
+			`Запрос на удаление чата ${chatId} пользователем ${deleteChatDto.deletedByUserId}`,
+			'ChatsController'
+		)
 		return this.chatsService.deleteByUser(chatId, deleteChatDto.deletedByUserId)
 	}
 
@@ -175,5 +182,18 @@ export class ChatsController {
 			'ChatsController'
 		)
 		return this.chatsService.getUsersWithUnreadMessages()
+	}
+
+	@ApiOperation({
+		summary: 'Получить закрепленного психолога для пользователя',
+	})
+	@ApiResponse({ status: 200, description: 'Закрепленный психолог получен' })
+	@Get('assigned-psychologist')
+	async getAssignedPsychologist(@Query('telegramId') telegramId: string) {
+		this.logger.debug(
+			`Запрос на получение закрепленного психолога для пользователя ${telegramId}`,
+			'ChatsController'
+		)
+		return this.chatsService.getAssignedPsychologist(telegramId)
 	}
 }

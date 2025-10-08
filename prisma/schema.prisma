@@ -8,49 +8,52 @@ datasource db {
 }
 
 model User {
-  telegramId         String      @id @unique
-  createdAt          DateTime    @default(now()) @map("created_at")
-  updatedAt          DateTime    @updatedAt @map("updated_at")
-  lang               String      @default("ru")
-  name               String
-  town               String
-  sex                Sex
-  selSex             Sex
-  age                Int
-  bio                String
-  enableGeo          Boolean     @default(false)
-  isVerify           Boolean     @default(false)
-  latitude           Float?
-  longitude          Float?
-  interestId         Int?
-  role               Role        @default(User)
-  status             Status      @default(Noob)
-  referralCode       String?     @unique
-  invitedById        String?
-  sentComplaints     Complaint[] @relation("SentComplaints")
-  receivedComplaints Complaint[] @relation("ReceivedComplaints")
-  likesSent          Like[]      @relation("LikesSent")
-  likesReceived      Like[]      @relation("LikesReceived")
-  photos             Photo[]
-  videoLikes         VideoLike[]
-  videoViews         VideoView[]
-  interest           Interest?   @relation(fields: [interestId], references: [id])
-  invitedBy          User?       @relation("UserInvites", fields: [invitedById], references: [telegramId])
-  invitedUsers       User[]      @relation("UserInvites")
-  userPlans          UserPlan[]
+  telegramId             String        @id @unique
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+  lang                   String        @default("ru")
+  name                   String
+  town                   String
+  sex                    Sex
+  selSex                 Sex
+  age                    Int
+  bio                    String
+  enableGeo              Boolean       @default(false)
+  isVerify               Boolean       @default(false)
+  latitude               Float?
+  longitude              Float?
+  interestId             Int?
+  role                   Role          @default(User)
+  status                 Status        @default(Noob)
+  referralCode           String?       @unique
+  invitedById            String?
+  assignedPsychologistId String?
+  sentComplaints         Complaint[]   @relation("SentComplaints")
+  receivedComplaints     Complaint[]   @relation("ReceivedComplaints")
+  likesSent              Like[]        @relation("LikesSent")
+  likesReceived          Like[]        @relation("LikesReceived")
+  photos                 Photo[]
+  videoLikes             VideoLike[]
+  videoViews             VideoView[]
+  interest               Interest?     @relation(fields: [interestId], references: [id])
+  invitedBy              User?         @relation("UserInvites", fields: [invitedById], references: [telegramId])
+  invitedUsers           User[]        @relation("UserInvites")
+  userPlans              UserPlan[]
+  assignedPsychologist   Psychologist? @relation("UserAssignedPsychologist", fields: [assignedPsychologistId], references: [telegramId])
 }
 
 model Psychologist {
-  id         Int                 @id @default(autoincrement())
-  telegramId String              @unique
-  name       String
-  about      String
-  status     PsychologistStatus  @default(Active)
-  createdAt  DateTime            @default(now()) @map("created_at")
-  updatedAt  DateTime            @updatedAt @map("updated_at")
-  photos     PsychologistPhoto[]
-  videos     Video[]
-  invite     PsychologistInvite?
+  id            Int                 @id @default(autoincrement())
+  telegramId    String              @unique
+  name          String
+  about         String
+  status        PsychologistStatus  @default(Active)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  photos        PsychologistPhoto[]
+  videos        Video[]
+  invite        PsychologistInvite?
+  assignedUsers User[]              @relation("UserAssignedPsychologist")
 }
 
 model PsychologistPhoto {
