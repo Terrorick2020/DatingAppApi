@@ -2060,10 +2060,6 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.addChatToUserList(psychologist.telegramId, chatId),
 			])
 
-			// Инвалидируем кеш превью
-			await this.invalidateChatsPreviewCache(telegramId)
-			await this.invalidateChatsPreviewCache(psychologist.telegramId)
-
 			// Получаем данные для отправки в уведомлении
 			const userData = await this.prismaService.user.findUnique({
 				where: { telegramId },
@@ -2104,6 +2100,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					timestamp,
 				})
 			}
+
+			// Инвалидируем кеш превью после всех операций
+			await this.invalidateChatsPreviewCache(telegramId)
+			await this.invalidateChatsPreviewCache(psychologist.telegramId)
 
 			this.logger.debug(`Чат ${chatId} успешно создан`, this.CONTEXT)
 
