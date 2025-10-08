@@ -622,6 +622,9 @@ export class VideoService {
 					// Проверяем, лайкал ли пользователь это видео
 					const isLiked = video.likes.length > 0
 
+					// Проверяем, просматривал ли пользователь это видео
+					const isView = video.views.length > 0
+
 					// Генерируем URL для фото психолога
 					let psychologistPhotoUrl = null
 					if (
@@ -638,6 +641,7 @@ export class VideoService {
 						url,
 						previewUrl,
 						isLiked,
+						isView,
 						psychologist: {
 							id: video.psychologist.telegramId,
 							name: video.psychologist.name,

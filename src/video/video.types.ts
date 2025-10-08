@@ -24,6 +24,7 @@ export interface VideoWithUrl extends VideoResponse {
 	url: string
 	previewUrl?: string | null
 	isLiked?: boolean
+	isView?: boolean
 }
 
 export interface VideoListResponse {
