@@ -548,12 +548,15 @@ export class PsychologistService {
 
 								// Проверяем, есть ли среди участников психолог
 								for (const participant of chatData.participants || []) {
-									if (participant.startsWith('psychologist_')) {
-										const psychologistId = participant.replace(
-											'psychologist_',
-											''
-										)
-										existingPsychologistIds.push(psychologistId)
+									// Проверяем, является ли участник психологом
+									const isPsychologist =
+										await this.prisma.psychologist.findUnique({
+											where: { telegramId: participant },
+											select: { telegramId: true },
+										})
+
+									if (isPsychologist) {
+										existingPsychologistIds.push(participant)
 									}
 								}
 							} catch (parseError) {

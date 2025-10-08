@@ -290,6 +290,11 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			const chatIds = JSON.parse(userChatsResponse.data)
+			this.logger.debug(
+				`Найдено ${chatIds.length} чатов для пользователя ${telegramId}: ${JSON.stringify(chatIds)}`,
+				this.CONTEXT
+			)
+
 			if (!Array.isArray(chatIds) || chatIds.length === 0) {
 				this.logger.debug(
 					`У пользователя ${telegramId} пустой список чатов`,
