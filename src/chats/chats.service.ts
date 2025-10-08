@@ -1964,12 +1964,11 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Проверяем существование психолога
-			const psychologistResponse = await this.psychologistService.findById(
-				parseInt(psychologistId)
-			)
+			const psychologistResponse =
+				await this.psychologistService.findByTelegramId(psychologistId)
 			if (!psychologistResponse.success || !psychologistResponse.data) {
 				this.logger.warn(
-					`Психолог с ID ${psychologistId} не найден`,
+					`Психолог с telegramId ${psychologistId} не найден`,
 					this.CONTEXT
 				)
 				return errorResponse('Психолог не найден')
