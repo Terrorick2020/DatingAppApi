@@ -345,6 +345,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				.map(chat => chat.participants.find(id => id !== telegramId))
 				.filter(Boolean) as string[]
 
+			// Получаем обычных пользователей
 			const users = await this.prismaService.user.findMany({
 				where: {
 					telegramId: { in: interlocutorIds },
@@ -353,21 +354,54 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				select: FindAllChatsUserFields,
 			})
 
+			// Получаем психологов
+			const psychologists = await this.prismaService.psychologist.findMany({
+				where: {
+					telegramId: { in: interlocutorIds },
+					status: 'Active',
+				},
+				select: {
+					telegramId: true,
+					name: true,
+					about: true,
+					photos: {
+						select: {
+							key: true,
+						},
+						take: 1,
+					},
+				},
+			})
+
+			// Объединяем пользователей и психологов
+			const allInterlocutors = [
+				...users.map(user => ({ ...user, type: 'user' })),
+				...psychologists.map(psychologist => ({
+					...psychologist,
+					type: 'psychologist',
+					age: null, // У психологов нет возраста
+					interest: null, // У психологов нет интересов
+				})),
+			]
+
 			this.logger.debug(
-				`Получены данные ${users.length} собеседников`,
+				`Получены данные ${allInterlocutors.length} собеседников (${users.length} пользователей, ${psychologists.length} психологов)`,
 				this.CONTEXT
 			)
 
 			const usersMap = new Map<string, any>(
-				users.map((user: any) => [user.telegramId, user])
+				allInterlocutors.map((interlocutor: any) => [
+					interlocutor.telegramId,
+					interlocutor,
+				])
 			)
 
 			// Генерация URL-ов аватаров
 			const photoUrlMap = new Map<string, { key: string; url: string }>()
-			for (const u of users) {
-				const key = u.photos[0]?.key || ''
+			for (const interlocutor of allInterlocutors) {
+				const key = interlocutor.photos[0]?.key || ''
 				const url = key ? await this.storageService.getPresignedUrl(key) : ''
-				photoUrlMap.set(u.telegramId, { key, url })
+				photoUrlMap.set(interlocutor.telegramId, { key, url })
 			}
 
 			const readStatusResults = await Promise.all(
