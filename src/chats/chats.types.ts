@@ -66,6 +66,7 @@ export interface ChatPreview {
 	}
 	lastMsg: string
 	created_at: number
+	last_message_at: number
 	unread_count: number
 }
 

@@ -512,11 +512,27 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 					},
 					lastMsg: lastMessage?.text || '',
 					created_at: chat.created_at,
+					last_message_at: chat.last_message_at,
 					unread_count: unreadCount,
 				})
 			}
 
-			chatPreviews.sort((a, b) => b.created_at - a.created_at)
+			// Сортируем чаты: сначала по времени последнего сообщения, затем по времени создания
+			chatPreviews.sort((a, b) => {
+				// Если у обоих чатов есть сообщения, сортируем по last_message_at
+				if (a.last_message_at && b.last_message_at) {
+					return b.last_message_at - a.last_message_at
+				}
+				// Если у одного есть сообщения, а у другого нет - чат с сообщениями выше
+				if (a.last_message_at && !b.last_message_at) {
+					return -1
+				}
+				if (!a.last_message_at && b.last_message_at) {
+					return 1
+				}
+				// Если у обоих нет сообщений, сортируем по времени создания
+				return b.created_at - a.created_at
+			})
 
 			await this.redisService.setKey(
 				previewCacheKey,
