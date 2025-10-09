@@ -372,6 +372,7 @@ export class UserService {
 
 	async findByTelegramId(telegramId: string): Promise<ApiResponse<any>> {
 		try {
+			// Сначала ищем среди обычных пользователей
 			const user = await this.prisma.user.findUnique({
 				where: { telegramId },
 				include: {
@@ -385,26 +386,57 @@ export class UserService {
 				},
 			})
 
-			if (!user) {
-				return errorResponse('Пользователь не найден')
+			if (user) {
+				// Используем метод кеширования для получения URL фотографий
+				const [photoUrls, lineStatus, cityRes] = await Promise.all([
+					this.getPhotoUrlsWithIds(user.photos),
+					this.redisService.getKey(`user:${user.telegramId}:status`),
+					this.prisma.cityes.findUnique({ where: { value: user.town } }),
+				])
+
+				return successResponse(
+					{
+						...user,
+						photos: photoUrls,
+						isOnline: lineStatus.success ? lineStatus.data : lineStatus.success,
+						city: cityRes,
+						type: 'user',
+					},
+					'Пользователь найден'
+				)
 			}
 
-			// Используем метод кеширования для получения URL фотографий
-			const [photoUrls, lineStatus, cityRes] = await Promise.all([
-				this.getPhotoUrlsWithIds(user.photos),
-				this.redisService.getKey(`user:${user.telegramId}:status`),
-				this.prisma.cityes.findUnique({ where: { value: user.town } }),
-			])
-
-			return successResponse(
-				{
-					...user,
-					photos: photoUrls,
-					isOnline: lineStatus.success ? lineStatus.data : lineStatus.success,
-					city: cityRes,
+			// Если не найден среди пользователей, ищем среди психологов
+			const psychologist = await this.prisma.psychologist.findUnique({
+				where: { telegramId },
+				include: {
+					photos: {
+						select: {
+							id: true,
+							key: true,
+						},
+					},
 				},
-				'Пользователь найден'
-			)
+			})
+
+			if (psychologist) {
+				// Получаем URL фотографий для психолога
+				const photoUrls = await this.getPhotoUrlsWithIds(psychologist.photos)
+
+				return successResponse(
+					{
+						...psychologist,
+						photos: photoUrls,
+						isOnline: false, // У психологов нет статуса онлайн
+						city: null, // У психологов нет города
+						interest: null, // У психологов нет интересов
+						type: 'psychologist',
+					},
+					'Психолог найден'
+				)
+			}
+
+			return errorResponse('Пользователь не найден')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при поиске пользователя ${telegramId}`,

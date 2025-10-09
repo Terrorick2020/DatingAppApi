@@ -1,22 +1,20 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import {
+	errorResponse,
+	successResponse,
+} from '@/common/helpers/api.response.helper'
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
+import * as cron from 'node-cron'
+import { v4 } from 'uuid'
 import { PrismaService } from '~/prisma/prisma.service'
+import { ReadMessagesDto } from '../chats/dto/read-messages.dto'
+import { AppLogger } from '../common/logger/logger.service'
+import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
 import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
-import { AppLogger } from '../common/logger/logger.service'
-import { FindDto } from './dto/find.dto'
 import { CreateDto } from './dto/create.dto'
+import { FindDto } from './dto/find.dto'
 import { UpdateDto } from './dto/update.dto'
-import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
-import { v4 } from 'uuid'
-import {
-	successResponse,
-	errorResponse,
-} from '@/common/helpers/api.response.helper'
-import * as cron from 'node-cron'
-import { EReadIt, ELineStat } from './messages.type'
-import { ReadMessagesDto } from '../chats/dto/read-messages.dto'
-import { ConnectionDto } from '../common/abstract/micro/dto/connection.dto'
-import { ConnectionStatus } from '../common/abstract/micro/micro.type'
+import { EReadIt } from './messages.type'
 
 @Injectable()
 export class MessegesService implements OnModuleInit, OnModuleDestroy {
@@ -194,13 +192,19 @@ export class MessegesService implements OnModuleInit, OnModuleDestroy {
 				return errorResponse('Вы не являетесь участником этого чата')
 			}
 
-			// Проверяем, не заблокирован ли пользователь
-			const sender = await this.prisma.user.findUnique({
-				where: { telegramId: fromUser, status: { not: 'Blocked' } },
-				select: { telegramId: true },
-			})
+			// Проверяем, не заблокирован ли пользователь или психолог
+			const [userSender, psychologistSender] = await Promise.all([
+				this.prisma.user.findUnique({
+					where: { telegramId: fromUser, status: { not: 'Blocked' } },
+					select: { telegramId: true },
+				}),
+				this.prisma.psychologist.findUnique({
+					where: { telegramId: fromUser, status: 'Active' },
+					select: { telegramId: true },
+				}),
+			])
 
-			if (!sender) {
+			if (!userSender && !psychologistSender) {
 				this.logger.warn(
 					`Отправитель ${fromUser} не найден или заблокирован`,
 					this.CONTEXT

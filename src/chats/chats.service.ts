@@ -723,12 +723,17 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				return errorResponse('Вы не являетесь участником этого чата')
 			}
 
-			// Проверяем, не заблокирован ли пользователь
-			const sender = await this.prismaService.user.findUnique({
-				where: { telegramId: fromUser, status: { not: 'Blocked' } },
-			})
+			// Проверяем, не заблокирован ли пользователь или психолог
+			const [userSender, psychologistSender] = await Promise.all([
+				this.prismaService.user.findUnique({
+					where: { telegramId: fromUser, status: { not: 'Blocked' } },
+				}),
+				this.prismaService.psychologist.findUnique({
+					where: { telegramId: fromUser, status: 'Active' },
+				}),
+			])
 
-			if (!sender) {
+			if (!userSender && !psychologistSender) {
 				this.logger.warn(
 					`Отправитель ${fromUser} не найден или заблокирован`,
 					this.CONTEXT
@@ -1179,12 +1184,17 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				return errorResponse('Вы не являетесь участником этого чата')
 			}
 
-			// Проверяем, не заблокирован ли пользователь
-			const sender = await this.prismaService.user.findUnique({
-				where: { telegramId: fromUser, status: { not: 'Blocked' } },
-			})
+			// Проверяем, не заблокирован ли пользователь или психолог
+			const [userSender, psychologistSender] = await Promise.all([
+				this.prismaService.user.findUnique({
+					where: { telegramId: fromUser, status: { not: 'Blocked' } },
+				}),
+				this.prismaService.psychologist.findUnique({
+					where: { telegramId: fromUser, status: 'Active' },
+				}),
+			])
 
-			if (!sender) {
+			if (!userSender && !psychologistSender) {
 				this.logger.warn(
 					`Отправитель ${fromUser} не найден или заблокирован`,
 					this.CONTEXT
