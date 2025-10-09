@@ -132,8 +132,7 @@ export class PsychologistController {
 	}
 
 	@ApiOperation({
-		summary:
-			'Получение списка доступных психологов (исключая существующие чаты)',
+		summary: 'Получение списка доступных психологов',
 	})
 	@ApiResponse({
 		status: 200,

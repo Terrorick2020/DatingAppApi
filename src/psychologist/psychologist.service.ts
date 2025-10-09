@@ -513,7 +513,7 @@ export class PsychologistService {
 	}
 
 	/**
-	 * Получение списка психологов, исключая тех, с которыми уже есть чат
+	 * Получение списка доступных психологов
 	 */
 	async findAllExcludingExistingChats(
 		dto: FindPsychologistsDto & { userTelegramId: string }
@@ -522,71 +522,13 @@ export class PsychologistService {
 			const { search = '', limit = 10, offset = 0, userTelegramId } = dto
 
 			this.logger.debug(
-				`Поиск психологов (исключая существующие чаты): search="${search}", limit=${limit}, offset=${offset}, userTelegramId=${userTelegramId}`,
+				`Поиск доступных психологов: search="${search}", limit=${limit}, offset=${offset}, userTelegramId=${userTelegramId}`,
 				this.CONTEXT
 			)
 
-			// Получаем ID психологов, с которыми уже есть чат из Redis
-			const userChatsKey = `user:${userTelegramId}:chats`
-			const userChatsResponse = await this.redisService.getKey(userChatsKey)
-
-			const existingPsychologistIds: string[] = []
-
-			if (userChatsResponse.success && userChatsResponse.data) {
-				try {
-					const chatIds: string[] = JSON.parse(userChatsResponse.data)
-
-					// Проверяем каждый чат на наличие психолога
-					for (const chatId of chatIds) {
-						const chatDataResponse = await this.redisService.getKey(
-							`chat:${chatId}`
-						)
-
-						if (chatDataResponse.success && chatDataResponse.data) {
-							try {
-								const chatData = JSON.parse(chatDataResponse.data)
-
-								// Проверяем, есть ли среди участников психолог
-								for (const participant of chatData.participants || []) {
-									// Проверяем, является ли участник психологом
-									const isPsychologist =
-										await this.prisma.psychologist.findUnique({
-											where: { telegramId: participant },
-											select: { telegramId: true },
-										})
-
-									if (isPsychologist) {
-										existingPsychologistIds.push(participant)
-									}
-								}
-							} catch (parseError) {
-								this.logger.warn(
-									`Ошибка при парсинге данных чата ${chatId}`,
-									this.CONTEXT,
-									{ error: parseError }
-								)
-							}
-						}
-					}
-				} catch (parseError) {
-					this.logger.warn(
-						`Ошибка при парсинге списка чатов пользователя ${userTelegramId}`,
-						this.CONTEXT,
-						{ error: parseError }
-					)
-				}
-			}
-
-			this.logger.debug(
-				`Найдено существующих чатов с психологами: ${existingPsychologistIds.length}`,
-				this.CONTEXT
-			)
-
+			// Психологи доступны всем пользователям, исключений нет
 			const where: any = {
 				status: 'Active',
-				telegramId: {
-					notIn: existingPsychologistIds,
-				},
 			}
 
 			if (search) {
