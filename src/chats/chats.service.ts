@@ -303,14 +303,23 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				return successResponse([], 'У пользователя нет чатов')
 			}
 
-			const user = await this.prismaService.user.findUnique({
-				where: {
-					telegramId,
-					status: { not: 'Blocked' },
-				},
-			})
+			// Проверяем, является ли запрашивающий пользователем или психологом
+			const [user, psychologist] = await Promise.all([
+				this.prismaService.user.findUnique({
+					where: {
+						telegramId,
+						status: { not: 'Blocked' },
+					},
+				}),
+				this.prismaService.psychologist.findUnique({
+					where: {
+						telegramId,
+						status: 'Active',
+					},
+				}),
+			])
 
-			if (!user) {
+			if (!user && !psychologist) {
 				this.logger.warn(
 					`Пользователь ${telegramId} не найден или заблокирован`,
 					this.CONTEXT
