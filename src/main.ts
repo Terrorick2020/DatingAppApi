@@ -6,6 +6,8 @@ import { AppModule } from './app/app.module'
 import { AllExceptionsFilter } from './common/filters/http-exception.filter'
 import { LoggingInterceptor } from './common/interceptor/all-logging.interceptor'
 import { AppLogger } from './common/logger/logger.service'
+import { SmartCaptchaMiddleware } from './common/middleware/smart-captcha.middleware'
+import { SmartCaptchaService } from './common/services/smart-captcha.service'
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule)
@@ -43,6 +45,45 @@ async function bootstrap() {
 
 	const appLogger = app.get(AppLogger)
 	const prisma = app.get(PrismaService)
+	const smartCaptchaService = app.get(SmartCaptchaService)
+
+	// Smart Captcha middleware для защищенных эндпоинтов
+	app.use(
+		'/auth/register',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+	app.use(
+		'/auth/login',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+	app.use(
+		'/user',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+	app.use(
+		'/user/:id',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+	app.use(
+		'/psychologists',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+	app.use(
+		'/psychologists/:id',
+		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
 
 	// Глобальная валидация
 	app.useGlobalPipes(

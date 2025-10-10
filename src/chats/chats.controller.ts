@@ -156,6 +156,7 @@ export class ChatsController {
 	deleteByUser(
 		@Param('chatId') chatId: string,
 		@Body() deleteChatDto: DeleteChatDto
+			
 	) {
 		this.logger.debug(
 			`Запрос на удаление чата ${chatId} пользователем ${deleteChatDto.deletedByUserId}`,

@@ -7,6 +7,7 @@ import { BillingModule } from '../billing/billing.module'
 import { ChatsModule } from '../chats/chats.module'
 import { LoggerModule } from '../common/logger/logger.module'
 import { AppLogger } from '../common/logger/logger.service'
+import { SmartCaptchaModule } from '../common/modules/smart-captcha.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { ComplaintModule } from '../complaint/complaint.module'
 import { CoreModule } from '../core/core.module'
@@ -35,6 +36,7 @@ import smartCaptchaConfig from '../config/smart-captcha.config'
 		}),
 		CoreModule,
 		LoggerModule,
+		SmartCaptchaModule,
 		ChatsModule,
 		MessagesModule,
 		AuthModule,
