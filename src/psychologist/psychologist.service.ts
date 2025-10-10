@@ -335,7 +335,10 @@ export class PsychologistService {
 					)
 
 					const photos = await tx.psychologistPhoto.findMany({
-						where: { id: { in: photoIds } },
+						where: {
+							id: { in: photoIds },
+							tempTgId: dto.telegramId,
+						},
 					})
 
 					this.logger.debug(
