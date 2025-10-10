@@ -17,7 +17,8 @@ export class SmartCaptchaService {
 		private readonly configService: ConfigService,
 		private readonly logger: AppLogger
 	) {
-		this.serverKey = this.configService.get<string>('SMARTCAPTCHA_SERVER_KEY')
+		this.serverKey =
+			this.configService.get<string>('SMARTCAPTCHA_SERVER_KEY') || ''
 
 		if (!this.serverKey) {
 			this.logger.warn(

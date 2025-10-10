@@ -69,18 +69,18 @@ export class SmartCaptchaMiddleware implements NestMiddleware {
 			)
 
 			// Добавляем информацию о валидации в запрос для возможного использования
-			req['captchaValidated'] = true
-			req['captchaHost'] = validationResult.host
+			;(req as any).captchaValidated = true
+			;(req as any).captchaHost = validationResult.host
 
 			next()
-		} catch (error) {
+		} catch (error: any) {
 			if (error instanceof HttpException) {
 				throw error
 			}
 
 			this.logger.error(
-				`Ошибка в SmartCaptchaMiddleware: ${error.message}`,
-				error.stack,
+				`Ошибка в SmartCaptchaMiddleware: ${error?.message || 'Unknown error'}`,
+				error?.stack,
 				this.CONTEXT
 			)
 
