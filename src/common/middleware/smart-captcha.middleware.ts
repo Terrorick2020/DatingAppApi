@@ -19,6 +19,42 @@ export class SmartCaptchaMiddleware implements NestMiddleware {
 
 	async use(req: Request, res: Response, next: NextFunction) {
 		try {
+			// Исключаем определенные пути из проверки
+			const excludedPaths = [
+				// Psychologists
+				'/psychologists/generate-invite-link',
+				'/psychologists/check-invite-link',
+				'/psychologists/available',
+				// Auth
+				'/auth/login',
+				'/auth/check',
+				'/auth/refresh',
+				// User
+				'/user/me',
+				'/user/profile',
+				'/user/photo',
+				'/user/delete-photo',
+				'/user/block',
+				'/user/unblock',
+				'/user/report',
+				'/user/like',
+				'/user/dislike',
+				'/user/superlike',
+				'/user/matches',
+				'/user/nearby',
+				'/user/search',
+				'/user/online',
+				'/user/offline',
+			]
+
+			if (excludedPaths.includes(req.path)) {
+				this.logger.debug(
+					`Запрос ${req.method} ${req.path} в списке исключений - пропускаем`,
+					this.CONTEXT
+				)
+				return next()
+			}
+
 			// Проверяем наличие заголовка X-Captcha-Token
 			const captchaToken = req.headers['x-captcha-token'] as string
 

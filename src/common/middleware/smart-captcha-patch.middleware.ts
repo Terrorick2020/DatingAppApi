@@ -19,6 +19,33 @@ export class SmartCaptchaPatchMiddleware implements NestMiddleware {
 
 	async use(req: Request, res: Response, next: NextFunction) {
 		try {
+			// Исключаем определенные пути из проверки
+			const excludedPaths = [
+				'/user/me',
+				'/user/profile',
+				'/user/photo',
+				'/user/delete-photo',
+				'/user/block',
+				'/user/unblock',
+				'/user/report',
+				'/user/like',
+				'/user/dislike',
+				'/user/superlike',
+				'/user/matches',
+				'/user/nearby',
+				'/user/search',
+				'/user/online',
+				'/user/offline',
+			]
+
+			if (excludedPaths.includes(req.path)) {
+				this.logger.debug(
+					`Запрос ${req.method} ${req.path} в списке исключений - пропускаем`,
+					this.CONTEXT
+				)
+				return next()
+			}
+
 			// Проверяем только PATCH запросы
 			if (req.method !== 'PATCH') {
 				this.logger.debug(
