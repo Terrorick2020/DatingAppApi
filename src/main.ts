@@ -6,6 +6,7 @@ import { AppModule } from './app/app.module'
 import { AllExceptionsFilter } from './common/filters/http-exception.filter'
 import { LoggingInterceptor } from './common/interceptor/all-logging.interceptor'
 import { AppLogger } from './common/logger/logger.service'
+import { SmartCaptchaPatchMiddleware } from './common/middleware/smart-captcha-patch.middleware'
 import { SmartCaptchaMiddleware } from './common/middleware/smart-captcha.middleware'
 import { SmartCaptchaService } from './common/services/smart-captcha.service'
 
@@ -47,27 +48,9 @@ async function bootstrap() {
 	const prisma = app.get(PrismaService)
 	const smartCaptchaService = app.get(SmartCaptchaService)
 
-	// Smart Captcha middleware для защищенных эндпоинтов
+	// Smart Captcha middleware для всех запросов (кроме /user/:id)
 	app.use(
 		'/auth/register',
-		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
-			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
-		)
-	)
-	app.use(
-		'/auth/login',
-		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
-			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
-		)
-	)
-	app.use(
-		'/user',
-		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
-			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
-		)
-	)
-	app.use(
-		'/user/:id',
 		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
 			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
 		)
@@ -82,6 +65,14 @@ async function bootstrap() {
 		'/psychologists/:id',
 		new SmartCaptchaMiddleware(smartCaptchaService, appLogger).use.bind(
 			new SmartCaptchaMiddleware(smartCaptchaService, appLogger)
+		)
+	)
+
+	// Smart Captcha middleware только для PATCH запросов на /user/:id
+	app.use(
+		'/user/:id',
+		new SmartCaptchaPatchMiddleware(smartCaptchaService, appLogger).use.bind(
+			new SmartCaptchaPatchMiddleware(smartCaptchaService, appLogger)
 		)
 	)
 
