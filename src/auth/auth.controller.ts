@@ -17,7 +17,6 @@ import {
 } from '@nestjs/swagger'
 import { RequireSmartCaptcha } from '../common/decorators/smart-captcha.decorator'
 import { RegistrationRateLimitGuard } from '../common/guards/rate-limit.guard'
-import { SmartCaptchaGuard } from '../common/guards/smart-captcha.guard'
 import { multerOptions } from '../config/multer.config'
 import { StorageService } from '../storage/storage.service'
 import { AuthService } from './auth.service'
@@ -97,7 +96,7 @@ export class AuthController {
 	})
 	@ApiBody({ type: CreateAuthDto })
 	@RequireSmartCaptcha()
-	@UseGuards(SmartCaptchaGuard, RegistrationRateLimitGuard)
+	@UseGuards(RegistrationRateLimitGuard)
 	@Post('register')
 	register(@Body() createAuthDto: CreateAuthDto) {
 		return this.authService.register(createAuthDto)
