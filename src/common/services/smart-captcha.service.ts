@@ -17,12 +17,17 @@ export class SmartCaptchaService {
 		private readonly configService: ConfigService,
 		private readonly logger: AppLogger
 	) {
-		this.serverKey =
-			this.configService.get<string>('SMARTCAPTCHA_SERVER_KEY') || ''
+		// Получаем ключ напрямую из переменных окружения
+		this.serverKey = process.env.SMARTCAPTCHA_SERVER_KEY || ''
 
 		if (!this.serverKey) {
 			this.logger.warn(
 				'SMARTCAPTCHA_SERVER_KEY не найден в переменных окружения',
+				this.CONTEXT
+			)
+		} else {
+			this.logger.debug(
+				'SMARTCAPTCHA_SERVER_KEY успешно загружен',
 				this.CONTEXT
 			)
 		}
