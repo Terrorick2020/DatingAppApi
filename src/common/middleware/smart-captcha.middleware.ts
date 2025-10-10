@@ -21,10 +21,13 @@ export class SmartCaptchaMiddleware implements NestMiddleware {
 		try {
 			// Исключаем определенные пути из проверки
 			const excludedPaths = [
-				// Psychologists
+				// Psychologists (проверяем как полный путь, так и обрезанный)
 				'/psychologists/generate-invite-link',
 				'/psychologists/check-invite-link',
 				'/psychologists/available',
+				'/generate-invite-link',
+				'/check-invite-link',
+				'/available',
 				// Auth
 				'/auth/login',
 				'/auth/check',
