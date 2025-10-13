@@ -13,37 +13,6 @@ import { SmartCaptchaService } from './common/services/smart-captcha.service'
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule)
 
-	// app.enableCors({
-	// 	// origin: (
-	// 	// 	origin: string | undefined,
-	// 	// 	callback: (err: Error | null, allow?: boolean) => void
-	// 	// ) => {
-	// 	// 	const allowedOrigins = ['http://localhost:4177', 'https://vmestedate.ru']
-	// 	// 	if (!origin || allowedOrigins.includes(origin)) {
-	// 	// 		callback(null, true)
-	// 	// 	} else {
-	// 	// 		callback(new Error('Not allowed by CORS'))
-	// 	// 	}
-	// 	// },
-	// 	origin: '*',
-	// 	credentials: true,
-	// 	methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-	// 	allowedHeaders: [
-	// 		'Content-Type',
-	// 		'Accept',
-	// 		'Origin',
-	// 		'X-Requested-With',
-	// 		'Authorization',
-	// 		'X-Spectre-Telegram-Id',
-	// 	],
-	// 	preflightContinue: false,
-	// 	optionsSuccessStatus: 204,
-	// })
-
-	// app.enableCors({
-	// 	origin: '*',
-	// })
-
 	const appLogger = app.get(AppLogger)
 	const prisma = app.get(PrismaService)
 	const smartCaptchaService = app.get(SmartCaptchaService)
