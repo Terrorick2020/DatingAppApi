@@ -130,6 +130,25 @@ export class VideoController {
 	}
 
 	/**
+	 * Поиск видео 
+	 */
+	@Get('short-videos/search')
+	async searchShortVideos(@Query() dto: GetShortVideosDto) {
+		this.logger.debug(
+			`Запрос на поиск коротких видео по запросу: ${dto.search}`,
+			this.CONTEXT,
+			{ limit: dto.limit, offset: dto.offset }
+		)
+
+		return this.videoService.searchShortVideos(
+			dto.search || '',
+			dto.limit,
+			dto.offset,
+			dto.telegramId
+		)
+	}
+
+	/**
 	 * Лайк/дизлайк короткого видео
 	 */
 	@Post('short-videos/:videoId/like')

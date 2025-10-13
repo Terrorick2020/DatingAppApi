@@ -167,7 +167,7 @@ export class PsychologistController {
 	@Post('find')
 	findBySelector(
 		@Body() findPsychologistBySelectorDto: FindPsychologistBySelectorDto
-	) {
+	) { 
 		this.logger.debug(
 			`Запрос на поиск психолога по селектору: ${findPsychologistBySelectorDto.selector}`,
 			'PsychologistController'

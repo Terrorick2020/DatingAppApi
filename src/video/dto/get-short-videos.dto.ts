@@ -17,4 +17,8 @@ export class GetShortVideosDto {
 	@IsInt()
 	@Min(0)
 	offset?: number = 0
+
+	@IsOptional()
+	@IsString()
+	search?: string
 }

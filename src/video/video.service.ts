@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '~/prisma/prisma.service'
 import {
 	errorResponse,
@@ -678,6 +679,124 @@ export class VideoService {
 				{ telegramId, limit, offset, error }
 			)
 			return errorResponse('Ошибка при получении ленты коротких видео', error)
+		}
+	}
+
+	/**
+	 * Поиск видео 
+	 */
+	async searchShortVideos(
+		search: string,
+		limit: number = 10,
+		offset: number = 0,
+		viewerTelegramId?: string
+	): Promise<{
+		success: boolean
+		data?: VideoListResponse
+		message?: string
+	}> {
+		try {
+			this.logger.debug(
+				`Поиск коротких видео по запросу: ${search}`,
+				this.CONTEXT,
+				{ limit, offset }
+			)
+
+			const where: Prisma.VideoWhereInput = {
+				isPublished: true,
+				OR: [
+					{ title: { contains: search, mode: 'insensitive' } },
+					{ psychologist: { name: { contains: search, mode: 'insensitive' } } },
+				],
+			}
+
+			const videos = await this.prisma.video.findMany({
+				where,
+				include: {
+					psychologist: {
+						select: {
+							id: true,
+							telegramId: true,
+							name: true,
+							about: true,
+							photos: {
+								select: { key: true },
+								take: 1,
+								orderBy: { createdAt: 'asc' },
+							},
+						},
+					},
+					likes: viewerTelegramId
+						? { where: { userId: viewerTelegramId }, select: { id: true } }
+						: false,
+					views: viewerTelegramId
+						? { where: { userId: viewerTelegramId }, select: { id: true } }
+						: false,
+				},
+				orderBy: { createdAt: 'desc' },
+				take: limit,
+				skip: offset,
+			})
+
+			const total = await this.prisma.video.count({ where })
+
+			const videosWithUrls = await Promise.all(
+				videos.map(async video => {
+					const url = await this.getVideoUrl(video.key)
+
+					let previewUrl = null
+					if (video.previewKey) {
+						previewUrl = await this.getPreviewUrl(video.previewKey)
+					}
+
+					let psychologistPhotoUrl = null
+					if (
+						video.psychologist.photos &&
+						video.psychologist.photos.length > 0
+					) {
+						psychologistPhotoUrl = await this.getPhotoUrl(
+							video.psychologist.photos[0].key
+						)
+					}
+
+					const isLiked = Array.isArray((video as any).likes)
+						? (video as any).likes.length > 0
+						: undefined
+					const isView = Array.isArray((video as any).views)
+						? (video as any).views.length > 0
+						: undefined
+
+					return {
+						...video,
+						url,
+						previewUrl,
+						psychologist: {
+							id: video.psychologist.telegramId,
+							name: video.psychologist.name,
+							about: video.psychologist.about,
+							photoUrl: psychologistPhotoUrl,
+						},
+						likes: undefined,
+						views: undefined,
+						previewKey: undefined,
+						isLiked,
+						isView,
+					}
+				})
+			)
+
+			return successResponse(
+				{ videos: videosWithUrls, total },
+				'Результаты поиска получены'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при поиске коротких видео по запросу: ${search}`,
+				error?.stack,
+				this.CONTEXT,
+				{ search, limit, offset, error }
+			)
+			return errorResponse('Ошибка при поиске коротких видео', error)
 		}
 	}
 
