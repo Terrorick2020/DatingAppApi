@@ -60,28 +60,6 @@ async function bootstrap() {
 	app.useGlobalInterceptors(new LoggingInterceptor(appLogger))
 	app.useGlobalFilters(new AllExceptionsFilter(appLogger))
 
-	// TCP микросервис
-	// const tcpPort = parseInt(process.env.TCP_PORT || '7755')
-	// const tcpHost = process.env.TCP_HOST || '0.0.0.0'
-
-	// app.connectMicroservice<MicroserviceOptions>({
-	// 	transport: Transport.TCP,
-	// 	options: {
-	// 		host: tcpHost,
-	// 		port: tcpPort,
-	// 		retryAttempts: 5,
-	// 		retryDelay: 1000,
-	// 	},
-	// })
-
-	// await app.startAllMicroservices()
-	// appLogger.log(`TCP микросервис запущен на ${tcpHost}:${tcpPort}`, 'Bootstrap')
-
-	// // WebSocket адаптер
-	// const configService = app.get(ConfigService)
-	// const websocketAdapter = new WebsocketAdapter(app, configService)
-	// app.useWebSocketAdapter(websocketAdapter)
-
 	// Swagger
 	const config = new DocumentBuilder()
 		.setTitle('Dating MiniApp API')

@@ -191,7 +191,7 @@ export class PsychologistController {
 		)
 		return this.psychologistService.update(telegramId, updatePsychologistDto)
 	}
-
+ 
 	@ApiOperation({ summary: 'Проверка регистрации психолога' })
 	@ApiResponse({ status: 200, description: 'Психолог найден' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })

@@ -1,5 +1,5 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsEnum, IsOptional, IsString } from 'class-validator'
 import { ComplaintType } from '../complaint.types'
 
 export class CreateComplaintDto {
@@ -10,12 +10,14 @@ export class CreateComplaintDto {
 	@IsString()
 	fromUserId!: string
 
-	@ApiProperty({
-		description: 'ID пользователя, на которого жалуются',
+	@ApiPropertyOptional({
+		description:
+			'ID пользователя, на которого жалуются (необязательно для support)',
 		example: '987654321',
 	})
 	@IsString()
-	reportedUserId!: string
+	@IsOptional()
+	reportedUserId?: string
 
 	@ApiProperty({
 		description: 'Тип жалобы',
@@ -26,8 +28,8 @@ export class CreateComplaintDto {
 	type!: ComplaintType
 
 	@ApiProperty({
-		description: 'Описание жалобы',
-		example: 'Этот пользователь отправил мне оскорбительные сообщения',
+		description: 'Описание жалобы/вопрос саппорту',
+		example: 'У меня не открывается страница оплаты',
 	})
 	@IsString()
 	description!: string
