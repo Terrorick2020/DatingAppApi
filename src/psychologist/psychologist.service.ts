@@ -1051,9 +1051,9 @@ export class PsychologistService {
 
 			// Проверяем валидность кода приглашения
 			const validationResult = await this.validateInviteCode(dto.code)
-			if (!validationResult.success || !validationResult.data.isValid) {
+			if (!validationResult.success || !validationResult.data?.isValid) {
 				return errorResponse(
-					validationResult.data.message || 'Код приглашения недействителен'
+					validationResult.data?.message || 'Код приглашения недействителен'
 				)
 			}
 
@@ -1082,7 +1082,9 @@ export class PsychologistService {
 					name: dto.name,
 					about: dto.about,
 					status: 'Active',
-					inviteId: invite.id,
+				},
+				include: {
+					photos: true,
 				},
 			})
 
@@ -1100,7 +1102,25 @@ export class PsychologistService {
 				this.CONTEXT
 			)
 
-			return successResponse(psychologist, 'Психолог успешно зарегистрирован')
+			// Преобразуем в правильный формат
+			const psychologistResponse: Psychologist = {
+				id: psychologist.id,
+				telegramId: psychologist.telegramId,
+				name: psychologist.name,
+				about: psychologist.about,
+				status: psychologist.status,
+				createdAt: psychologist.createdAt,
+				updatedAt: psychologist.updatedAt,
+				photos: psychologist.photos.map(photo => ({
+					id: photo.id,
+					url: photo.url,
+				})),
+			}
+
+			return successResponse(
+				psychologistResponse,
+				'Психолог успешно зарегистрирован'
+			)
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при регистрации психолога по коду`,
