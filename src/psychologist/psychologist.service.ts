@@ -1113,7 +1113,7 @@ export class PsychologistService {
 				updatedAt: psychologist.updatedAt,
 				photos: psychologist.photos.map(photo => ({
 					id: photo.id,
-					url: photo.url,
+					url: photo.key, // Используем key как URL
 				})),
 			}
 
