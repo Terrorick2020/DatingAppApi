@@ -24,6 +24,7 @@ export class UserController {
 
 	@Get()
 	async findAll(@Query() queryParams: FindAllUsersDto) {
+
 		return this.userService.findAll(queryParams)
 	}
 

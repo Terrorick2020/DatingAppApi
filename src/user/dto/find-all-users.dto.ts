@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsOptional, IsInt, Min, Max, IsEnum, IsString } from 'class-validator'
 import { Type } from 'class-transformer'
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
 
 export enum UserSortBy {
 	CREATED_AT = 'createdAt',
@@ -9,6 +9,14 @@ export enum UserSortBy {
 }
 
 export class FindAllUsersDto {
+	@ApiProperty({
+		description: 'ID текущего пользователя',
+		example: '123456789',
+		required: true,
+	})
+	@IsString()
+	telegramId!: string
+
 	@ApiProperty({
 		description: 'Номер страницы',
 		example: 1,
@@ -112,5 +120,4 @@ export class FindAllUsersDto {
 	@Type(() => Number)
 	@IsInt()
 	interestId?: number
-
 }

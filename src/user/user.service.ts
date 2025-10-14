@@ -122,6 +122,7 @@ export class UserService {
 	async findAll(params: FindAllUsersDto) {
 		try {
 			const {
+				telegramId,
 				page = 1,
 				limit = 10,
 				sortBy = 'createdAt',
@@ -183,6 +184,12 @@ export class UserService {
 
 			if (interestId) {
 				where.interestId = interestId
+			}
+
+			// Исключаем текущего пользователя из результатов
+			const userIdToExclude = telegramId
+			if (userIdToExclude) {
+				where.telegramId = { not: userIdToExclude }
 			}
 
 			// Получаем общее количество записей для метаданных пагинации
