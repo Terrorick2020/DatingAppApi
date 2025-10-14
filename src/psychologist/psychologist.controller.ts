@@ -29,6 +29,7 @@ import { DeletePsychologistPhotoDto } from './dto/delete-photo.dto'
 import { DeletePsychologistDto } from './dto/delete-psychologist.dto'
 import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
+import { RegisterByInviteDto } from './dto/register-by-invite.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import { UploadPhotoRequestDto } from './dto/upload-photo-request.dto'
 import { PsychologistService } from './psychologist.service'
@@ -167,7 +168,7 @@ export class PsychologistController {
 	@Post('find')
 	findBySelector(
 		@Body() findPsychologistBySelectorDto: FindPsychologistBySelectorDto
-	) { 
+	) {
 		this.logger.debug(
 			`Запрос на поиск психолога по селектору: ${findPsychologistBySelectorDto.selector}`,
 			'PsychologistController'
@@ -191,7 +192,7 @@ export class PsychologistController {
 		)
 		return this.psychologistService.update(telegramId, updatePsychologistDto)
 	}
- 
+
 	@ApiOperation({ summary: 'Проверка регистрации психолога' })
 	@ApiResponse({ status: 200, description: 'Психолог найден' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })
@@ -241,5 +242,20 @@ export class PsychologistController {
 			'PsychologistController'
 		)
 		return this.psychologistService.validateInviteCode(body.code)
+	}
+
+	@ApiOperation({ summary: 'Регистрация психолога по коду приглашения' })
+	@ApiResponse({
+		status: 201,
+		description: 'Психолог успешно зарегистрирован по приглашению',
+	})
+	@ApiResponse({ status: 400, description: 'Неверный код приглашения' })
+	@Post('register-by-invite')
+	registerByInvite(@Body() registerByInviteDto: RegisterByInviteDto) {
+		this.logger.debug(
+			`Запрос на регистрацию психолога по коду: ${registerByInviteDto.code}`,
+			'PsychologistController'
+		)
+		return this.psychologistService.registerByInvite(registerByInviteDto)
 	}
 }

@@ -15,6 +15,7 @@ import { CreatePsychologistDto } from './dto/create-psychologist.dto'
 import { DeletePsychologistDto } from './dto/delete-psychologist.dto'
 import { FindPsychologistBySelectorDto } from './dto/find-psychologist-by-selector.dto'
 import { FindPsychologistsDto } from './dto/find-psychologists.dto'
+import { RegisterByInviteDto } from './dto/register-by-invite.dto'
 import { UpdatePsychologistDto } from './dto/update-psychologist.dto'
 import type {
 	CreatePsychologistResponse,
@@ -960,11 +961,10 @@ export class PsychologistService {
 				},
 			})
 
-			// Формируем ссылку на бота
+			// Формируем полную ссылку на бота
 			const botUsername =
 				this.configService.get<string>('BOT_USERNAME') || 'your_bot'
-			// const inviteUrl = `https://t.me/${botUsername}?start=psychologist_${code}`
-			const inviteUrl = code
+			const inviteUrl = `https://t.me/${botUsername}?start=psychologist_${code}`
 
 			this.logger.debug(
 				`Ссылка для психолога ${code} успешно создана`,
@@ -1034,6 +1034,81 @@ export class PsychologistService {
 				{ code, error }
 			)
 			return errorResponse('Ошибка при проверке кода', error)
+		}
+	}
+
+	/**
+	 * Регистрация психолога по коду приглашения
+	 */
+	async registerByInvite(
+		dto: RegisterByInviteDto
+	): Promise<ApiResponse<Psychologist>> {
+		try {
+			this.logger.debug(
+				`Регистрация психолога по коду: ${dto.code}`,
+				this.CONTEXT
+			)
+
+			// Проверяем валидность кода приглашения
+			const validationResult = await this.validateInviteCode(dto.code)
+			if (!validationResult.success || !validationResult.data.isValid) {
+				return errorResponse(
+					validationResult.data.message || 'Код приглашения недействителен'
+				)
+			}
+
+			// Проверяем, что психолог с таким telegramId еще не существует
+			const existingPsychologist = await this.prisma.psychologist.findUnique({
+				where: { telegramId: dto.telegramId },
+			})
+
+			if (existingPsychologist) {
+				return errorResponse('Психолог с таким Telegram ID уже существует')
+			}
+
+			// Находим приглашение
+			const invite = await this.prisma.psychologistInvite.findUnique({
+				where: { code: dto.code },
+			})
+
+			if (!invite) {
+				return errorResponse('Код приглашения не найден')
+			}
+
+			// Создаем психолога
+			const psychologist = await this.prisma.psychologist.create({
+				data: {
+					telegramId: dto.telegramId,
+					name: dto.name,
+					about: dto.about,
+					status: 'Active',
+					inviteId: invite.id,
+				},
+			})
+
+			// Обновляем счетчик использований приглашения
+			await this.prisma.psychologistInvite.update({
+				where: { id: invite.id },
+				data: {
+					usedCount: invite.usedCount + 1,
+					usedByTelegramId: dto.telegramId,
+				},
+			})
+
+			this.logger.debug(
+				`Психолог ${dto.telegramId} успешно зарегистрирован по коду ${dto.code}`,
+				this.CONTEXT
+			)
+
+			return successResponse(psychologist, 'Психолог успешно зарегистрирован')
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при регистрации психолога по коду`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto, error }
+			)
+			return errorResponse('Ошибка при регистрации психолога', error)
 		}
 	}
 
