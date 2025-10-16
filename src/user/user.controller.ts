@@ -24,7 +24,6 @@ export class UserController {
 
 	@Get()
 	async findAll(@Query() queryParams: FindAllUsersDto) {
-
 		return this.userService.findAll(queryParams)
 	}
 
@@ -77,6 +76,17 @@ export class UserController {
 			telegramId,
 			reason: 'Самоудаление пользователя',
 		})
+	}
+
+	@Delete('test-delete/:telegramId')
+	async testDelete(@Param('telegramId') telegramId: string) {
+		try {
+			// Простое удаление без сложной логики
+			await this.userService.remove(telegramId)
+			return { success: true, message: 'Пользователь удален' }
+		} catch (error: any) {
+			return { success: false, error: error.message }
+		}
 	}
 
 	@Get(':telegramId')
