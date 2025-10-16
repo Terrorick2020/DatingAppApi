@@ -88,7 +88,7 @@ model UserPlan {
   regionId           Int
   regionnDescription String
 
-  user   User    @relation(fields: [userId], references: [telegramId])
+  user   User    @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
   plan   Plans   @relation(fields: [planId], references: [id])
   region Regions @relation(fields: [regionId], references: [id])
 }

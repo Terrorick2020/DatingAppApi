@@ -717,8 +717,6 @@ export class UserService {
 				}
 
 				// 4. Удаляем пользователя из базы данных
-				// Cascading delete автоматически удалит связанные записи:
-				// - photos, likes, complaints благодаря onDelete: Cascade
 				await tx.user.delete({
 					where: { telegramId: dto.telegramId },
 				})

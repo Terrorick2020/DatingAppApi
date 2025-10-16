@@ -81,7 +81,6 @@ export class UserController {
 	@Delete('test-delete/:telegramId')
 	async testDelete(@Param('telegramId') telegramId: string) {
 		try {
-			// Простое удаление без сложной логики
 			await this.userService.remove(telegramId)
 			return { success: true, message: 'Пользователь удален' }
 		} catch (error: any) {
