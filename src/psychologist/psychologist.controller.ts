@@ -208,7 +208,7 @@ export class PsychologistController {
 	@ApiOperation({ summary: 'Удаление психолога' })
 	@ApiResponse({ status: 200, description: 'Психолог удален' })
 	@ApiResponse({ status: 404, description: 'Психолог не найден' })
-	@ApiBearerAuth()
+	// @ApiBearerAuth()
 	@Delete()
 	delete(@Body() deletePsychologistDto: DeletePsychologistDto) {
 		this.logger.debug(

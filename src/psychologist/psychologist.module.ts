@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from '~/prisma/prisma.module'
+import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { RedisModule } from '../redis/redis.module'
 import { StorageService } from '../storage/storage.service'
 import { PsychologistController } from './psychologist.controller'
 import { PsychologistService } from './psychologist.service'
 
 @Module({
-	imports: [PrismaModule, RedisModule],
+	imports: [PrismaModule, RedisModule, RedisPubSubModule],
 	controllers: [PsychologistController],
 	providers: [PsychologistService, StorageService],
 	exports: [PsychologistService],
 })
-export class PsychologistModule {} 
+export class PsychologistModule {}
