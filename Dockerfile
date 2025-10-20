@@ -1,5 +1,5 @@
 # Сборка
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
  
 WORKDIR /api
 
@@ -11,7 +11,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Продуктивный образ
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Устанавливаем ffmpeg для создания превью видео
 RUN apk add --no-cache ffmpeg
