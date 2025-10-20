@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
+import { RedisErrorHandler } from '../redis/redis.error-handler'
 import { RedisService } from '../redis/redis.service'
 import { StorageService } from '../storage/storage.service'
 import { UserStatusController } from './user-status.controller'
@@ -20,6 +21,7 @@ import { UserService } from './user.service'
 		StorageService,
 		AppLogger,
 		RedisService,
+		RedisErrorHandler,
 		RedisPubSubService,
 	],
 	exports: [UserService, UserStatusService],
