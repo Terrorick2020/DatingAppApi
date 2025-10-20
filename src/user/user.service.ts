@@ -133,6 +133,7 @@ export class UserService {
 				ageMax,
 				sex,
 				interestId,
+				filterBySameCity = true,
 			} = params
 
 			// Вычисление offset для пагинации
@@ -149,7 +150,33 @@ export class UserService {
 				where.name = { contains: name, mode: 'insensitive' }
 			}
 
-			if (town) {
+			// Фильтрация по городу - показываем только пользователей из того же города
+			if (filterBySameCity) {
+				// Получаем город текущего пользователя
+				const currentUser = await this.prisma.user.findUnique({
+					where: { telegramId },
+					select: { town: true },
+				})
+
+				if (currentUser?.town) {
+					// Фильтруем по городу текущего пользователя
+					const cityValues = await this.getCityValuesByLabel(currentUser.town)
+					if (cityValues.length > 0) {
+						where.OR = [
+							{ town: { contains: currentUser.town, mode: 'insensitive' } },
+							{ town: { in: cityValues } },
+						]
+					} else {
+						where.town = { contains: currentUser.town, mode: 'insensitive' }
+					}
+
+					this.logger.debug(
+						`Применена фильтрация по городу текущего пользователя: ${currentUser.town}`,
+						this.CONTEXT,
+						{ cityValues }
+					)
+				}
+			} else if (town) {
 				// Фильтрация по городу - ищем по частичному совпадению в поле town
 				// Также ищем по названию города в таблице cityes
 				const cityValues = await this.getCityValuesByLabel(town)
@@ -186,10 +213,45 @@ export class UserService {
 				where.interestId = interestId
 			}
 
-			// Исключаем текущего пользователя из результатов
-			const userIdToExclude = telegramId
-			if (userIdToExclude) {
-				where.telegramId = { not: userIdToExclude }
+			// Исключаем пользователей, с которыми уже есть матч
+			const existingMatches = await this.prisma.like.findMany({
+				where: {
+					OR: [
+						{ fromUserId: telegramId, isMatch: true },
+						{ toUserId: telegramId, isMatch: true },
+					],
+				},
+				select: {
+					fromUserId: true,
+					toUserId: true,
+				},
+			})
+
+			// Собираем всех пользователей, с которыми уже есть матч
+			const matchedUserIds = new Set<string>()
+			existingMatches.forEach(match => {
+				if (match.fromUserId === telegramId) {
+					matchedUserIds.add(match.toUserId)
+				} else {
+					matchedUserIds.add(match.fromUserId)
+				}
+			})
+
+			// Добавляем текущего пользователя в список исключений
+			matchedUserIds.add(telegramId)
+
+			// Исключаем текущего пользователя и пользователей с матчами из результатов
+			if (matchedUserIds.size > 0) {
+				where.telegramId = {
+					not: {
+						in: Array.from(matchedUserIds),
+					},
+				}
+
+				this.logger.debug(
+					`Исключены пользователи с матчами и текущий пользователь: ${Array.from(matchedUserIds).join(', ')}`,
+					this.CONTEXT
+				)
 			}
 
 			// Получаем общее количество записей для метаданных пагинации

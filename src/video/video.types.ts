@@ -36,6 +36,9 @@ export interface VideoListResponse {
 export interface UploadVideoResponse {
 	videoId: number
 	key: string
+	previewKey?: string | null
+	url?: string
+	previewUrl?: string | null
 }
 
 export interface LikeVideoResponse {

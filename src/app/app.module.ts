@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { PrismaService } from '~/prisma/prisma.service'
 import { AdminModule } from '../admin/admin.module'
@@ -7,6 +7,7 @@ import { BillingModule } from '../billing/billing.module'
 import { ChatsModule } from '../chats/chats.module'
 import { LoggerModule } from '../common/logger/logger.module'
 import { AppLogger } from '../common/logger/logger.service'
+import { UserActivityMiddleware } from '../common/middleware/user-activity.middleware'
 import { SmartCaptchaModule } from '../common/modules/smart-captcha.module'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { ComplaintModule } from '../complaint/complaint.module'
@@ -56,7 +57,17 @@ import smartCaptchaConfig from '../config/smart-captcha.config'
 		VideoModule,
 	],
 	controllers: [AppController],
-	providers: [AppService, AppLogger, PrismaService, SeedService],
+	providers: [
+		AppService,
+		AppLogger,
+		PrismaService,
+		SeedService,
+		UserActivityMiddleware,
+	],
 	exports: [AppLogger],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+	configure(consumer: MiddlewareConsumer) {
+		consumer.apply(UserActivityMiddleware).forRoutes('*') 
+	}
+}

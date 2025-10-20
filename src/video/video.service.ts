@@ -228,8 +228,23 @@ export class VideoService {
 				this.CONTEXT
 			)
 
+			// Генерируем URL для видео
+			const videoUrl = await this.getVideoUrl(updatedVideo.key)
+
+			// Генерируем URL для превью, если оно есть
+			let previewUrl = null
+			if (updatedVideo.previewKey) {
+				previewUrl = await this.getPreviewUrl(updatedVideo.previewKey)
+			}
+
 			return successResponse(
-				{ videoId: updatedVideo.id, key: updatedVideo.key },
+				{
+					videoId: updatedVideo.id,
+					key: updatedVideo.key,
+					previewKey: updatedVideo.previewKey,
+					url: videoUrl,
+					previewUrl: previewUrl,
+				},
 				'Короткое видео сохранено'
 			)
 		} catch (error: any) {
@@ -683,7 +698,7 @@ export class VideoService {
 	}
 
 	/**
-	 * Поиск видео 
+	 * Поиск видео
 	 */
 	async searchShortVideos(
 		search: string,

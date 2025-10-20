@@ -485,6 +485,16 @@ export class LikeService {
 				this.CONTEXT
 			)
 
+			// Проверяем, существует ли уже чат между пользователями
+			const existingChatId = await this.findChatBetweenUsers(user1Id, user2Id)
+			if (existingChatId) {
+				this.logger.debug(
+					`Чат между ${user1Id} и ${user2Id} уже существует: ${existingChatId}`,
+					this.CONTEXT
+				)
+				return successResponse({ chatId: existingChatId }, 'Чат уже существует')
+			}
+
 			// Создаем чат в Redis
 			const chatResult = await this.chatsService.create({
 				telegramId: user1Id,

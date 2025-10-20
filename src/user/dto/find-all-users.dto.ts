@@ -120,4 +120,14 @@ export class FindAllUsersDto {
 	@Type(() => Number)
 	@IsInt()
 	interestId?: number
+
+	@ApiProperty({
+		description: 'Фильтровать только пользователей из того же города',
+		example: true,
+		default: true,
+		required: false,
+	})
+	@IsOptional()
+	@Type(() => Boolean)
+	filterBySameCity?: boolean = true
 }
