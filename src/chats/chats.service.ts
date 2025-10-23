@@ -938,6 +938,11 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Обновляем is_read у всех сообщений до текущего включительно
+			this.logger.debug(
+				`Обновление is_read для чата ${chatId}, lastMsgScore: ${lastMsgScore}`,
+				this.CONTEXT
+			)
+
 			if (lastMsgScore !== null) {
 				const messageIdsToUpdate =
 					await this.redisService.getSortedSetRangeByScore(
@@ -946,7 +951,14 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 						lastMsgScore
 					)
 
+				this.logger.debug(
+					`Найдено ${Array.isArray(messageIdsToUpdate) ? messageIdsToUpdate.length : 0} сообщений для обновления в чате ${chatId}`,
+					this.CONTEXT,
+					{ messageIds: messageIdsToUpdate }
+				)
+
 				if (Array.isArray(messageIdsToUpdate)) {
+					let updatedCount = 0
 					for (const msgId of messageIdsToUpdate) {
 						const msgRaw = await this.redisService.getHashField(
 							messagesKey,
@@ -955,7 +967,9 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 						if (msgRaw.success && msgRaw.data) {
 							const msg: ChatMsg = JSON.parse(msgRaw.data)
-							if (!msg.is_read && msg.fromUser !== userId) {
+							// Помечаем как прочитанные ВСЕ сообщения (включая свои)
+							// так как пользователь прочитал чат до этого момента
+							if (!msg.is_read) {
 								msg.is_read = true
 								msg.updated_at = Date.now()
 
@@ -964,10 +978,21 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 									msgId,
 									JSON.stringify(msg)
 								)
+								updatedCount++
 							}
 						}
 					}
+					this.logger.debug(
+						`Обновлено ${updatedCount} сообщений в чате ${chatId}`,
+						this.CONTEXT
+					)
 				}
+			} else {
+				this.logger.warn(
+					`lastMsgScore равен null для чата ${chatId}, сообщения не обновлены`,
+					this.CONTEXT,
+					{ lastReadMessageId }
+				)
 			}
 
 			// Уведомление отправителя
