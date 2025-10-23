@@ -345,10 +345,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				this.CONTEXT
 			)
 
-			// Сортируем чаты по времени последнего сообщения (новые сверху)
-			validChats.sort(
-				(a, b) => (b.last_message_at || 0) - (a.last_message_at || 0)
-			)
+			// Сортировка будет выполнена позже для chatPreviews
 
 			const interlocutorIds = validChats
 				.map(chat => chat.participants.find(id => id !== telegramId))
@@ -517,9 +514,10 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				})
 			}
 
-			// Сортируем чаты: сначала по времени последнего сообщения, затем по времени создания
+			// Сортируем чаты по времени последнего сообщения (как в Telegram)
+			// Чем позже было отправлено последнее сообщение - тем выше чат в списке
 			chatPreviews.sort((a, b) => {
-				// Если у обоих чатов есть сообщения, сортируем по last_message_at
+				// Если у обоих чатов есть сообщения, сортируем по last_message_at (новые сверху)
 				if (a.last_message_at && b.last_message_at) {
 					return b.last_message_at - a.last_message_at
 				}
@@ -530,7 +528,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 				if (!a.last_message_at && b.last_message_at) {
 					return 1
 				}
-				// Если у обоих нет сообщений, сортируем по времени создания
+				// Если у обоих нет сообщений, сортируем по времени создания (новые сверху)
 				return b.created_at - a.created_at
 			})
 
@@ -1291,6 +1289,7 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			// Обновляем метаданные чата
 			chat.last_message_id = messageId
+			chat.last_message_at = timestamp // Обновляем время последнего сообщения
 
 			// Если пользователь был в списке набирающих текст, удаляем его
 			if (chat.typing && chat.typing.includes(fromUser)) {

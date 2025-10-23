@@ -65,36 +65,83 @@ export class StorageService {
 		}
 
 		// Проверяем размер файла (максимум 100MB)
-		const maxSize = 100 * 1024 * 1024 // 100MB
+		const maxSize = 100 * 1024 * 1024 
 		if (video.size > maxSize) {
 			throw new BadRequestException(
 				'Размер видеофайла не должен превышать 100MB'
 			)
 		}
 
-		// Проверяем тип файла
-		const allowedTypes = [
+		// Поддерживаемые входные форматы для конвертации
+		const supportedInputTypes = [
 			'video/mp4',
+			'video/webm',
+			'video/ogg',
+			'video/ogv',
 			'video/avi',
 			'video/mov',
 			'video/wmv',
-			'video/webm',
+			'video/3gpp',
+			'video/x-flv',
+			'video/x-ms-wmv',
+			'video/quicktime',
 		]
-		if (!allowedTypes.includes(video.mimetype)) {
+
+		const supportedInputExtensions = [
+			'.mp4',
+			'.webm',
+			'.ogg',
+			'.ogv',
+			'.avi',
+			'.mov',
+			'.wmv',
+			'.3gp',
+			'.flv',
+			'.asf',
+		]
+
+		const fileExtension = path.extname(video.originalname).toLowerCase()
+		const isSupportedInput =
+			supportedInputTypes.includes(video.mimetype) ||
+			supportedInputExtensions.includes(fileExtension)
+
+		if (!isSupportedInput) {
 			throw new BadRequestException(
-				'Неподдерживаемый формат видео. Разрешены: MP4, AVI, MOV, WMV, WebM'
+				'Неподдерживаемый формат видео. Разрешены: MP4, WebM, AVI, MOV, WMV, 3GP, FLV, ASF'
 			)
 		}
+
+		// Проверяем, нужна ли конвертация в MP4
+		const needsConversion =
+			video.mimetype !== 'video/mp4' && fileExtension !== '.mp4'
 
 		const key = `psychologist_videos/${randomUUID()}-${video.originalname}`
 
 		try {
+			let finalBuffer = video.buffer
+			let finalContentType = 'video/mp4'
+			let finalSize = video.size
+
+			// Если нужна конвертация, конвертируем в MP4
+			if (needsConversion) {
+				this.logger.log(`Конвертация видео в MP4: ${video.originalname}`)
+				const convertedBuffer = await this.convertVideoToMp4(
+					video.buffer,
+					video.originalname
+				)
+				finalBuffer = convertedBuffer
+				finalSize = convertedBuffer.length
+				this.logger.log(
+					`Видео сконвертировано, новый размер: ${finalSize} байт`
+				)
+			}
+
 			const command = new PutObjectCommand({
 				Bucket: this.bucketName,
 				Key: key,
-				Body: video.buffer,
-				ContentType: video.mimetype,
-				ContentLength: video.size,
+				Body: finalBuffer,
+				ContentType: finalContentType,
+				ContentLength: finalSize,
 			})
 
 			await this.s3.send(command)
@@ -106,6 +153,81 @@ export class StorageService {
 				'Не удалось загрузить видео. Пожалуйста, попробуйте снова.'
 			)
 		}
+	}
+
+	/**
+	 * Конвертация видео в MP4 формат
+	 */
+	private async convertVideoToMp4(
+		videoBuffer: Buffer,
+		originalName: string
+	): Promise<Buffer> {
+		const tempDir = '/tmp'
+		const inputPath = path.join(
+			tempDir,
+			`input_${randomUUID()}${path.extname(originalName)}`
+		)
+		const outputPath = path.join(tempDir, `output_${randomUUID()}.mp4`)
+
+		try {
+			// Сохраняем входной файл
+			fs.writeFileSync(inputPath, videoBuffer)
+			this.logger.log(`Входной файл сохранен: ${inputPath}`)
+
+			// Конвертируем с помощью FFmpeg
+			await this.convertWithFFmpeg(inputPath, outputPath)
+
+			// Читаем результат
+			const convertedBuffer = fs.readFileSync(outputPath)
+			this.logger.log(
+				`Конвертация завершена, размер: ${convertedBuffer.length} байт`
+			)
+
+			return convertedBuffer
+		} catch (error) {
+			this.logger.error(`Ошибка при конвертации видео: ${error}`)
+			throw new BadRequestException(
+				'Не удалось конвертировать видео в MP4 формат'
+			)
+		} finally {
+			// Очищаем временные файлы
+			this.cleanupTempFiles([inputPath, outputPath])
+		}
+	}
+
+	/**
+	 * Конвертация с помощью FFmpeg
+	 */
+	private async convertWithFFmpeg(
+		inputPath: string,
+		outputPath: string
+	): Promise<void> {
+		return new Promise((resolve, reject) => {
+			ffmpeg(inputPath)
+				.output(outputPath)
+				.videoCodec('libx264') // H.264 кодек для максимальной совместимости
+				.audioCodec('aac') // AAC аудио кодек
+				.format('mp4')
+				.videoBitrate('1000k') // Оптимальный битрейт для веба
+				.audioBitrate('128k')
+				.size('1280x720') // Максимальное разрешение для веба
+				.fps(30) // 30 FPS для плавности
+				.on('start', (commandLine: string) => {
+					this.logger.log(`FFmpeg команда: ${commandLine}`)
+				})
+				.on('progress', (progress: any) => {
+					this.logger.log(`Прогресс конвертации: ${progress.percent}%`)
+				})
+				.on('end', () => {
+					this.logger.log('Конвертация завершена успешно')
+					resolve()
+				})
+				.on('error', (err: Error) => {
+					this.logger.error(`Ошибка FFmpeg: ${err.message}`)
+					reject(err)
+				})
+				.run()
+		})
 	}
 
 	/**
