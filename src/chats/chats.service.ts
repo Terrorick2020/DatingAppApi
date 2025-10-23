@@ -886,26 +886,27 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 			const readStatusKey = `chat:${chatId}:read_status`
 			const readStatusResponse = await this.getReadStatus(chatId)
 
-			if (!readStatusResponse.success || !readStatusResponse.data) {
-				const newReadStatus = {
-					[userId]: lastReadMessageId,
-				}
+			// Получаем текущий статус прочтения или создаем новый
+			let readStatus: Record<string, string | null> = {}
 
-				await this.redisService.setKey(
-					readStatusKey,
-					JSON.stringify(newReadStatus),
-					this.CHAT_TTL
-				)
+			if (readStatusResponse.success && readStatusResponse.data) {
+				readStatus = readStatusResponse.data
 			} else {
-				const readStatus = readStatusResponse.data
-				readStatus[userId] = lastReadMessageId
-
-				await this.redisService.setKey(
-					readStatusKey,
-					JSON.stringify(readStatus),
-					this.CHAT_TTL
-				)
+				// Если статус не найден, инициализируем для всех участников чата
+				for (const participant of chat.participants) {
+					readStatus[participant] = null
+				}
 			}
+
+			// Обновляем статус для текущего пользователя
+			readStatus[userId] = lastReadMessageId
+
+			// Сохраняем обновленный статус
+			await this.redisService.setKey(
+				readStatusKey,
+				JSON.stringify(readStatus),
+				this.CHAT_TTL
+			)
 
 			await this.extendChatTTL(chatId)
 			await this.invalidateChatsPreviewCache(userId)
