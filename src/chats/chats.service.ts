@@ -939,25 +939,33 @@ export class ChatsService implements OnModuleInit, OnModuleDestroy {
 
 			// Обновляем is_read у всех сообщений до текущего включительно
 			this.logger.debug(
-				`Обновление is_read для чата ${chatId}, lastMsgScore: ${lastMsgScore}`,
+				`Обновление is_read для чата ${chatId}, lastMsgScore: ${lastMsgScore}, lastReadMessageId: ${lastReadMessageId}`,
 				this.CONTEXT
 			)
 
 			if (lastMsgScore !== null) {
-				const messageIdsToUpdate =
+				const messageIdsResponse =
 					await this.redisService.getSortedSetRangeByScore(
 						orderKey,
 						0,
-						lastMsgScore
+						lastMsgScore + 1 // +1 чтобы включить сообщение с точным timestamp
 					)
 
-				this.logger.debug(
-					`Найдено ${Array.isArray(messageIdsToUpdate) ? messageIdsToUpdate.length : 0} сообщений для обновления в чате ${chatId}`,
-					this.CONTEXT,
-					{ messageIds: messageIdsToUpdate }
-				)
+				if (!messageIdsResponse.success || !messageIdsResponse.data) {
+					this.logger.warn(
+						`Ошибка при получении сообщений для обновления в чате ${chatId}`,
+						this.CONTEXT,
+						{ error: messageIdsResponse.message }
+					)
+				} else {
+					const messageIdsToUpdate = messageIdsResponse.data
 
-				if (Array.isArray(messageIdsToUpdate)) {
+					this.logger.debug(
+						`Найдено ${messageIdsToUpdate.length} сообщений для обновления в чате ${chatId}`,
+						this.CONTEXT,
+						{ messageIds: messageIdsToUpdate }
+					)
+
 					let updatedCount = 0
 					for (const msgId of messageIdsToUpdate) {
 						const msgRaw = await this.redisService.getHashField(
