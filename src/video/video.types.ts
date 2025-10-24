@@ -39,6 +39,13 @@ export interface UploadVideoResponse {
 	previewKey?: string | null
 	url?: string
 	previewUrl?: string | null
+	// Поля для процесса конвертации
+	status?: string
+	message?: string
+	originalFormat?: string
+	estimatedTime?: string
+	format?: string
+	ready?: boolean
 }
 
 export interface LikeVideoResponse {

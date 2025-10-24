@@ -130,7 +130,26 @@ export class VideoService {
 			}
 
 			// Загружаем видео в облако
-			const key = await this.storageService.uploadVideo(video)
+			const uploadResult = await this.storageService.uploadVideo(video)
+
+			// Проверяем, что загрузка прошла успешно
+			if (typeof uploadResult !== 'string') {
+				// Если видео конвертируется, возвращаем информацию о процессе
+				return successResponse(
+					{
+						videoId: 0, // Временно 0, будет обновлено после конвертации
+						key: uploadResult.key,
+						previewKey: null,
+						status: uploadResult.status,
+						message: uploadResult.message,
+						originalFormat: uploadResult.originalFormat,
+						estimatedTime: uploadResult.estimatedTime,
+					},
+					uploadResult.message
+				)
+			}
+
+			const key = uploadResult
 
 			// Создаем превью для видео
 			const previewKey = await this.storageService.createVideoPreview(key)
