@@ -59,13 +59,26 @@ export class StorageService {
 		}
 	}
 
-	async uploadVideo(video: Express.Multer.File): Promise<string> {
+	async uploadVideo(
+		video: Express.Multer.File
+	): Promise<
+		| string
+		| {
+				key: string
+				status: string
+				message: string
+				originalFormat?: string
+				estimatedTime?: string
+				format?: string
+				ready?: boolean
+		  }
+	> {
 		if (!video || !video.buffer) {
 			throw new BadRequestException('Видеофайл не найден или повреждён')
 		}
 
 		// Проверяем размер файла (максимум 100MB)
-		const maxSize = 100 * 1024 * 1024 
+		const maxSize = 100 * 1024 * 1024
 		if (video.size > maxSize) {
 			throw new BadRequestException(
 				'Размер видеофайла не должен превышать 100MB'
@@ -118,40 +131,118 @@ export class StorageService {
 		const key = `psychologist_videos/${randomUUID()}-${video.originalname}`
 
 		try {
-			let finalBuffer = video.buffer
-			let finalContentType = 'video/mp4'
-			let finalSize = video.size
-
-			// Если нужна конвертация, конвертируем в MP4
+			// Если нужна конвертация, загружаем оригинал и запускаем асинхронную конвертацию
 			if (needsConversion) {
-				this.logger.log(`Конвертация видео в MP4: ${video.originalname}`)
-				const convertedBuffer = await this.convertVideoToMp4(
-					video.buffer,
-					video.originalname
-				)
-				finalBuffer = convertedBuffer
-				finalSize = convertedBuffer.length
 				this.logger.log(
-					`Видео сконвертировано, новый размер: ${finalSize} байт`
+					`Загрузка оригинала для последующей конвертации: ${video.originalname}`
 				)
+
+				// Загружаем оригинальный файл
+				const originalCommand = new PutObjectCommand({
+					Bucket: this.bucketName,
+					Key: key,
+					Body: video.buffer,
+					ContentType: video.mimetype,
+					ContentLength: video.size,
+				})
+
+				await this.s3.send(originalCommand)
+				this.logger.log(`Оригинал загружен: ${key}`)
+
+				// Запускаем асинхронную конвертацию
+				this.convertVideoAsync(key, video.buffer, video.originalname).catch(
+					error => {
+						this.logger.error(`Ошибка асинхронной конвертации ${key}: ${error}`)
+					}
+				)
+
+				// Возвращаем специальный ответ для конвертации
+				return {
+					key,
+					status: 'converting',
+					message: 'Видео загружено, началась конвертация в MP4 формат',
+					originalFormat: video.mimetype,
+					estimatedTime: '1-3 минуты',
+				}
 			}
 
+			// Если уже MP4, загружаем как есть
 			const command = new PutObjectCommand({
 				Bucket: this.bucketName,
 				Key: key,
-				Body: finalBuffer,
-				ContentType: finalContentType,
-				ContentLength: finalSize,
+				Body: video.buffer,
+				ContentType: 'video/mp4',
+				ContentLength: video.size,
 			})
 
 			await this.s3.send(command)
-			this.logger.log(`Видео успешно загружено: ${key}`)
-			return key
+			this.logger.log(`MP4 видео загружено: ${key}`)
+
+			// Возвращаем ответ для MP4 файлов
+			return {
+				key,
+				status: 'ready',
+				message: 'MP4 видео успешно загружено',
+				format: 'video/mp4',
+				ready: true,
+			}
 		} catch (error) {
 			this.logger.error(`Ошибка при загрузке видео в хранилище: ${error}`)
 			throw new BadRequestException(
 				'Не удалось загрузить видео. Пожалуйста, попробуйте снова.'
 			)
+		}
+	}
+
+	/**
+	 * Асинхронная конвертация видео в MP4
+	 */
+	private async convertVideoAsync(
+		originalKey: string,
+		videoBuffer: Buffer,
+		originalName: string
+	): Promise<void> {
+		try {
+			this.logger.log(`Начало асинхронной конвертации: ${originalKey}`)
+
+			// Конвертируем видео
+			const convertedBuffer = await this.convertVideoToMp4(
+				videoBuffer,
+				originalName
+			)
+
+			// Создаем новый ключ для конвертированного видео
+			const convertedKey = originalKey.replace(
+				path.extname(originalName),
+				'.mp4'
+			)
+
+			// Загружаем конвертированное видео
+			const command = new PutObjectCommand({
+				Bucket: this.bucketName,
+				Key: convertedKey,
+				Body: convertedBuffer,
+				ContentType: 'video/mp4',
+				ContentLength: convertedBuffer.length,
+			})
+
+			await this.s3.send(command)
+			this.logger.log(`Конвертированное видео загружено: ${convertedKey}`)
+
+			// Удаляем оригинальный файл
+			await this.deleteVideo(originalKey)
+			this.logger.log(`Оригинальный файл удален: ${originalKey}`)
+
+			// TODO: Здесь можно добавить уведомление о завершении конвертации
+			// Например, через WebSocket или обновление статуса в БД
+			this.logger.log(
+				`Конвертация завершена: ${originalKey} -> ${convertedKey}`
+			)
+		} catch (error) {
+			this.logger.error(
+				`Ошибка асинхронной конвертации ${originalKey}: ${error}`
+			)
+			// TODO: Здесь можно добавить уведомление об ошибке конвертации
 		}
 	}
 
@@ -212,6 +303,9 @@ export class StorageService {
 				.audioBitrate('128k')
 				.size('1280x720') // Максимальное разрешение для веба
 				.fps(30) // 30 FPS для плавности
+				.preset('fast') // Быстрая конвертация
+				.crf(23) // Качество vs скорость
+				.threads(0) // Использовать все ядра CPU
 				.on('start', (commandLine: string) => {
 					this.logger.log(`FFmpeg команда: ${commandLine}`)
 				})
