@@ -1,9 +1,9 @@
+import { PrismaService } from '@/../prisma/prisma.service'
 import {
 	registerDecorator,
-	ValidationOptions,
 	ValidationArguments,
+	ValidationOptions,
 } from 'class-validator'
-import { PrismaService } from '@/../prisma/prisma.service'
 
 export function IsValidReferralCode(validationOptions?: ValidationOptions) {
 	return function (object: Object, propertyName: string) {
@@ -16,13 +16,21 @@ export function IsValidReferralCode(validationOptions?: ValidationOptions) {
 				async validate(value: any, args: ValidationArguments) {
 					if (!value) return true // Пропускаем, если код не указан
 
+					console.log(`🔍 Валидация реферального кода: ${value}`)
+
 					// Получаем доступ к PrismaService через контекст
 					const prisma = (global as any).prismaInstance as PrismaService
-					if (!prisma) return false // Если не удалось получить Prisma
+					if (!prisma) {
+						console.log(`❌ PrismaService недоступен`)
+						return false // Если не удалось получить Prisma
+					}
 
 					// Проверка формата (8 символов, буквы и цифры)
 					const formatRegex = /^[a-zA-Z0-9]{8}$/
-					if (!formatRegex.test(value)) return false
+					if (!formatRegex.test(value)) {
+						console.log(`❌ Неверный формат реферального кода: ${value}`)
+						return false
+					}
 
 					// Проверка существования пользователя с таким кодом
 					const user = await prisma.user.findUnique({
@@ -30,8 +38,13 @@ export function IsValidReferralCode(validationOptions?: ValidationOptions) {
 						select: { telegramId: true, status: true },
 					})
 
+					console.log(`🔍 Найден пользователь с кодом ${value}:`, user)
+
 					// Код действителен, если пользователь существует и не заблокирован
-					return !!user && user.status !== 'Blocked'
+					const isValid = !!user && user.status !== 'Blocked'
+					console.log(`✅ Реферальный код ${value} валиден: ${isValid}`)
+
+					return isValid
 				},
 				defaultMessage(args: ValidationArguments) {
 					return `Реферальный код недействителен или принадлежит заблокированному пользователю`

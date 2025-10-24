@@ -1,24 +1,24 @@
 import { Injectable } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
 import { PrismaService } from '../../prisma/prisma.service'
 import {
 	errorResponse,
 	successResponse,
 } from '../common/helpers/api.response.helper'
-import { UserService } from '../user/user.service'
-import { CreateAuthDto } from './dto/create-auth.dto'
-import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
-import { CheckAuthDto } from './dto/check-auth.dto'
-import { v4 as uuidv4 } from 'uuid'
 import { AppLogger } from '../common/logger/logger.service'
+import { GeoService } from '../geo/geo.service'
 import { RedisService } from '../redis/redis.service'
-import { LoginDto } from './dto/login.dto'
 import { StorageService } from '../storage/storage.service'
+import { UserService } from '../user/user.service'
+import { CheckAuthDto } from './dto/check-auth.dto'
+import { CreateAuthDto } from './dto/create-auth.dto'
+import { DeletePhotoDto } from './dto/delete-photo.dto'
+import { LoginDto } from './dto/login.dto'
+import { UploadPhotoInternalDto } from './dto/upload-photo-internal.dto'
 import {
 	PhotoResponse,
 	UserProfileResponse,
 } from './interfaces/auth-response.interface'
-import { GeoService } from '../geo/geo.service'
-import { DeletePhotoDto } from './dto/delete-photo.dto'
 
 @Injectable()
 export class AuthService {
@@ -254,6 +254,11 @@ export class AuthService {
 				// Обработка реферального кода
 				let invitedById: string | undefined = undefined
 				if (invitedByReferralCode) {
+					this.logger.debug(
+						`Обработка реферального кода: ${invitedByReferralCode}`,
+						this.CONTEXT
+					)
+
 					const inviter = await tx.user.findUnique({
 						where: { referralCode: invitedByReferralCode },
 					})
@@ -264,7 +269,17 @@ export class AuthService {
 							`Пользователь приглашен по коду от: ${invitedById}`,
 							this.CONTEXT
 						)
+					} else {
+						this.logger.warn(
+							`Реферальный код не найден: ${invitedByReferralCode}`,
+							this.CONTEXT
+						)
 					}
+				} else {
+					this.logger.debug(
+						`Реферальный код не указан при регистрации`,
+						this.CONTEXT
+					)
 				}
 
 				// Создаем уникальный реферальный код
