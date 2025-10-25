@@ -155,7 +155,20 @@ export class VideoService {
 
 			// Создаем превью для видео
 			this.logger.debug(`Создание превью для видео: ${key}`, this.CONTEXT)
-			const previewKey = await this.storageService.createVideoPreview(key)
+
+			let previewKey: string | null = null
+			try {
+				previewKey = await this.storageService.createVideoPreview(key)
+				this.logger.debug(`Превью создано: ${previewKey}`, this.CONTEXT)
+			} catch (previewError: any) {
+				this.logger.error(
+					`Ошибка при создании превью для видео: ${key}`,
+					previewError?.stack,
+					this.CONTEXT,
+					{ previewError }
+				)
+				throw previewError
+			}
 
 			this.logger.debug(
 				`Короткое видео успешно загружено в облако: ${key}, превью: ${previewKey}`,
@@ -168,15 +181,30 @@ export class VideoService {
 				this.CONTEXT
 			)
 
-			const savedVideo = await this.prisma.video.create({
-				data: {
-					key,
-					previewKey,
-					telegramId: dto.telegramId,
-					title: '', // Будет обновлено в saveShortVideo
-					description: '', // Будет обновлено в saveShortVideo
-				},
-			})
+			let savedVideo: any = null
+			try {
+				savedVideo = await this.prisma.video.create({
+					data: {
+						key,
+						previewKey,
+						telegramId: dto.telegramId,
+						title: '', // Будет обновлено в saveShortVideo
+						description: '', // Будет обновлено в saveShortVideo
+					},
+				})
+				this.logger.debug(
+					`Видео создано в БД с ID: ${savedVideo.id}`,
+					this.CONTEXT
+				)
+			} catch (dbError: any) {
+				this.logger.error(
+					`Ошибка при сохранении видео в БД: key=${key}, telegramId=${dto.telegramId}`,
+					dbError?.stack,
+					this.CONTEXT,
+					{ dbError, key, telegramId: dto.telegramId }
+				)
+				throw dbError
+			}
 
 			this.logger.debug(
 				`Короткое видео успешно сохранено в БД с ID: ${savedVideo.id}`,
