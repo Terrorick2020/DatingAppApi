@@ -109,6 +109,8 @@ export class VideoService {
 		data?: UploadVideoResponse
 		message?: string
 	}> {
+		let uploadResult: any = null
+
 		try {
 			this.logger.debug(
 				`Загрузка короткого видео для психолога ${dto.telegramId}`,
@@ -130,7 +132,7 @@ export class VideoService {
 			}
 
 			// Загружаем видео в облако
-			const uploadResult = await this.storageService.uploadVideo(video)
+			uploadResult = await this.storageService.uploadVideo(video)
 
 			// Проверяем, что загрузка прошла успешно
 			if (typeof uploadResult !== 'string') {
@@ -194,14 +196,14 @@ export class VideoService {
 			)
 
 			// Если видео загружено в облако, но не сохранено в БД, удаляем его
-			if (typeof uploadResult === 'string') {
+			if (uploadResult && typeof uploadResult === 'string') {
 				try {
 					await this.storageService.deleteVideo(uploadResult)
 					this.logger.debug(
 						`Удалено видео из облака после ошибки БД: ${uploadResult}`,
 						this.CONTEXT
 					)
-				} catch (deleteError) {
+				} catch (deleteError: any) {
 					this.logger.error(
 						`Ошибка при удалении видео из облака: ${uploadResult}`,
 						deleteError?.stack,
