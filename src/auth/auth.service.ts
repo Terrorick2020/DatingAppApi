@@ -253,6 +253,10 @@ export class AuthService {
 
 				// Обработка реферального кода
 				let invitedById: string | undefined = undefined
+				this.logger.debug(
+					`🔍 Проверка реферального кода: ${invitedByReferralCode || 'НЕ ПЕРЕДАН'}`,
+					this.CONTEXT
+				)
 				if (invitedByReferralCode) {
 					this.logger.debug(
 						`Обработка реферального кода: ${invitedByReferralCode}`,
