@@ -152,6 +152,7 @@ export class VideoService {
 			const key = uploadResult
 
 			// Создаем превью для видео
+			this.logger.debug(`Создание превью для видео: ${key}`, this.CONTEXT)
 			const previewKey = await this.storageService.createVideoPreview(key)
 
 			this.logger.debug(
@@ -160,6 +161,11 @@ export class VideoService {
 			)
 
 			// Сохраняем видео в БД сразу с previewKey
+			this.logger.debug(
+				`Сохранение видео в БД: key=${key}, telegramId=${dto.telegramId}`,
+				this.CONTEXT
+			)
+
 			const savedVideo = await this.prisma.video.create({
 				data: {
 					key,
@@ -186,6 +192,24 @@ export class VideoService {
 				this.CONTEXT,
 				{ dto, error }
 			)
+
+			// Если видео загружено в облако, но не сохранено в БД, удаляем его
+			if (typeof uploadResult === 'string') {
+				try {
+					await this.storageService.deleteVideo(uploadResult)
+					this.logger.debug(
+						`Удалено видео из облака после ошибки БД: ${uploadResult}`,
+						this.CONTEXT
+					)
+				} catch (deleteError) {
+					this.logger.error(
+						`Ошибка при удалении видео из облака: ${uploadResult}`,
+						deleteError?.stack,
+						this.CONTEXT
+					)
+				}
+			}
+
 			return errorResponse('Ошибка при загрузке короткого видео:', error)
 		}
 	}
