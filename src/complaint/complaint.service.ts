@@ -17,6 +17,7 @@ import {
 	ComplaintWithUsers,
 } from './complaint.types'
 import { CreateComplaintDto } from './dto/create-complaint.dto'
+import { DeleteComplaintDto } from './dto/delete-complaint.dto'
 import { GetComplaintsDto } from './dto/get-complaints.dto'
 import { UpdateComplaintDto } from './dto/update-complaint.dto'
 import { scanKeys } from './redis-scan.util'
@@ -203,8 +204,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					createdAt: timestamp,
 					fromUserId,
 					reportedUserId,
-					globComplRes: globComplRes || '',
-					targetComplRes: targetComplRes || '',
+					globComplRes: globComplRes?.value || '',
+					targetComplRes: targetComplRes?.value || '',
 				}),
 				this.COMPLAINT_TTL
 			)
@@ -213,11 +214,12 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			await this.invalidateComplaintsCache(fromUserId)
 			if (reportedUserId) await this.invalidateComplaintsCache(reportedUserId)
 
-			// Отправляем уведомление через Redis Pub/Sub для WebSocket сервера
-			await this.redisPubSub.publishComplaintUpdate({
+			// Отправляем уведомление о создании жалобы через Redis Pub/Sub
+			await this.redisPubSub.publishComplaintCreated({
 				id: complaint.id.toString(),
 				fromUserId,
 				reportedUserId: reportedUserId || fromUserId,
+				type,
 				status: ComplaintStatus.PENDING,
 				timestamp,
 			})
@@ -230,11 +232,11 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 
 			// Публикуем событие новой жалобы для админов через Redis Pub/Sub
 			for (const admin of admins) {
-				await this.redisPubSub.publish('complaint:new:admin', {
+				await this.redisPubSub.publishComplaintForAdmins({
 					adminId: admin.telegramId,
 					complaintId: complaint.id.toString(),
 					fromUserId,
-					reportedUserId,
+					reportedUserId: reportedUserId || fromUserId,
 					type,
 					status: ComplaintStatus.PENDING,
 					timestamp,
@@ -270,7 +272,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 		updateDto: UpdateComplaintDto
 	): Promise<ApiResponse<any>> {
 		try {
-			const { complaintId, status, resolutionNotes, telegramId } = updateDto
+			const { complaintId, status, resolutionNotes, adminId } = updateDto
 			this.logger.debug(
 				`Обновление статуса жалобы #${complaintId} на ${status}`,
 				this.CONTEXT
@@ -278,13 +280,13 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 
 			// Проверяем, что пользователь является админом
 			const admin = await this.prisma.user.findUnique({
-				where: { telegramId, role: 'Admin' },
+				where: { telegramId: adminId, role: 'Admin' },
 				select: { telegramId: true },
 			})
 
 			if (!admin) {
 				this.logger.warn(
-					`Неадминистратор ${telegramId} пытается обновить жалобу`,
+					`Неадминистратор ${adminId} пытается обновить жалобу`,
 					this.CONTEXT
 				)
 				return errorResponse(
@@ -348,10 +350,14 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			// Инвалидируем кэш жалоб
 			await this.invalidateComplaintsCache(complaint.fromUser.telegramId)
 			await this.invalidateComplaintsCache(complaint.toUser.telegramId)
-			await this.prisma.complaint.update({
-				where: { id: parseInt(complaintId) },
-				data: { status: ComplaintStatus.RESOLVED },
-			})
+
+			// Обновляем статус в базе данных только если это не PENDING
+			if (status !== ComplaintStatus.PENDING) {
+				await this.prisma.complaint.update({
+					where: { id: parseInt(complaintId) },
+					data: { status: status as any },
+				})
+			}
 
 			// Подготавливаем данные для ответа и уведомлений
 			const responseData = {
@@ -434,24 +440,20 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				return errorResponse('Недостаточно прав для просмотра этих жалоб')
 			}
 
-			// Проверяем кэш
-			const cacheKey = `user:${telegramId}:complaints:${type}`
+			// Проверяем кэш с учетом статуса
+			const cacheKey = `user:${telegramId}:complaints:${type}:${status || 'all'}`
 			const cachedResponse = await this.redisService.getKey(cacheKey)
 
 			if (cachedResponse.success && cachedResponse.data) {
 				try {
-					const allComplaints = JSON.parse(cachedResponse.data)
-
-					const filteredComplaints = allComplaints.filter(
-						(complaint: any) => complaint.status === status
-					)
+					const cachedComplaints = JSON.parse(cachedResponse.data)
 
 					this.logger.debug(
-						`Получены ${filteredComplaints.length} жалоб(ы) со статусом UNDER_REVIEW для пользователя ${telegramId}`,
+						`Получены ${cachedComplaints.length} жалоб(ы) со статусом ${status} для пользователя ${telegramId} из кэша`,
 						this.CONTEXT
 					)
 
-					return successResponse(filteredComplaints, 'Жалобы получены из кэша')
+					return successResponse(cachedComplaints, 'Жалобы получены из кэша')
 				} catch (e) {
 					this.logger.warn(
 						`Ошибка при парсинге кэша жалоб для пользователя ${telegramId}`,
@@ -466,10 +468,10 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 
 			switch (type) {
 				case 'sent':
-					prismaWhere = { fromUserId: telegramId, status: status }
+					prismaWhere = { fromUserId: telegramId }
 					break
 				case 'received':
-					prismaWhere = { toUserId: telegramId, status: status }
+					prismaWhere = { toUserId: telegramId }
 					break
 				case 'admin':
 					// Для админов - все жалобы
@@ -477,6 +479,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				default:
 					return errorResponse('Неизвестный тип запроса жалоб')
 			}
+
 			// Получаем жалобы из базы данных
 			const complaints = await this.prisma.complaint.findMany({
 				where: prismaWhere,
@@ -502,62 +505,67 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				orderBy: { createdAt: 'desc' },
 			})
 
-			// Получаем дополнительные данные из Redis
-			const enrichedComplaints: ComplaintWithUsers[] = await Promise.all(
-				complaints.map(async complaint => {
-					const complaintKey = `complaint:${complaint.id}`
-					const complaintDataResponse =
-						await this.redisService.getKey(complaintKey)
+			// Получаем дополнительные данные из Redis и фильтруем по статусу
+			const enrichedComplaints: ComplaintWithUsers[] = []
 
-					let complaintData: any = {
-						status: ComplaintStatus.PENDING,
+			for (const complaint of complaints) {
+				const complaintKey = `complaint:${complaint.id}`
+				const complaintDataResponse =
+					await this.redisService.getKey(complaintKey)
+
+				let complaintData: any = {
+					status: ComplaintStatus.PENDING,
+				}
+
+				if (complaintDataResponse.success && complaintDataResponse.data) {
+					try {
+						complaintData = JSON.parse(complaintDataResponse.data)
+					} catch (e) {
+						// Если ошибка парсинга, используем базовые данные
 					}
+				}
 
-					if (complaintDataResponse.success && complaintDataResponse.data) {
-						try {
-							complaintData = JSON.parse(complaintDataResponse.data)
-						} catch (e) {
-							// Если ошибка парсинга, используем базовые данные
-						}
-					}
+				// Фильтруем по статусу, если он указан
+				if (status && complaintData.status !== status) {
+					continue
+				}
 
-					const [globType, targetType] = complaint.reason.value.split(', ')
+				const [globType, targetType] = complaint.reason.value.split(', ')
 
-					const [globComplRes, targetComplRes] = await Promise.all([
-						this.prisma.complaintGlobVars.findUnique({
-							where: { value: globType },
-						}),
-						this.prisma.complaintDescVars.findUnique({
-							where: { value: targetType },
-						}),
-					])
+				const [globComplRes, targetComplRes] = await Promise.all([
+					this.prisma.complaintGlobVars.findUnique({
+						where: { value: globType },
+					}),
+					this.prisma.complaintDescVars.findUnique({
+						where: { value: targetType },
+					}),
+				])
 
-					return {
-						id: complaint.id.toString(),
-						fromUser: {
-							telegramId: complaint.fromUser.telegramId,
-							name: complaint.fromUser.name,
-							avatar: complaint.fromUser.photos[0]?.key || '',
-						},
-						reportedUser: {
-							telegramId: complaint.toUser.telegramId,
-							name: complaint.toUser.name,
-							avatar: complaint.toUser.photos[0]?.key || '',
-						},
-						type: complaint.reason.value as ComplaintType,
-						status: complaintData.status || ComplaintStatus.PENDING,
-						description: complaintData.description || '',
-						reportedContentId: complaintData.reportedContentId,
-						createdAt: complaint.createdAt.getTime(),
-						updatedAt: complaintData.updatedAt,
-						resolutionNotes: complaintData.resolutionNotes,
-						globComplRes: globComplRes || '',
-						targetComplRes: targetComplRes || '',
-					}
+				enrichedComplaints.push({
+					id: complaint.id.toString(),
+					fromUser: {
+						telegramId: complaint.fromUser.telegramId,
+						name: complaint.fromUser.name,
+						avatar: complaint.fromUser.photos[0]?.key || '',
+					},
+					reportedUser: {
+						telegramId: complaint.toUser.telegramId,
+						name: complaint.toUser.name,
+						avatar: complaint.toUser.photos[0]?.key || '',
+					},
+					type: complaint.reason.value as ComplaintType,
+					status: complaintData.status || ComplaintStatus.PENDING,
+					description: complaintData.description || '',
+					reportedContentId: complaintData.reportedContentId,
+					createdAt: complaint.createdAt.getTime(),
+					updatedAt: complaintData.updatedAt,
+					resolutionNotes: complaintData.resolutionNotes,
+					globComplRes: globComplRes?.value || '',
+					targetComplRes: targetComplRes?.value || '',
 				})
-			)
+			}
 
-			// Кэшируем результат
+			// Кэшируем результат с учетом статуса
 			await this.redisService.setKey(
 				cacheKey,
 				JSON.stringify(enrichedComplaints),
@@ -565,7 +573,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			)
 
 			this.logger.debug(
-				`Получено ${enrichedComplaints.length} жалоб типа ${type} для пользователя ${telegramId}`,
+				`Получено ${enrichedComplaints.length} жалоб типа ${type}${status ? ` со статусом ${status}` : ' (все статусы)'} для пользователя ${telegramId}`,
 				this.CONTEXT
 			)
 
@@ -719,18 +727,21 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	 */
 	private async invalidateComplaintsCache(userId: string): Promise<void> {
 		try {
-			const cacheKeys = [
-				`user:${userId}:complaints:sent`,
-				`user:${userId}:complaints:received`,
-				`admin:complaints:stats`,
-			]
+			// Получаем все ключи кэша для пользователя
+			const userCacheKeys = await this.redisService.redis.keys(
+				`user:${userId}:complaints:*`
+			)
+			const adminCacheKeys =
+				await this.redisService.redis.keys(`admin:complaints:*`)
+
+			const cacheKeys = [...userCacheKeys, ...adminCacheKeys]
 
 			for (const key of cacheKeys) {
 				await this.redisService.deleteKey(key)
 			}
 
 			this.logger.debug(
-				`Кэш жалоб для пользователя ${userId} инвалидирован`,
+				`Кэш жалоб для пользователя ${userId} инвалидирован (${cacheKeys.length} ключей)`,
 				this.CONTEXT
 			)
 		} catch (error) {
@@ -853,10 +864,10 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	async getComplaintsWithStatus(
 		getDto: GetComplaintsDto
 	): Promise<ApiResponse<ComplaintWithUsers[]>> {
-		const { telegramId, type } = getDto
+		const { telegramId, type, status } = getDto
 
 		this.logger.debug(
-			`Получение НЕРАССМОТРЕННЫХ жалоб типа ${type} для пользователя ${telegramId}`,
+			`Получение жалоб со статусом ${status} типа ${type} для пользователя ${telegramId}`,
 			this.CONTEXT
 		)
 
@@ -888,17 +899,85 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			if (!data.success || !data.data) continue
 
 			try {
-				const complaint = JSON.parse(data.data)
+				const complaintData = JSON.parse(data.data)
 
-				if (complaint.status !== 'PENDING') continue
+				// Фильтруем по статусу
+				if (complaintData.status !== status) continue
 
 				// Жалобы для админа — все, для обычного пользователя — только связанные
 				if (
 					type === 'admin' ||
-					complaint.fromUserId === telegramId ||
-					complaint.reportedUserId === telegramId
+					complaintData.fromUserId === telegramId ||
+					complaintData.reportedUserId === telegramId
 				) {
-					complaints.push(complaint)
+					// Получаем полную информацию о пользователях из базы данных
+					const [fromUser, reportedUser] = await Promise.all([
+						this.prisma.user.findUnique({
+							where: { telegramId: complaintData.fromUserId },
+							select: {
+								telegramId: true,
+								name: true,
+								photos: { take: 1, select: { key: true } },
+							},
+						}),
+						this.prisma.user.findUnique({
+							where: { telegramId: complaintData.reportedUserId },
+							select: {
+								telegramId: true,
+								name: true,
+								photos: { take: 1, select: { key: true } },
+							},
+						}),
+					])
+
+					if (!fromUser || !reportedUser) continue
+
+					// Получаем информацию о причине жалобы
+					const complaintId = key.replace('complaint:', '')
+					const complaint = await this.prisma.complaint.findUnique({
+						where: { id: parseInt(complaintId) },
+						include: {
+							reason: {
+								select: { value: true, label: true },
+							},
+						},
+					})
+
+					if (!complaint) continue
+
+					const [globType, targetType] = complaint.reason.value.split(', ')
+
+					const [globComplRes, targetComplRes] = await Promise.all([
+						this.prisma.complaintGlobVars.findUnique({
+							where: { value: globType },
+						}),
+						this.prisma.complaintDescVars.findUnique({
+							where: { value: targetType },
+						}),
+					])
+
+					complaints.push({
+						id: complaintId,
+						fromUser: {
+							telegramId: fromUser.telegramId,
+							name: fromUser.name,
+							avatar: fromUser.photos[0]?.key || '',
+						},
+						reportedUser: {
+							telegramId: reportedUser.telegramId,
+							name: reportedUser.name,
+							avatar: reportedUser.photos[0]?.key || '',
+						},
+						type: complaint.reason.value as ComplaintType,
+						status: complaintData.status,
+						description: complaintData.description || '',
+						reportedContentId: complaintData.reportedContentId,
+						createdAt: complaintData.createdAt || complaint.createdAt.getTime(),
+						updatedAt: complaintData.updatedAt,
+						resolutionNotes: complaintData.resolutionNotes,
+						globComplRes: globComplRes?.value || '',
+						targetComplRes: targetComplRes?.value || '',
+					})
 				}
 			} catch (e) {
 				this.logger.warn(`Неверные данные в ${key}`, this.CONTEXT, { error: e })
@@ -906,10 +985,230 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 		}
 
 		this.logger.debug(
-			`Найдено ${complaints.length} жалоб со статусом PENDING для ${telegramId}`,
+			`Найдено ${complaints.length} жалоб со статусом ${status} для ${telegramId}`,
 			this.CONTEXT
 		)
 
 		return successResponse(complaints, 'Жалобы успешно получены')
+	}
+
+	/**
+	 * Получение списка пользователей, на которых поступили жалобы
+	 */
+	async getUsersWithComplaints(
+		adminId: string,
+		status?: ComplaintStatus
+	): Promise<ApiResponse<any[]>> {
+		try {
+			this.logger.debug(
+				`Получение списка пользователей с жалобами для админа ${adminId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем, что пользователь является админом
+			const admin = await this.prisma.user.findUnique({
+				where: { telegramId: adminId, role: 'Admin' },
+				select: { telegramId: true },
+			})
+
+			if (!admin) {
+				this.logger.warn(
+					`Неадминистратор ${adminId} пытается получить список пользователей с жалобами`,
+					this.CONTEXT
+				)
+				return errorResponse(
+					'Недостаточно прав для просмотра списка пользователей с жалобами'
+				)
+			}
+
+			// Получаем все ключи жалоб
+			const complaintKeys = await scanKeys(this.redisService, 'complaint:*')
+
+			const userComplaintMap = new Map<
+				string,
+				{
+					userId: string
+					userName: string
+					userAvatar: string
+					complaintCount: number
+					lastComplaintDate: number
+					complaintTypes: string[]
+				}
+			>()
+
+			for (const key of complaintKeys) {
+				const data = await this.redisService.getKey(key)
+				if (!data.success || !data.data) continue
+
+				try {
+					const complaintData = JSON.parse(data.data)
+
+					// Фильтруем по статусу, если указан
+					if (status && complaintData.status !== status) continue
+
+					const reportedUserId = complaintData.reportedUserId
+					if (!reportedUserId) continue
+
+					// Получаем информацию о пользователе
+					const user = await this.prisma.user.findUnique({
+						where: { telegramId: reportedUserId },
+						select: {
+							telegramId: true,
+							name: true,
+							photos: { take: 1, select: { key: true } },
+						},
+					})
+
+					if (!user) continue
+
+					// Получаем информацию о причине жалобы
+					const complaintId = key.replace('complaint:', '')
+					const complaint = await this.prisma.complaint.findUnique({
+						where: { id: parseInt(complaintId) },
+						include: {
+							reason: {
+								select: { value: true, label: true },
+							},
+						},
+					})
+
+					if (!complaint) continue
+
+					const existingUser = userComplaintMap.get(reportedUserId)
+					if (existingUser) {
+						existingUser.complaintCount++
+						existingUser.lastComplaintDate = Math.max(
+							existingUser.lastComplaintDate,
+							complaintData.createdAt || complaint.createdAt.getTime()
+						)
+						if (!existingUser.complaintTypes.includes(complaint.reason.value)) {
+							existingUser.complaintTypes.push(complaint.reason.value)
+						}
+					} else {
+						userComplaintMap.set(reportedUserId, {
+							userId: reportedUserId,
+							userName: user.name,
+							userAvatar: user.photos[0]?.key || '',
+							complaintCount: 1,
+							lastComplaintDate:
+								complaintData.createdAt || complaint.createdAt.getTime(),
+							complaintTypes: [complaint.reason.value],
+						})
+					}
+				} catch (e) {
+					this.logger.warn(`Неверные данные в ${key}`, this.CONTEXT, {
+						error: e,
+					})
+				}
+			}
+
+			// Преобразуем Map в массив и сортируем по количеству жалоб
+			const usersWithComplaints = Array.from(userComplaintMap.values()).sort(
+				(a, b) => b.complaintCount - a.complaintCount
+			)
+
+			this.logger.debug(
+				`Найдено ${usersWithComplaints.length} пользователей с жалобами`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				usersWithComplaints,
+				'Список пользователей с жалобами успешно получен'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при получении списка пользователей с жалобами`,
+				error?.stack,
+				this.CONTEXT,
+				{ adminId, status, error }
+			)
+			return errorResponse(
+				'Ошибка при получении списка пользователей с жалобами',
+				error
+			)
+		}
+	}
+
+	/**
+	 * Удаление жалобы (только для админов)
+	 */
+	async deleteComplaint(
+		deleteDto: DeleteComplaintDto
+	): Promise<ApiResponse<any>> {
+		try {
+			const { complaintId, adminId } = deleteDto
+			this.logger.debug(
+				`Удаление жалобы #${complaintId} админом ${adminId}`,
+				this.CONTEXT
+			)
+
+			// Проверяем, что пользователь является админом
+			const admin = await this.prisma.user.findUnique({
+				where: { telegramId: adminId, role: 'Admin' },
+				select: { telegramId: true },
+			})
+
+			if (!admin) {
+				this.logger.warn(
+					`Неадминистратор ${adminId} пытается удалить жалобу`,
+					this.CONTEXT
+				)
+				return errorResponse('Только администраторы могут удалять жалобы')
+			}
+
+			// Проверяем существование жалобы
+			const complaint = await this.prisma.complaint.findUnique({
+				where: { id: parseInt(complaintId) },
+				include: {
+					fromUser: { select: { telegramId: true } },
+					toUser: { select: { telegramId: true } },
+				},
+			})
+
+			if (!complaint) {
+				this.logger.warn(`Жалоба #${complaintId} не найдена`, this.CONTEXT)
+				return errorResponse('Жалоба не найдена')
+			}
+
+			// Удаляем жалобу из базы данных
+			await this.prisma.complaint.delete({
+				where: { id: parseInt(complaintId) },
+			})
+
+			// Удаляем данные из Redis
+			const complaintKey = `complaint:${complaintId}`
+			await this.redisService.deleteKey(complaintKey)
+
+			// Инвалидируем кэш жалоб
+			await this.invalidateComplaintsCache(complaint.fromUser.telegramId)
+			await this.invalidateComplaintsCache(complaint.toUser.telegramId)
+
+			// Отправляем уведомление об удалении жалобы через Redis Pub/Sub
+			await this.redisPubSub.publishComplaintDeleted({
+				id: complaintId,
+				fromUserId: complaint.fromUser.telegramId,
+				reportedUserId: complaint.toUser.telegramId,
+				timestamp: Date.now(),
+			})
+
+			this.logger.debug(
+				`Жалоба #${complaintId} успешно удалена админом ${adminId}`,
+				this.CONTEXT
+			)
+
+			return successResponse(
+				{ id: complaintId, deleted: true },
+				'Жалоба успешно удалена'
+			)
+		} catch (error: any) {
+			this.logger.error(
+				`Ошибка при удалении жалобы`,
+				error?.stack,
+				this.CONTEXT,
+				{ dto: deleteDto, error }
+			)
+			return errorResponse('Ошибка при удалении жалобы', error)
+		}
 	}
 }

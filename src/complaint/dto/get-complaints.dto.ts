@@ -1,5 +1,5 @@
-import { IsString, IsEnum } from 'class-validator'
-import { ApiProperty } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsEnum, IsOptional, IsString } from 'class-validator'
 import { ComplaintStatus } from '../complaint.types'
 
 export class GetComplaintsDto {
@@ -20,11 +20,13 @@ export class GetComplaintsDto {
 	})
 	type!: 'sent' | 'received' | 'admin'
 
-	@ApiProperty({
-		description: 'Новый статус жалобы',
+	@ApiPropertyOptional({
+		description:
+			'Статус жалобы для фильтрации (если не указан, возвращаются все жалобы)',
 		enum: ComplaintStatus,
 		example: ComplaintStatus.UNDER_REVIEW,
 	})
 	@IsEnum(ComplaintStatus)
-	status!: ComplaintStatus
+	@IsOptional()
+	status?: ComplaintStatus
 }

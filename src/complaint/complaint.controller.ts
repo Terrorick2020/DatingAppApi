@@ -1,27 +1,18 @@
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
 import {
-	Controller,
-	Get,
-	Post,
-	Body,
-	Param,
-	Query,
-	UseGuards,
-} from '@nestjs/common'
-import { ComplaintService } from './complaint.service'
-import { CreateComplaintDto } from './dto/create-complaint.dto'
-import { UpdateComplaintDto } from './dto/update-complaint.dto'
-import { GetComplaintsDto } from './dto/get-complaints.dto'
-import { UserStatusGuard } from '../common/guards/user-status.guard'
-import { Status } from '../common/decorators/status.decorator'
-import { AdminOnly } from '../common/decorators/admin-only.decorator'
-import {
-	ApiTags,
 	ApiOperation,
-	ApiResponse,
 	ApiParam,
 	ApiQuery,
+	ApiResponse,
+	ApiTags,
 } from '@nestjs/swagger'
+import { AdminOnly } from '../common/decorators/admin-only.decorator'
 import { AppLogger } from '../common/logger/logger.service'
+import { ComplaintService } from './complaint.service'
+import { CreateComplaintDto } from './dto/create-complaint.dto'
+import { DeleteComplaintDto } from './dto/delete-complaint.dto'
+import { GetComplaintsDto } from './dto/get-complaints.dto'
+import { UpdateComplaintDto } from './dto/update-complaint.dto'
 
 @ApiTags('complaints')
 @Controller('complaints')
@@ -50,10 +41,22 @@ export class ComplaintController {
 	@AdminOnly()
 	async updateComplaint(@Body() updateComplaintDto: UpdateComplaintDto) {
 		this.logger.debug(
-			`Запрос на обновление жалобы #${updateComplaintDto.complaintId} админом ${updateComplaintDto.telegramId}`,
+			`Запрос на обновление жалобы #${updateComplaintDto.complaintId} админом ${updateComplaintDto.adminId}`,
 			'ComplaintController'
 		)
 		return this.complaintService.updateComplaint(updateComplaintDto)
+	}
+
+	@ApiOperation({ summary: 'Удалить жалобу (только для админов)' })
+	@ApiResponse({ status: 200, description: 'Жалоба успешно удалена' })
+	@Post('delete')
+	@AdminOnly()
+	async deleteComplaint(@Body() deleteComplaintDto: DeleteComplaintDto) {
+		this.logger.debug(
+			`Запрос на удаление жалобы #${deleteComplaintDto.complaintId} админом ${deleteComplaintDto.adminId}`,
+			'ComplaintController'
+		)
+		return this.complaintService.deleteComplaint(deleteComplaintDto)
 	}
 
 	@ApiOperation({ summary: 'Получить жалобы пользователя' })
@@ -74,16 +77,46 @@ export class ComplaintController {
 		description: 'Статистика жалоб успешно получена',
 	})
 	@ApiParam({
-		name: 'telegramId',
+		name: 'adminId',
 		description: 'ID администратора',
 	})
-	@Get('stats/:telegramId')
+	@Get('stats/:adminId')
 	@AdminOnly()
-	async getComplaintStats(@Param('telegramId') telegramId: string) {
+	async getComplaintStats(@Param('adminId') adminId: string) {
 		this.logger.debug(
-			`Запрос на получение статистики жалоб от админа ${telegramId}`,
+			`Запрос на получение статистики жалоб от админа ${adminId}`,
 			'ComplaintController'
 		)
-		return this.complaintService.getComplaintStats(telegramId)
+		return this.complaintService.getComplaintStats(adminId)
+	}
+
+	@ApiOperation({
+		summary: 'Получить список пользователей с жалобами (только для админов)',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Список пользователей с жалобами успешно получен',
+	})
+	@ApiParam({
+		name: 'adminId',
+		description: 'ID администратора',
+	})
+	@ApiQuery({
+		name: 'status',
+		description: 'Статус жалоб для фильтрации',
+		required: false,
+		enum: ['PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED', 'DELETED'],
+	})
+	@Get('users-with-complaints/:adminId')
+	@AdminOnly()
+	async getUsersWithComplaints(
+		@Param('adminId') adminId: string,
+		@Query('status') status?: string
+	) {
+		this.logger.debug(
+			`Запрос на получение списка пользователей с жалобами от админа ${adminId}`,
+			'ComplaintController'
+		)
+		return this.complaintService.getUsersWithComplaints(adminId, status as any)
 	}
 }

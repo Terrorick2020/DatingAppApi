@@ -209,6 +209,7 @@ enum ComplaintStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+  DELETED
 }
 
 model Video {

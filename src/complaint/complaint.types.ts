@@ -3,6 +3,7 @@ export enum ComplaintStatus {
 	UNDER_REVIEW = 'UNDER_REVIEW',
 	RESOLVED = 'RESOLVED',
 	REJECTED = 'REJECTED',
+	DELETED = 'DELETED',
 }
 
 export enum ComplaintType {
@@ -44,12 +45,6 @@ export enum ComplaintType {
 	SUPPORT_QUESTION = 'support, question',
 }
 
-export enum SendComplaintTcpPatterns {
-	CreateComplaint = 'CreateComplaint',
-	UpdateComplaint = 'UpdateComplaint',
-	ComplaintStatusChanged = 'ComplaintStatusChanged',
-}
-
 export interface ComplaintResponse {
 	id: string
 	status: ComplaintStatus
@@ -85,4 +80,6 @@ export interface ComplaintFromUser {
 export interface ComplaintWithUsers extends ComplaintResponse {
 	fromUser: ComplaintFromUser
 	reportedUser: ComplaintFromUser
+	globComplRes?: string
+	targetComplRes?: string
 }

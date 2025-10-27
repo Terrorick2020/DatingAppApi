@@ -133,6 +133,47 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
+	 * Публикация уведомления о создании новой жалобы
+	 */
+	async publishComplaintCreated(data: {
+		id: string
+		fromUserId: string
+		reportedUserId: string
+		type: string
+		status: string
+		timestamp: number
+	}): Promise<void> {
+		await this.publish('complaint:created', data)
+	}
+
+	/**
+	 * Публикация уведомления об удалении жалобы
+	 */
+	async publishComplaintDeleted(data: {
+		id: string
+		fromUserId: string
+		reportedUserId: string
+		timestamp: number
+	}): Promise<void> {
+		await this.publish('complaint:deleted', data)
+	}
+
+	/**
+	 * Публикация уведомления о новой жалобе для админов
+	 */
+	async publishComplaintForAdmins(data: {
+		adminId: string
+		complaintId: string
+		fromUserId: string
+		reportedUserId: string
+		type: string
+		status: string
+		timestamp: number
+	}): Promise<void> {
+		await this.publish('complaint:new:admin', data)
+	}
+
+	/**
 	 * Публикация уведомления об изменении статуса пользователя (онлайн/оффлайн)
 	 */
 	async publishUserStatus(data: {
