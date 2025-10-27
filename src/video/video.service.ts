@@ -293,6 +293,7 @@ export class VideoService {
 				data: {
 					title: dto.title,
 					description: dto.description,
+					...(dto.previewKey && { previewKey: dto.previewKey }),
 				},
 			})
 
