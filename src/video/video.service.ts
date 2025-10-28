@@ -135,7 +135,10 @@ export class VideoService {
 			uploadResult = await this.storageService.uploadVideo(video)
 
 			// Проверяем, что загрузка прошла успешно
-			if (typeof uploadResult !== 'string') {
+			if (
+				typeof uploadResult === 'object' &&
+				uploadResult.status === 'converting'
+			) {
 				// Если видео конвертируется, возвращаем информацию о процессе
 				return successResponse(
 					{
@@ -151,7 +154,9 @@ export class VideoService {
 				)
 			}
 
-			const key = uploadResult
+			// Получаем ключ файла
+			const key =
+				typeof uploadResult === 'string' ? uploadResult : uploadResult.key
 
 			// Создаем превью для видео
 			this.logger.debug(`Создание превью для видео: ${key}`, this.CONTEXT)
@@ -224,16 +229,18 @@ export class VideoService {
 			)
 
 			// Если видео загружено в облако, но не сохранено в БД, удаляем его
-			if (uploadResult && typeof uploadResult === 'string') {
+			if (uploadResult) {
+				const keyToDelete =
+					typeof uploadResult === 'string' ? uploadResult : uploadResult.key
 				try {
-					await this.storageService.deleteVideo(uploadResult)
+					await this.storageService.deleteVideo(keyToDelete)
 					this.logger.debug(
-						`Удалено видео из облака после ошибки БД: ${uploadResult}`,
+						`Удалено видео из облака после ошибки БД: ${keyToDelete}`,
 						this.CONTEXT
 					)
 				} catch (deleteError: any) {
 					this.logger.error(
-						`Ошибка при удалении видео из облака: ${uploadResult}`,
+						`Ошибка при удалении видео из облака: ${keyToDelete}`,
 						deleteError?.stack,
 						this.CONTEXT
 					)
