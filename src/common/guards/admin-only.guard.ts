@@ -26,11 +26,15 @@ export class AdminOnlyGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<Request>()
 		// Ищем telegramId админа в заголовках или query параметрах
 		const adminTelegramId =
+			request.headers['x-spectre-telegram-id'] ||
 			request.headers['x-admin-telegram-id'] ||
 			request.query?.adminTelegramId ||
 			request.body?.adminTelegramId
 
-		if (!adminTelegramId)
+		console.log('🔍 AdminOnlyGuard: Получен adminTelegramId:', adminTelegramId)
+		console.log('🔍 AdminOnlyGuard: Все заголовки:', request.headers)
+
+		if (!adminTelegramId || adminTelegramId === 'error')
 			throw new ForbiddenException('Неизвестный администратор')
 
 		const user = await this.prisma.user.findUnique({
@@ -38,9 +42,17 @@ export class AdminOnlyGuard implements CanActivate {
 			select: { role: true },
 		})
 
+		console.log('🔍 AdminOnlyGuard: Найден пользователь:', user)
+
 		if (user?.role !== 'Admin') {
+			console.log(
+				'🔍 AdminOnlyGuard: Пользователь не является админом, роль:',
+				user?.role
+			)
 			throw new ForbiddenException('Доступ только для администраторов')
 		}
+
+		console.log('🔍 AdminOnlyGuard: Авторизация успешна')
 
 		return true
 	}
