@@ -84,7 +84,7 @@ export class PsychologistController {
 	})
 	@Post('upload-photo')
 	@UseInterceptors(FileInterceptor('photo', multerOptions))
-	async uploadPhoto(
+	async uploadPhoto( 
 		@UploadedFile() file: any,
 		@Body() dto: UploadPhotoRequestDto
 	) {
