@@ -277,20 +277,28 @@ export class UserService {
 			)
 
 			const usersWithPhotoUrls = await Promise.all(
-				users.map(async u => ({
-					...u,
-					photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
-					city: await this.prisma.cityes.findUnique({
-						where: { value: u.town },
-					}),
-					plan: await this.prisma.plans.findUnique({
-						where: { id: u.userPlans[0].planId },
-					}),
-					region: await this.prisma.regions.findUnique({
-						where: { id: u.userPlans[0].regionId },
-					}),
-					interest: u.interest?.label || null,
-				}))
+				users.map(async u => {
+					const userPlan = u.userPlans[0]
+
+					return {
+						...u,
+						photos: await this.getPhotoUrlsWithIds(u.photos), // кеш + signed url
+						city: await this.prisma.cityes.findUnique({
+							where: { value: u.town },
+						}),
+						plan: userPlan
+							? await this.prisma.plans.findUnique({
+									where: { id: userPlan.planId },
+								})
+							: null,
+						region: userPlan
+							? await this.prisma.regions.findUnique({
+									where: { id: userPlan.regionId },
+								})
+							: null,
+						interest: u.interest?.label || null,
+					}
+				})
 			)
 
 			// Метаданные пагинации
