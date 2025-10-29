@@ -474,13 +474,24 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					prismaWhere = { toUserId: telegramId }
 					break
 				case 'admin':
-					// Для админов - все жалобы
+					// Для админов - все жалобы, но только с определенным статусом если указан
+					if (status) {
+						// Если указан статус, будем фильтровать после получения из Redis
+						prismaWhere = {}
+					} else {
+						prismaWhere = {}
+					}
 					break
 				default:
 					return errorResponse('Неизвестный тип запроса жалоб')
 			}
 
 			// Получаем жалобы из базы данных
+			this.logger.debug(
+				`Запрос жалоб из БД с условиями: ${JSON.stringify(prismaWhere)}`,
+				this.CONTEXT
+			)
+
 			const complaints = await this.prisma.complaint.findMany({
 				where: prismaWhere,
 				include: {
@@ -504,6 +515,11 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				},
 				orderBy: { createdAt: 'desc' },
 			})
+
+			this.logger.debug(
+				`Найдено ${complaints.length} жалоб в БД для пользователя ${telegramId}`,
+				this.CONTEXT
+			)
 
 			// Получаем дополнительные данные из Redis и фильтруем по статусу
 			const enrichedComplaints: ComplaintWithUsers[] = []
