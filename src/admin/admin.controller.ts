@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch } from '@nestjs/common'
+import { Controller, Get, Param, Patch, Query } from '@nestjs/common'
 import { AdminService } from './admin.service'
 
 // Guard - админ

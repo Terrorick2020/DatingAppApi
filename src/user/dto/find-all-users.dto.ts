@@ -12,10 +12,11 @@ export class FindAllUsersDto {
 	@ApiProperty({
 		description: 'ID текущего пользователя',
 		example: '123456789',
-		required: true,
+		required: false,
 	})
+	@IsOptional()
 	@IsString()
-	telegramId!: string
+	telegramId?: string
 
 	@ApiProperty({
 		description: 'Номер страницы',

@@ -150,8 +150,8 @@ export class UserService {
 				where.name = { contains: name, mode: 'insensitive' }
 			}
 
-			// Фильтрация по городу - показываем только пользователей из того же города
-			if (filterBySameCity) {
+			// Фильтрация по городу - только если передан telegramId (не админка)
+			if (telegramId && filterBySameCity) {
 				// Получаем город текущего пользователя
 				const currentUser = await this.prisma.user.findUnique({
 					where: { telegramId },
@@ -213,45 +213,47 @@ export class UserService {
 				where.interestId = interestId
 			}
 
-			// Исключаем пользователей, с которыми уже есть матч
-			const existingMatches = await this.prisma.like.findMany({
-				where: {
-					OR: [
-						{ fromUserId: telegramId, isMatch: true },
-						{ toUserId: telegramId, isMatch: true },
-					],
-				},
-				select: {
-					fromUserId: true,
-					toUserId: true,
-				},
-			})
-
-			// Собираем всех пользователей, с которыми уже есть матч
-			const matchedUserIds = new Set<string>()
-			existingMatches.forEach(match => {
-				if (match.fromUserId === telegramId) {
-					matchedUserIds.add(match.toUserId)
-				} else {
-					matchedUserIds.add(match.fromUserId)
-				}
-			})
-
-			// Добавляем текущего пользователя в список исключений
-			matchedUserIds.add(telegramId)
-
-			// Исключаем текущего пользователя и пользователей с матчами из результатов
-			if (matchedUserIds.size > 0) {
-				where.telegramId = {
-					not: {
-						in: Array.from(matchedUserIds),
+			// Исключаем пользователей, с которыми уже есть матч - только если передан telegramId (не админка)
+			if (telegramId) {
+				const existingMatches = await this.prisma.like.findMany({
+					where: {
+						OR: [
+							{ fromUserId: telegramId, isMatch: true },
+							{ toUserId: telegramId, isMatch: true },
+						],
 					},
-				}
+					select: {
+						fromUserId: true,
+						toUserId: true,
+					},
+				})
 
-				this.logger.debug(
-					`Исключены пользователи с матчами и текущий пользователь: ${Array.from(matchedUserIds).join(', ')}`,
-					this.CONTEXT
-				)
+				// Собираем всех пользователей, с которыми уже есть матч
+				const matchedUserIds = new Set<string>()
+				existingMatches.forEach(match => {
+					if (match.fromUserId === telegramId) {
+						matchedUserIds.add(match.toUserId)
+					} else {
+						matchedUserIds.add(match.fromUserId)
+					}
+				})
+
+				// Добавляем текущего пользователя в список исключений
+				matchedUserIds.add(telegramId)
+
+				// Исключаем текущего пользователя и пользователей с матчами из результатов
+				if (matchedUserIds.size > 0) {
+					where.telegramId = {
+						not: {
+							in: Array.from(matchedUserIds),
+						},
+					}
+
+					this.logger.debug(
+						`Исключены пользователи с матчами и текущий пользователь: ${Array.from(matchedUserIds).join(', ')}`,
+						this.CONTEXT
+					)
+				}
 			}
 
 			// Получаем общее количество записей для метаданных пагинации
