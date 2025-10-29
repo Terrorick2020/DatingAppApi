@@ -29,9 +29,9 @@ export class UserController {
 
 	@Get('quests')
 	async findQuests(
-		@Body() dto: FindQuestsQueryDto
+		@Query() queryParams: FindQuestsQueryDto
 	): Promise<ApiRes<QuestItem[]>> {
-		return await this.userService.findQuests(dto)
+		return await this.userService.findQuests(queryParams)
 	}
 
 	@Patch(':telegramId')
