@@ -5,6 +5,7 @@ import { AdminModule } from '../admin/admin.module'
 import { AuthModule } from '../auth/auth.module'
 import { BillingModule } from '../billing/billing.module'
 import { ChatsModule } from '../chats/chats.module'
+import { AdminOnlyGuard } from '../common/guards/admin-only.guard'
 import { LoggerModule } from '../common/logger/logger.module'
 import { AppLogger } from '../common/logger/logger.service'
 import { UserActivityMiddleware } from '../common/middleware/user-activity.middleware'
@@ -63,11 +64,12 @@ import smartCaptchaConfig from '../config/smart-captcha.config'
 		PrismaService,
 		SeedService,
 		UserActivityMiddleware,
+		AdminOnlyGuard,
 	],
 	exports: [AppLogger],
 })
 export class AppModule implements NestModule {
 	configure(consumer: MiddlewareConsumer) {
-		consumer.apply(UserActivityMiddleware).forRoutes('*') 
+		consumer.apply(UserActivityMiddleware).forRoutes('*')
 	}
 }

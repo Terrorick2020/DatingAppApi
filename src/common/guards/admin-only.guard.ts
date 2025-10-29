@@ -24,15 +24,17 @@ export class AdminOnlyGuard implements CanActivate {
 		if (!isAdminOnly) return true
 
 		const request = context.switchToHttp().getRequest<Request>()
-		const telegramId =
-			request.body?.telegramId ||
-			request.params?.telegramId ||
-			request.query?.telegramId
+		// Ищем telegramId админа в заголовках или query параметрах
+		const adminTelegramId =
+			request.headers['x-admin-telegram-id'] ||
+			request.query?.adminTelegramId ||
+			request.body?.adminTelegramId
 
-		if (!telegramId) throw new ForbiddenException('Неизвестный пользователь')
+		if (!adminTelegramId)
+			throw new ForbiddenException('Неизвестный администратор')
 
 		const user = await this.prisma.user.findUnique({
-			where: { telegramId },
+			where: { telegramId: adminTelegramId },
 			select: { role: true },
 		})
 
