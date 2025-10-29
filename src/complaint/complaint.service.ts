@@ -214,6 +214,39 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			await this.invalidateComplaintsCache(fromUserId)
 			if (reportedUserId) await this.invalidateComplaintsCache(reportedUserId)
 
+			// Инвалидируем кэш для всех админов, так как они могут видеть все жалобы
+			const adminUsers = await this.prisma.user.findMany({
+				where: { role: 'Admin' },
+				select: { telegramId: true },
+			})
+
+			for (const admin of adminUsers) {
+				await this.invalidateComplaintsCache(admin.telegramId)
+			}
+
+			// Дополнительно очищаем все кэши жалоб принудительно
+			try {
+				const allComplaintCacheKeys =
+					await this.redisService.redis.keys(`user:*:complaints:*`)
+
+				for (const key of allComplaintCacheKeys) {
+					await this.redisService.deleteKey(key)
+				}
+
+				this.logger.debug(
+					`Принудительно очищены все кэши жалоб (${allComplaintCacheKeys.length} ключей)`,
+					this.CONTEXT
+				)
+			} catch (error) {
+				this.logger.warn(
+					`Ошибка при принудительной очистке кэша жалоб`,
+					this.CONTEXT,
+					{
+						error,
+					}
+				)
+			}
+
 			// Отправляем уведомление о создании жалобы через Redis Pub/Sub
 			await this.redisPubSub.publishComplaintCreated({
 				id: complaint.id.toString(),
@@ -747,10 +780,13 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			const userCacheKeys = await this.redisService.redis.keys(
 				`user:${userId}:complaints:*`
 			)
-			const adminCacheKeys =
-				await this.redisService.redis.keys(`admin:complaints:*`)
 
-			const cacheKeys = [...userCacheKeys, ...adminCacheKeys]
+			// Также инвалидируем кэш для всех админов, так как они могут видеть все жалобы
+			const allUserCacheKeys = await this.redisService.redis.keys(
+				`user:*:complaints:admin:*`
+			)
+
+			const cacheKeys = [...userCacheKeys, ...allUserCacheKeys]
 
 			for (const key of cacheKeys) {
 				await this.redisService.deleteKey(key)
