@@ -100,4 +100,20 @@ export class AdminService {
 		const users = Array.from(unique.values())
 		return successResponse(users, 'Жалобы на пользователей получены')
 	}
+
+	async deactivatePsychologist(telegramId: string) {
+		await this.prisma.psychologist.update({
+			where: { telegramId },
+			data: { status: 'Inactive' },
+		})
+		return successResponse(null, 'Психолог деактивирован')
+	}
+
+	async activatePsychologist(telegramId: string) {
+		await this.prisma.psychologist.update({
+			where: { telegramId },
+			data: { status: 'Active' },
+		})
+		return successResponse(null, 'Психолог активирован')
+	}
 }

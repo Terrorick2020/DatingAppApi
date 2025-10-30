@@ -30,4 +30,16 @@ export class AdminController {
 	async allUsersWithComplaint() {
 		return await this.adminService.allUsersWithComplaint()
 	}
+
+    @Patch('psychologists/:telegramId/deactivate')
+    @AdminOnly()
+    async deactivatePsychologist(@Param('telegramId') id: string) {
+        return this.adminService.deactivatePsychologist(id)
+    }
+
+    @Patch('psychologists/:telegramId/activate')
+    @AdminOnly()
+    async activatePsychologist(@Param('telegramId') id: string) {
+        return this.adminService.activatePsychologist(id)
+    }
 }
