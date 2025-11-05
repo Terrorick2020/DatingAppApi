@@ -204,8 +204,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					createdAt: timestamp,
 					fromUserId,
 					reportedUserId,
-					globComplRes: globComplRes?.value || '',
-					targetComplRes: targetComplRes?.value || '',
+					globComplRes: globComplRes?.label || '',
+					targetComplRes: targetComplRes?.label || '',
 				}),
 				this.COMPLAINT_TTL
 			)
@@ -609,8 +609,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					createdAt: complaint.createdAt.getTime(),
 					updatedAt: complaintData.updatedAt,
 					resolutionNotes: complaintData.resolutionNotes,
-					globComplRes: globComplRes?.value || '',
-					targetComplRes: targetComplRes?.value || '',
+					globComplRes: globComplRes?.label || '',
+					targetComplRes: targetComplRes?.label || '',
 				})
 			}
 
@@ -1027,8 +1027,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 						createdAt: complaintData.createdAt || complaint.createdAt.getTime(),
 						updatedAt: complaintData.updatedAt,
 						resolutionNotes: complaintData.resolutionNotes,
-						globComplRes: globComplRes?.value || '',
-						targetComplRes: targetComplRes?.value || '',
+						globComplRes: globComplRes?.label || '',
+						targetComplRes: targetComplRes?.label || '',
 					})
 				}
 			} catch (e) {
