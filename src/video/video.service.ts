@@ -425,21 +425,32 @@ export class VideoService {
 	): Promise<{ success: boolean; message?: string }> {
 		try {
 			this.logger.debug(
-				`Удаление короткого видео ${videoId} психолога ${telegramId}`,
+				`Удаление короткого видео ${videoId} пользователем ${telegramId}`,
 				this.CONTEXT
 			)
 
-			// Проверяем существование видео и принадлежность психологу
+			// Проверяем, является ли пользователь админом
+			const user = await this.prisma.user.findUnique({
+				where: { telegramId },
+				select: { role: true },
+			})
+
+			const isAdmin = user?.role === 'Admin'
+
+			// Проверяем существование видео
+			// Если админ, то не проверяем принадлежность видео
 			const video = await this.prisma.video.findFirst({
-				where: {
-					id: videoId,
-					telegramId: telegramId,
-				},
+				where: isAdmin
+					? { id: videoId }
+					: {
+							id: videoId,
+							telegramId: telegramId,
+						},
 			})
 
 			if (!video) {
 				this.logger.warn(
-					`Короткое видео ${videoId} не найдено или не принадлежит психологу ${telegramId}`,
+					`Короткое видео ${videoId} не найдено${isAdmin ? '' : ` или не принадлежит психологу ${telegramId}`}`,
 					this.CONTEXT
 				)
 				return errorResponse('Короткое видео не найдено')
@@ -462,7 +473,7 @@ export class VideoService {
 			})
 
 			this.logger.debug(
-				`Короткое видео ${videoId} успешно удалено`,
+				`Короткое видео ${videoId} успешно удалено${isAdmin ? ' админом' : ''}`,
 				this.CONTEXT
 			)
 

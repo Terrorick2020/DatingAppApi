@@ -8,10 +8,12 @@ import {
 	Patch,
 	Post,
 	Query,
+	Req,
 	UploadedFile,
 	UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import { Request } from 'express'
 import { AppLogger } from '../common/logger/logger.service'
 import { GetShortVideosDto } from './dto/get-short-videos.dto'
 import { LikeShortVideoDto } from './dto/like-short-video.dto'
@@ -86,10 +88,18 @@ export class VideoController {
 	// @UseGuards(UserStatusGuard)
 	async deleteShortVideo(
 		@Param('id', ParseIntPipe) videoId: number,
-		@Query('telegramId') telegramId: string
+		@Query('telegramId') telegramId: string,
+		@Req() request: Request
 	) {
+		// Получаем telegramId из query параметра или заголовка
+		telegramId =
+			telegramId ||
+			(request.headers['x-telegram-id'] as string) ||
+			(request.headers['x-spectre-telegram-id'] as string) ||
+			''
+
 		this.logger.debug(
-			`Запрос на удаление короткого видео ${videoId} от психолога ${telegramId}`,
+			`Запрос на удаление короткого видео ${videoId} от пользователя ${telegramId}`,
 			this.CONTEXT
 		)
 
@@ -130,7 +140,7 @@ export class VideoController {
 	}
 
 	/**
-	 * Поиск видео 
+	 * Поиск видео
 	 */
 	@Get('short-videos/search')
 	async searchShortVideos(@Query() dto: GetShortVideosDto) {
