@@ -5,6 +5,7 @@ import { LoggerModule } from '../common/logger/logger.module'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisPubSubModule } from '../common/redis-pub-sub/redis-pub-sub.module'
 import { RedisModule } from '../redis/redis.module'
+import { StorageModule } from '../storage/storage.module'
 import { ComplaintController } from './complaint.controller'
 import { ComplaintService } from './complaint.service'
 
@@ -15,6 +16,7 @@ import { ComplaintService } from './complaint.service'
 		RedisPubSubModule,
 		ConfigModule,
 		LoggerModule,
+		StorageModule,
 	],
 	controllers: [ComplaintController],
 	providers: [ComplaintService, AppLogger],

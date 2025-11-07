@@ -10,6 +10,7 @@ import { PrismaService } from '~/prisma/prisma.service'
 import { AppLogger } from '../common/logger/logger.service'
 import { RedisPubSubService } from '../common/redis-pub-sub/redis-pub-sub.service'
 import { RedisService } from '../redis/redis.service'
+import { StorageService } from '../storage/storage.service'
 import {
 	ComplaintResponse,
 	ComplaintStatus,
@@ -35,7 +36,8 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 		private readonly prisma: PrismaService,
 		private readonly redisService: RedisService,
 		private readonly logger: AppLogger,
-		private readonly redisPubSub: RedisPubSubService
+		private readonly redisPubSub: RedisPubSubService,
+		private readonly storageService: StorageService
 	) {}
 
 	/**
@@ -590,17 +592,29 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 					}),
 				])
 
+				// Генерируем URL для аватаров пользователей
+				const fromUserPhotoKey = complaint.fromUser.photos[0]?.key || ''
+				const toUserPhotoKey = complaint.toUser.photos[0]?.key || ''
+				const [fromUserAvatarUrl, toUserAvatarUrl] = await Promise.all([
+					fromUserPhotoKey
+						? this.storageService.getPresignedUrl(fromUserPhotoKey)
+						: Promise.resolve(''),
+					toUserPhotoKey
+						? this.storageService.getPresignedUrl(toUserPhotoKey)
+						: Promise.resolve(''),
+				])
+
 				enrichedComplaints.push({
 					id: complaint.id.toString(),
 					fromUser: {
 						telegramId: complaint.fromUser.telegramId,
 						name: complaint.fromUser.name,
-						avatar: complaint.fromUser.photos[0]?.key || '',
+						avatar: fromUserAvatarUrl,
 					},
 					reportedUser: {
 						telegramId: complaint.toUser.telegramId,
 						name: complaint.toUser.name,
-						avatar: complaint.toUser.photos[0]?.key || '',
+						avatar: toUserAvatarUrl,
 					},
 					type: complaint.reason.value as ComplaintType,
 					status: complaintData.status || ComplaintStatus.PENDING,
@@ -1008,17 +1022,29 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 						}),
 					])
 
+					// Генерируем URL для аватаров пользователей
+					const fromUserPhotoKey = fromUser.photos[0]?.key || ''
+					const reportedUserPhotoKey = reportedUser.photos[0]?.key || ''
+					const [fromUserAvatarUrl, reportedUserAvatarUrl] = await Promise.all([
+						fromUserPhotoKey
+							? this.storageService.getPresignedUrl(fromUserPhotoKey)
+							: Promise.resolve(''),
+						reportedUserPhotoKey
+							? this.storageService.getPresignedUrl(reportedUserPhotoKey)
+							: Promise.resolve(''),
+					])
+
 					complaints.push({
 						id: complaintId,
 						fromUser: {
 							telegramId: fromUser.telegramId,
 							name: fromUser.name,
-							avatar: fromUser.photos[0]?.key || '',
+							avatar: fromUserAvatarUrl,
 						},
 						reportedUser: {
 							telegramId: reportedUser.telegramId,
 							name: reportedUser.name,
-							avatar: reportedUser.photos[0]?.key || '',
+							avatar: reportedUserAvatarUrl,
 						},
 						type: complaint.reason.value as ComplaintType,
 						status: complaintData.status,
@@ -1126,6 +1152,12 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 
 					if (!complaint) continue
 
+					// Генерируем URL для аватара пользователя
+					const photoKey = user.photos[0]?.key || ''
+					const userAvatarUrl = photoKey
+						? await this.storageService.getPresignedUrl(photoKey)
+						: ''
+
 					const existingUser = userComplaintMap.get(reportedUserId)
 					if (existingUser) {
 						existingUser.complaintCount++
@@ -1140,7 +1172,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 						userComplaintMap.set(reportedUserId, {
 							userId: reportedUserId,
 							userName: user.name,
-							userAvatar: user.photos[0]?.key || '',
+							userAvatar: userAvatarUrl,
 							complaintCount: 1,
 							lastComplaintDate:
 								complaintData.createdAt || complaint.createdAt.getTime(),
