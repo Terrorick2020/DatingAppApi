@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsEnum, IsOptional, IsString } from 'class-validator'
+import { Type } from 'class-transformer'
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
 import { ComplaintStatus } from '../complaint.types'
 
 export class GetComplaintsDto {
@@ -29,4 +30,29 @@ export class GetComplaintsDto {
 	@IsEnum(ComplaintStatus)
 	@IsOptional()
 	status?: ComplaintStatus
+
+	@ApiPropertyOptional({
+		description: 'Смещение для пагинации',
+		example: 0,
+		default: 0,
+		required: false,
+	})
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	@Min(0)
+	offset?: number = 0
+
+	@ApiPropertyOptional({
+		description: 'Количество записей на странице',
+		example: 10,
+		default: 10,
+		required: false,
+	})
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	@Min(1)
+	@Max(100)
+	limit?: number = 10
 }

@@ -449,7 +449,7 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 		getDto: GetComplaintsDto
 	): Promise<ApiResponse<ComplaintWithUsers[]>> {
 		try {
-			const { telegramId, type, status } = getDto
+			const { telegramId, type, status, offset = 0, limit = 10 } = getDto
 			this.logger.debug(
 				`Получение жалоб типа ${type}, статуса ${status} для пользователя ${telegramId}`,
 				this.CONTEXT
@@ -628,6 +628,12 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 				})
 			}
 
+			// Применяем пагинацию
+			const paginatedComplaints = enrichedComplaints.slice(
+				offset,
+				offset + limit
+			)
+
 			// Кэшируем результат с учетом статуса
 			await this.redisService.setKey(
 				cacheKey,
@@ -636,11 +642,11 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			)
 
 			this.logger.debug(
-				`Получено ${enrichedComplaints.length} жалоб типа ${type}${status ? ` со статусом ${status}` : ' (все статусы)'} для пользователя ${telegramId}`,
+				`Получено ${paginatedComplaints.length} из ${enrichedComplaints.length} жалоб типа ${type}${status ? ` со статусом ${status}` : ' (все статусы)'} для пользователя ${telegramId} (offset: ${offset}, limit: ${limit})`,
 				this.CONTEXT
 			)
 
-			return successResponse(enrichedComplaints, 'Жалобы успешно получены')
+			return successResponse(paginatedComplaints, 'Жалобы успешно получены')
 		} catch (error: any) {
 			this.logger.error(
 				`Ошибка при получении жалоб`,
@@ -1075,7 +1081,9 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 	 */
 	async getUsersWithComplaints(
 		adminId: string,
-		status?: ComplaintStatus
+		status?: ComplaintStatus,
+		offset: number = 0,
+		limit: number = 10
 	): Promise<ApiResponse<any[]>> {
 		try {
 			this.logger.debug(
@@ -1187,17 +1195,23 @@ export class ComplaintService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Преобразуем Map в массив и сортируем по количеству жалоб
-			const usersWithComplaints = Array.from(userComplaintMap.values()).sort(
+			const allUsersWithComplaints = Array.from(userComplaintMap.values()).sort(
 				(a, b) => b.complaintCount - a.complaintCount
 			)
 
+			// Применяем пагинацию
+			const paginatedUsers = allUsersWithComplaints.slice(
+				offset,
+				offset + limit
+			)
+
 			this.logger.debug(
-				`Найдено ${usersWithComplaints.length} пользователей с жалобами`,
+				`Найдено ${paginatedUsers.length} из ${allUsersWithComplaints.length} пользователей с жалобами (offset: ${offset}, limit: ${limit})`,
 				this.CONTEXT
 			)
 
 			return successResponse(
-				usersWithComplaints,
+				paginatedUsers,
 				'Список пользователей с жалобами успешно получен'
 			)
 		} catch (error: any) {

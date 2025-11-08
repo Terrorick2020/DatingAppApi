@@ -61,6 +61,20 @@ export class ComplaintController {
 
 	@ApiOperation({ summary: 'Получить жалобы пользователя' })
 	@ApiResponse({ status: 200, description: 'Список жалоб успешно получен' })
+	@ApiQuery({
+		name: 'offset',
+		description: 'Смещение для пагинации',
+		required: false,
+		type: Number,
+		example: 0,
+	})
+	@ApiQuery({
+		name: 'limit',
+		description: 'Количество записей на странице',
+		required: false,
+		type: Number,
+		example: 10,
+	})
 	@Get()
 	// @Status('Pro', 'Noob', 'Admin')
 	async getComplaints(@Query() getComplaintsDto: GetComplaintsDto) {
@@ -107,16 +121,39 @@ export class ComplaintController {
 		required: false,
 		enum: ['PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED', 'DELETED'],
 	})
+	@ApiQuery({
+		name: 'offset',
+		description: 'Смещение для пагинации',
+		required: false,
+		type: Number,
+		example: 0,
+	})
+	@ApiQuery({
+		name: 'limit',
+		description: 'Количество записей на странице',
+		required: false,
+		type: Number,
+		example: 10,
+	})
 	@Get('users-with-complaints/:adminId')
 	@AdminOnly()
 	async getUsersWithComplaints(
 		@Param('adminId') adminId: string,
-		@Query('status') status?: string
+		@Query('status') status?: string,
+		@Query('offset') offset?: string,
+		@Query('limit') limit?: string
 	) {
 		this.logger.debug(
 			`Запрос на получение списка пользователей с жалобами от админа ${adminId}`,
 			'ComplaintController'
 		)
-		return this.complaintService.getUsersWithComplaints(adminId, status as any)
+		const offsetNum = offset ? parseInt(offset, 10) : 0
+		const limitNum = limit ? parseInt(limit, 10) : 10
+		return this.complaintService.getUsersWithComplaints(
+			adminId,
+			status as any,
+			offsetNum,
+			limitNum
+		)
 	}
 }
